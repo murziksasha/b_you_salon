@@ -1,0 +1,31 @@
+.footer {
+  width: 100%;
+  &__wrapper{
+    padding-top: 4rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
+  .logo {
+    flex: 0 1 14rem;
+    img{
+      position: unset;
+      width: auto;
+      height: auto;
+      max-height: 5.6rem;
+      max-width: 14rem;
+      object-fit: contain;
+    }
+  }
+}
+
+.copy {
+  flex: 0 1 6rem;
+
+}
+.policy {
+  flex: 0 1 40rem;
+
+}

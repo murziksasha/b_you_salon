@@ -1,0 +1,26 @@
+{
+  "name": "B_You",
+  "short_name": "B_You",
+  "description": "Студія краси B_You — салон і магазин косметики",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0d0d0d",
+  "theme_color": "#0d0d0d",
+  "lang": "uk",
+  "icons": [
+    {
+      "src": "/img/icons/logo.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any"
+    },
+    {
+      "src": "/img/icons/logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}

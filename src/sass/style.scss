@@ -1,0 +1,20 @@
+
+@import 'base/reset';
+@import 'libs/font';
+@import 'libs/icons';
+@import 'base/variables';
+@import 'base/mixins';
+@import 'base/technical';
+@import 'base/btn';
+@import 'base/title';
+@import 'base/paragr';
+@import 'base/callback';
+@import 'base/line-circle';
+
+
+*, *::before, *::after{
+    box-sizing: border-box;
+}
+
+@import 'blocks/main';
+@import 'base/media';

@@ -1,0 +1,369 @@
+/* Proper Service design tokens — light / dark */
+
+:root {
+  color-scheme: light;
+  --ps-brand: #c4a574;
+  --ps-brand-hover: #d4af37;
+  --ps-brand-soft: #2a2118;
+  --ps-bg: #0d0d0d;
+  --ps-surface: #ffffff;
+  --ps-surface-2: #f8fafc;
+  --ps-text: #1a1a1a;
+  --ps-muted: #555555;
+  --ps-border: #e0e0e0;
+  --ps-header-bg: #ffffff;
+  --ps-card-bg: #ffffff;
+  --ps-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  --ps-shadow-hover: 0 12px 28px rgba(2, 166, 83, 0.18);
+  --ps-overlay: rgba(0, 0, 0, 0.35);
+  --ps-input-bg: #ffffff;
+  --ps-input-border: #cfd6dd;
+  --ps-footer-bg: transparent;
+  --ps-chip-bg: #ffffff;
+  --ps-chip-border: #d0d7de;
+  --ps-toolbar-bg: #221e1b;
+}
+
+html[data-theme='dark'] {
+  color-scheme: dark;
+  --ps-brand: #c4a574;
+  --ps-brand-hover: #d4af37;
+  --ps-brand-soft: #2a2118;
+  --ps-bg: #0d0d0d;
+  --ps-surface: #161412;
+  --ps-surface-2: #1c1917;
+  --ps-text: #f5ede4;
+  --ps-muted: #b8a99a;
+  --ps-border: rgba(196, 165, 116, 0.35);
+  --ps-header-bg: rgba(13, 13, 13, 0.9);
+  --ps-card-bg: #1c1917;
+  --ps-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  --ps-shadow-hover: 0 12px 32px rgba(196, 165, 116, 0.2);
+  --ps-overlay: rgba(0, 0, 0, 0.55);
+  --ps-input-bg: #161412;
+  --ps-input-border: rgba(196, 165, 116, 0.35);
+  --ps-footer-bg: #0d0d0d;
+  --ps-chip-bg: #221e1b;
+  --ps-chip-border: rgba(196, 165, 116, 0.35);
+  --ps-toolbar-bg: #221e1b;
+}
+
+/* Admin shell is a div.admin-body — warm studio desk, not public dark luxury */
+body:has(.admin-body) {
+  color-scheme: light;
+  background: #f7f1ea;
+  color: #1a1208;
+  /* Scroll lives in .admin-main only — avoid document scroll pushing the sidebar away */
+  overflow: hidden;
+  height: 100%;
+  max-height: 100%;
+  margin: 0;
+}
+
+/* Public site (no admin shell on page) */
+body:not(:has(.admin-body)) {
+  background: var(--ps-bg);
+  color: var(--ps-text);
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* Main chrome + content: never leave light surfaces with dark-theme text tokens */
+body:not(:has(.admin-body)) .container {
+  background-color: var(--ps-surface);
+  color: var(--ps-text);
+}
+
+body:not(:has(.admin-body)) .header {
+  background: var(--ps-header-bg);
+  transition: background-color 0.25s ease;
+}
+
+body:not(:has(.admin-body)) .header__overlay {
+  background: var(--ps-overlay);
+}
+
+body:not(:has(.admin-body)) .menu__link {
+  color: var(--ps-text);
+}
+
+body:not(:has(.admin-body)) .header__contact_time {
+  color: var(--ps-text);
+}
+
+body:not(:has(.admin-body)) .services-nav {
+  background-color: var(--ps-surface-2);
+  color: var(--ps-text);
+}
+
+body:not(:has(.admin-body)) .services-nav__item {
+  color: var(--ps-text);
+}
+
+body:not(:has(.admin-body)) .services__title,
+body:not(:has(.admin-body)) .services__about-info,
+body:not(:has(.admin-body)) ._title,
+body:not(:has(.admin-body)) ._paragr {
+  color: var(--ps-text);
+}
+
+body:not(:has(.admin-body)) .footer {
+  background: var(--ps-footer-bg);
+  color: var(--ps-text);
+}
+
+body:not(:has(.admin-body)) .footer a {
+  color: var(--ps-muted);
+}
+
+/* Shop UI owned by shop.scss + byou tokens — do not force light --ps-card-bg here */
+body:not(:has(.admin-body)) .shop-page,
+body:not(:has(.admin-body)) .shop-section {
+  color: var(--by-cream, #f5ede4);
+}
+
+body:not(:has(.admin-body)) .shop-toolbar {
+  background: var(--by-surface-2, #221e1b);
+  border-color: var(--by-line, rgba(196, 165, 116, 0.35));
+  color: var(--by-cream, #f5ede4);
+}
+
+body:not(:has(.admin-body)) .shop-toolbar__heading {
+  color: var(--by-gold, #c4a574);
+}
+
+body:not(:has(.admin-body)) .shop-toolbar__label {
+  color: var(--by-muted, #b8a99a);
+}
+
+body:not(:has(.admin-body)) .shop-toolbar__input,
+body:not(:has(.admin-body)) .shop-toolbar__select {
+  background: var(--by-bg-2, #161412);
+  color: var(--by-cream, #f5ede4);
+  border-color: var(--by-line, rgba(196, 165, 116, 0.35));
+}
+
+body:not(:has(.admin-body)) .shop-chip {
+  background: var(--by-surface, #1c1917);
+  color: var(--by-cream, #f5ede4);
+  border-color: var(--by-line, rgba(196, 165, 116, 0.35));
+}
+
+body:not(:has(.admin-body)) .shop-chip.is-active {
+  background: var(--by-gold, #c4a574);
+  border-color: var(--by-gold, #c4a574);
+  color: #1a1208;
+}
+
+body:not(:has(.admin-body)) .shop-card {
+  background: var(--by-surface-2, #221e1b);
+  color: var(--by-cream, #f5ede4);
+  border-color: var(--by-line, rgba(196, 165, 116, 0.35));
+  box-shadow: var(--by-shadow, 0 16px 40px rgba(0, 0, 0, 0.35));
+}
+
+body:not(:has(.admin-body)) .shop-card__title {
+  color: var(--by-cream, #f5ede4);
+}
+
+body:not(:has(.admin-body)) .shop-card__price {
+  color: var(--by-blush, #e8a0bf);
+}
+
+body:not(:has(.admin-body)) .shop-card__desc,
+body:not(:has(.admin-body)) .shop-card__code,
+body:not(:has(.admin-body)) .shop-catalog__meta {
+  color: var(--by-muted, #b8a99a);
+}
+
+body:not(:has(.admin-body)) .shop-group__title {
+  color: var(--by-cream, #f5ede4);
+}
+
+body:not(:has(.admin-body)) .shop-group__count {
+  color: var(--by-muted, #b8a99a);
+}
+
+body:not(:has(.admin-body)) .status {
+  background: var(--ps-brand-soft);
+  color: var(--ps-text);
+  border-color: var(--ps-brand);
+}
+
+body:not(:has(.admin-body)) .advantages__wrapper {
+  background-color: var(--ps-card-bg);
+  color: var(--ps-text);
+  box-shadow: var(--ps-shadow);
+}
+
+body:not(:has(.admin-body)) ._callback {
+  background: var(--ps-surface-2);
+  color: var(--ps-text);
+  border-color: var(--ps-border);
+}
+
+body:not(:has(.admin-body)) ._callback__phone {
+  background: var(--ps-input-bg);
+  color: var(--ps-text);
+  border-color: var(--ps-input-border);
+}
+
+body:not(:has(.admin-body)) .content-page,
+body:not(:has(.admin-body)) .content-page__title,
+body:not(:has(.admin-body)) .content-page__body {
+  color: var(--ps-text);
+}
+
+/* Public page-up restyled in byou.scss (gold glass, not green). */
+
+/* About / services grid band */
+body:not(:has(.admin-body)) .about-link__wrapper {
+  background: var(--ps-bg);
+  color: var(--ps-text);
+}
+
+body:not(:has(.admin-body)) .about-link__title {
+  color: var(--ps-text);
+}
+
+body:not(:has(.admin-body)) .about-link__paragr {
+  color: var(--ps-muted);
+}
+
+body:not(:has(.admin-body)) .about-link__callback {
+  background: var(--ps-surface);
+  color: var(--ps-text);
+}
+
+/* Contacts card */
+body:not(:has(.admin-body)) .contacts__wrapper {
+  background: var(--ps-card-bg);
+  color: var(--ps-text);
+  box-shadow: var(--ps-shadow);
+}
+
+body:not(:has(.admin-body)) .contacts__title,
+body:not(:has(.admin-body)) .contacts__par-bold,
+body:not(:has(.admin-body)) .contacts__par,
+body:not(:has(.admin-body)) .contacts__phone,
+body:not(:has(.admin-body)) .contacts__mail {
+  color: var(--ps-text);
+}
+
+body:not(:has(.admin-body)) .contacts__mail a {
+  color: var(--ps-brand);
+}
+
+body:not(:has(.admin-body)) .contacts__callback {
+  background: var(--ps-brand);
+  color: #fff;
+}
+
+/* Feedback */
+body:not(:has(.admin-body)) .feedback__status {
+  color: var(--ps-muted);
+}
+
+body:not(:has(.admin-body)) .feedback-btn,
+body:not(:has(.admin-body)) .feedback-btn a {
+  color: var(--ps-brand);
+}
+
+body:not(:has(.admin-body)) .feedback .left-arrow,
+body:not(:has(.admin-body)) .feedback .right-arrow {
+  background: var(--ps-surface);
+  color: var(--ps-text);
+  border: 1px solid var(--ps-border);
+}
+
+/* Shop empty / titles (in case source hardcodes win) */
+body:not(:has(.admin-body)) .shop-empty {
+  background: var(--ps-surface-2);
+  color: var(--ps-text);
+  border-color: var(--ps-border);
+}
+
+body:not(:has(.admin-body)) .shop-empty__hint {
+  color: var(--ps-muted);
+}
+
+body:not(:has(.admin-body)) .shop-section__title,
+body:not(:has(.admin-body)) .shop-page__title {
+  color: var(--ps-text);
+}
+
+body:not(:has(.admin-body)) .shop-section__subtitle,
+body:not(:has(.admin-body)) .shop-page__subtitle {
+  color: var(--ps-muted);
+}
+
+/* Malfunctions / misc public text */
+body:not(:has(.admin-body)) .malfunctions,
+body:not(:has(.admin-body)) .malfunctions__item {
+  color: var(--ps-text);
+}
+
+body:not(:has(.admin-body)) .not-found__text {
+  color: var(--ps-muted);
+}
+
+body:not(:has(.admin-body)) .line__circle,
+body:not(:has(.admin-body)) .line-circle {
+  border-color: var(--ps-border);
+}
+
+body:not(:has(.admin-body)) ._list-reset {
+  color: var(--ps-text);
+}
+
+/* Theme toggle */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 4rem;
+  height: 4rem;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--ps-border);
+  background: var(--ps-surface);
+  color: var(--ps-text);
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease, color 0.2s ease;
+
+  &:hover {
+    border-color: var(--ps-brand);
+    color: var(--ps-brand);
+  }
+
+  &:active {
+    transform: scale(0.96);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ps-brand);
+    outline-offset: 2px;
+  }
+}
+
+.theme-toggle__icon {
+  display: flex;
+  line-height: 0;
+}
+
+.menu__mobile-theme {
+  display: flex;
+  justify-content: flex-start;
+}
+
+/* Dark: burger lines */
+html[data-theme='dark'] body:not(:has(.admin-body)) .header__burger span {
+  background: var(--ps-text);
+}
+
+html[data-theme='dark'] body:not(:has(.admin-body)) .menu__mobile-meta p {
+  color: var(--ps-muted);
+}
+
+html[data-theme='dark'] body:not(:has(.admin-body)) .menu {
+  border-left: 1px solid var(--ps-border);
+}

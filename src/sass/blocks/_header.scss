@@ -1,0 +1,337 @@
+body.nav-open {
+  overflow: hidden;
+}
+
+.header {
+  position: relative;
+
+  &__mobile-call {
+    display: none;
+    align-items: center;
+    gap: 0.6rem;
+    margin-left: auto;
+    margin-right: 0.8rem;
+    padding: 0.6rem 1rem;
+    border-radius: 999px;
+    background: var(--ps-brand, #02a653);
+    color: #fff;
+    text-decoration: none;
+    font-size: 1.3rem;
+    font-weight: 600;
+    white-space: nowrap;
+    max-width: min(46vw, 16rem);
+    z-index: 110;
+    overflow: hidden;
+
+    img {
+      width: 1.8rem;
+      height: 1.8rem;
+      flex-shrink: 0;
+    }
+
+    span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    &:focus-visible {
+      outline: 2px solid #fff;
+      outline-offset: 2px;
+    }
+  }
+
+  &__burger {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 4.4rem;
+    height: 4.4rem;
+    padding: 0.8rem;
+    margin-left: auto;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    z-index: 110;
+
+    &:focus-visible {
+      outline: 2px solid #02a653;
+      outline-offset: 2px;
+    }
+
+    span {
+      display: block;
+      height: 0.3rem;
+      width: 100%;
+      background: #1a1a1a;
+      border-radius: 2px;
+      transition: transform 0.2s ease, opacity 0.2s ease;
+    }
+
+    &.is-open span:nth-child(1) {
+      transform: translateY(0.8rem) rotate(45deg);
+    }
+    &.is-open span:nth-child(2) {
+      opacity: 0;
+    }
+    &.is-open span:nth-child(3) {
+      transform: translateY(-0.8rem) rotate(-45deg);
+    }
+  }
+
+  &__overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    border: none;
+    z-index: 100;
+    cursor: pointer;
+    animation: ps-overlay-in 0.25s ease;
+
+    @media (prefers-reduced-motion: reduce) {
+      animation: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .menu {
+      transition: none;
+    }
+  }
+
+  &__menu {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem 1.5rem;
+  }
+
+  &__contact {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+
+    &_time {
+      font-size: 1.4rem;
+      font-weight: 700;
+      text-align: center;
+      color: var(--ps-text, #1a1a1a);
+    }
+
+    &_callback {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+    }
+
+    &_row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    &_social {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.9rem;
+      & img {
+        height: 3rem;
+        width: 3rem;
+      }
+    }
+  }
+
+  /* Phone CTA: icon + number, no absolute positioning */
+  &__phone-btn {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 0.8rem;
+    margin: 0.6rem 0;
+    padding: 0 1.8rem 0 1.6rem !important;
+    min-width: 16rem;
+    height: 5rem;
+    font-size: 1.6rem;
+    font-weight: 800;
+    line-height: 1.2;
+    white-space: nowrap;
+    max-width: 100%;
+    box-sizing: border-box;
+
+    &__icon {
+      position: static !important;
+      width: 2.2rem !important;
+      height: 2.2rem !important;
+      flex-shrink: 0;
+      display: block;
+      object-fit: contain;
+    }
+
+    &__num {
+      letter-spacing: 0.04em;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+  }
+
+  &__wrapper {
+    padding: 1.7rem 0 .7rem;
+  }
+}
+
+.logo {
+  flex: 0 0 auto;
+  & img {
+    max-width: 180px;
+    max-height: 70px;
+    height: auto;
+    width: auto;
+    display: block;
+  }
+}
+
+.menu {
+  flex: 1 1 auto;
+  min-width: 180px;
+  margin-left: 0;
+  &__list {
+    @include flex-all-center-w;
+    flex-wrap: wrap;
+    gap: 1.5rem 2rem;
+    justify-content: flex-start;
+  }
+
+  &__link {
+    transition: color 0.2s ease, border-color 0.2s ease, font-weight 0.15s ease;
+    color: var(--ps-text, #000);
+    border-bottom: 4px solid transparent;
+    &:hover {
+      font-weight: 700;
+      border-bottom-color: var(--ps-brand, #{$main-color});
+    }
+    &:active {
+      color: inherit;
+    }
+  }
+
+  &__lang{
+    transition: all .3s ease 0s;
+    &:hover{
+      transform: scale(1.2);
+    }
+  }
+
+  /* Shown only inside the mobile drawer */
+  &__mobile-meta,
+  &__mobile-social {
+    display: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .header {
+    &__burger {
+      display: flex;
+    }
+
+    &__menu {
+      flex-wrap: nowrap;
+    }
+
+    .header__mobile-call {
+      display: inline-flex;
+    }
+
+    .menu {
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: min(80vw, 320px);
+      z-index: 110;
+      background: var(--ps-surface, #fff);
+      color: var(--ps-text, #1a1a1a);
+      padding: 7rem 2.4rem 2.4rem;
+      box-shadow: -4px 0 24px rgba(0, 0, 0, 0.12);
+      min-width: 0;
+      margin: 0;
+      overflow-y: auto;
+      transform: translateX(105%);
+      visibility: hidden;
+      transition: transform 0.28s ease, visibility 0.28s ease;
+
+      &.is-open {
+        transform: translateX(0);
+        visibility: visible;
+      }
+
+      &__list {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1.6rem;
+      }
+
+      &__mobile-meta {
+        margin-top: auto;
+        padding-top: 2.4rem;
+        border-top: 1px solid var(--ps-border, #e8e8e8);
+        display: flex !important;
+        flex-direction: column;
+        gap: 1.2rem;
+
+        p {
+          margin: 0;
+          font-size: 1.4rem;
+          color: var(--ps-muted, #555);
+        }
+
+        ._btn {
+          display: inline-flex;
+          justify-content: center;
+          text-align: center;
+        }
+      }
+
+      &__mobile-social {
+        display: flex !important;
+        gap: 1.2rem;
+        align-items: center;
+      }
+    }
+
+    &__contact {
+      display: none;
+    }
+  }
+}
+
+@keyframes ps-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 1000;
+  background: #02a653;
+  color: #fff;
+  padding: 0.8rem 1.2rem;
+  border-radius: 0 0 6px 0;
+  font-size: 1.4rem;
+
+  &:focus {
+    left: 0;
+  }
+}

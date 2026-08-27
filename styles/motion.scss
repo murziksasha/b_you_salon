@@ -1,0 +1,190 @@
+/* Shared public-site motion — respect reduced motion */
+
+/* --- PublicImage soft reveal --- */
+.ps-image {
+  display: inline-block;
+  max-width: 100%;
+  line-height: 0;
+  vertical-align: middle;
+}
+
+.ps-image--placeholder {
+  background: color-mix(in srgb, var(--ps-surface, #f0f2f1) 88%, #c8d0cc);
+  border-radius: inherit;
+}
+
+.ps-image__img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ps-image__img:not(.is-priority):not(.is-loaded) {
+    opacity: 0;
+  }
+
+  .ps-image__img:not(.is-priority) {
+    transition: opacity 0.22s ease;
+  }
+
+  .ps-image__img.is-loaded,
+  .ps-image__img.is-priority {
+    opacity: 1;
+  }
+}
+
+/* --- View Transitions (experimental.viewTransition) --- */
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 0.18s;
+    animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+
+  ::view-transition-old(service-hero),
+  ::view-transition-new(service-hero) {
+    animation-duration: 0.22s;
+    animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+    mix-blend-mode: normal;
+    height: 100%;
+    overflow: clip;
+  }
+
+  ::view-transition-old(service-hero) {
+    animation-name: ps-vt-fade-out;
+  }
+
+  ::view-transition-new(service-hero) {
+    animation-name: ps-vt-fade-in;
+  }
+}
+
+@keyframes ps-vt-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes ps-vt-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .shop-card {
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+  }
+
+  .shop-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--ps-shadow-hover, 0 12px 32px rgba(196, 165, 116, 0.22));
+  }
+
+  .shop-card__image img {
+    transition: transform 0.35s ease;
+  }
+
+  .shop-card:hover .shop-card__image img {
+    transform: scale(1.04);
+  }
+
+  .shop-chip {
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.15s ease;
+  }
+
+  .shop-chip:active {
+    transform: scale(0.97);
+  }
+
+  .shop-group {
+    animation: ps-fade-up 0.4s ease both;
+  }
+
+  .shop-group:nth-child(2) {
+    animation-delay: 0.05s;
+  }
+
+  .shop-group:nth-child(3) {
+    animation-delay: 0.1s;
+  }
+
+  .about-link__item,
+  .about-link a {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .pageup {
+    transition: opacity 0.25s ease, transform 0.25s ease, bottom 0.2s ease;
+  }
+
+  .sticky-call {
+    animation: ps-slide-up 0.35s ease both;
+  }
+
+  ._btn {
+    transition:
+      background 0.25s ease,
+      color 0.25s ease,
+      opacity 0.2s ease,
+      box-shadow 0.25s ease,
+      transform 0.2s ease;
+  }
+
+  @media (hover: hover) {
+    ._btn:hover {
+      transform: translateY(-1px);
+    }
+  }
+
+  ._btn:active {
+    transform: translateY(0);
+  }
+}
+
+@keyframes ps-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ps-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shop-card,
+  .shop-chip,
+  ._btn,
+  .pageup,
+  .sticky-call,
+  .shop-group,
+  .ps-image__img {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  .ps-image__img {
+    opacity: 1 !important;
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root),
+  ::view-transition-old(service-hero),
+  ::view-transition-new(service-hero) {
+    animation: none !important;
+  }
+}

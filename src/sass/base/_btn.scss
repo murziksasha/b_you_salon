@@ -1,0 +1,50 @@
+._btn {
+  cursor: pointer;
+  background: #02A653;
+  box-shadow: 0px 8px 8px rgba(30, 165, 97, 0.5);
+  border-radius: 24.5px;
+  transition: background 0.25s ease, color 0.25s ease, opacity 0.2s ease, box-shadow 0.25s ease;
+  height: 5rem;
+  min-width: 12rem;
+  width: auto;
+  max-width: 100%;
+  padding: 0 2rem;
+  color: #fff;
+  text-align: center;
+  align-items: center;
+  justify-content: center;
+  display: inline-flex;
+  font-weight: 800;
+  line-height: 130%;
+  text-decoration: none;
+  border: none;
+
+  @media (hover: hover) {
+    &:hover {
+      background: $main-hover;
+      color: #fff;
+    }
+  }
+
+  &:active {
+    background-color: #0d7a3e;
+    color: #fff;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #0d5c32;
+    outline-offset: 3px;
+  }
+
+  &:disabled,
+  &[aria-disabled='true'] {
+    opacity: 0.55;
+    cursor: not-allowed;
+    pointer-events: none;
+    box-shadow: none;
+  }
+
+  & span {
+    font-weight: normal;
+  }
+}

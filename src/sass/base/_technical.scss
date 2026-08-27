@@ -1,0 +1,24 @@
+._list-reset {
+  text-decoration: none;
+	transition: all .4s;
+	color: var(--ps-text, #000);
+	&:hover{
+			font-weight: 500;
+			border-bottom: 4px solid $main-color;
+	}
+	&:active{
+			color: inherit;
+	}
+}
+
+._flex {
+  display: flex;
+}
+
+._hide {
+	display: none;
+}
+
+._show {
+	display: block;
+}

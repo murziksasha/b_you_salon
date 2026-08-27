@@ -1,0 +1,9 @@
+HTTP/1.1 200 OK
+Server: nginx/1.31.2
+Date: Mon, 13 Jul 2026 04:43:39 GMT
+Content-Type: application/json
+Transfer-Encoding: chunked
+Connection: keep-alive
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+set-cookie: admin_session=17ed40e972ae07ba4f002f268246b435965da845835c2e86f661b838b8275be7.1784522619640.248a8537087746c406a3e51898b27965943db98001574735aa2a99539a6357a3; Path=/; Expires=Mon, 20 Jul 2026 04:43:39 GMT; Max-Age=604800; HttpOnly; SameSite=lax
+

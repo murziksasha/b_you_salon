@@ -1,0 +1,46 @@
+.line {
+  position: relative;
+}
+
+.line__circle {
+  margin: 1.5rem 0 ;
+  position: relative;
+  max-width: 557px;
+  height: 0px;
+  border-bottom: 1px solid var(--ps-border, #a2a2a2);
+  &::before{
+    content: "";
+    position: absolute;
+    height: 15px;
+    width: 15px;
+    background: $main-color;
+    border-radius: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    left: -7px;
+    box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
+  }
+
+  &_left{
+    transform: rotate(-180deg);
+    &::before{
+      content: "";
+      position: absolute;
+      height: 15px;
+      width: 15px;
+      background: $main-color;
+      border-radius: 100%;
+      top: 50%;
+      left: -7px;
+      box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
+      // transform: rotate(-180deg);
+    }
+  }
+
+}
+
+
+.line-circle {
+  height: 3px;
+  border: 1px solid var(--ps-border, #a2a2a2);
+}

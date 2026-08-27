@@ -1,0 +1,39 @@
+@font-face{
+    font-display: swap;
+}
+
+@font-face {
+    font-family: Circe400;
+    src: url('../../fonts/CRC400.otf');
+}
+
+@font-face {
+    font-family: Circe600;
+    src: url('../../fonts/CRC600.otf');
+}
+
+@font-face {
+    font-family: Circe700;
+    src: url('../../fonts/CRC700.otf');
+}
+
+@font-face {
+    font-family: ProximaNova400;
+    src:url(../../fonts/ProximaNova/ProximaNova-Regular.eot) format('eot'),
+    url(../../fonts/ProximaNova/ProximaNova-Regular.ttf) format('ttf'),
+    url(../../fonts/ProximaNova/ProximaNova-Regular.woff) format('woff');
+}
+
+@font-face {
+    font-family: ProximaNova600;
+    src:url(../../fonts/ProximaNova/ProximaNova-Bold.eot) format('eot'),
+    url(../../fonts/ProximaNova/ProximaNova-Bold.ttf) format('ttf'),
+    url(../../fonts/ProximaNova/ProximaNova-Bold.woff) format('woff');
+}
+
+@font-face {
+    font-family: ProximaNova700;
+    src:url(../../fonts/ProximaNova/ProximaNova-Extrabld.eot) format('eot'),
+    url(../../fonts/ProximaNova/ProximaNova-Extrabld.ttf) format('ttf'),
+    url(../../fonts/ProximaNova/ProximaNova-Extrabld.woff) format('woff');
+}

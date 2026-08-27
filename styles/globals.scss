@@ -1,0 +1,220 @@
+@import '../src/sass/style.scss';
+@import './theme.scss';
+@import './shop.scss';
+@import './motion.scss';
+@import './byou.scss';
+
+/* Shared form status (callback + order) */
+.status {
+  flex: 1 1 100%;
+  width: 100%;
+  margin-top: 0.8rem;
+  padding: 0.8rem 1.2rem;
+  border-radius: 0.8rem;
+  font-size: 1.4rem;
+  line-height: 1.35;
+  text-align: center;
+  background: rgba(196, 165, 116, 0.16);
+  color: var(--by-cream, #f5ede4);
+  border: 1px solid var(--by-line, rgba(196, 165, 116, 0.35));
+}
+
+.status--ok {
+  background: rgba(196, 165, 116, 0.16);
+  color: var(--by-cream, #f5ede4);
+  border-color: var(--by-gold, #c4a574);
+}
+
+.status--error {
+  background: rgba(192, 57, 43, 0.18);
+  color: #f5c6c2;
+  border-color: rgba(192, 57, 43, 0.45);
+}
+
+.form-hp {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Mobile sticky call bar */
+.sticky-call {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .sticky-call {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 90;
+    gap: 8px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0));
+    background: rgba(13, 13, 13, 0.94);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.2);
+    align-items: stretch;
+    /* Height estimate for clearance */
+    --sticky-call-h: 7.2rem;
+  }
+
+  body.nav-open .sticky-call {
+    display: none;
+  }
+
+  .sticky-call__phone {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background: transparent;
+    color: #c4a574;
+    text-decoration: none;
+    border-radius: 0;
+    padding: 10px 14px;
+    min-width: 0;
+
+    &:focus-visible {
+      outline: 2px solid #fff;
+      outline-offset: 2px;
+    }
+  }
+
+  .sticky-call__label {
+    font-size: 0.7rem;
+    opacity: 0.9;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .sticky-call__num {
+    font-weight: 700;
+    font-size: 1.05rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .sticky-call__messengers {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .sticky-call__msg {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 72px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    color: #fff;
+    text-decoration: none;
+    font-size: 0.75rem;
+    font-weight: 600;
+
+    &--viber {
+      background: #7360f2;
+    }
+
+    &--tg {
+      background: #229ed9;
+    }
+
+    &:focus-visible {
+      outline: 2px solid #fff;
+      outline-offset: 2px;
+    }
+  }
+
+  .container {
+    padding-bottom: calc(var(--sticky-call-h, 7.2rem) + env(safe-area-inset-bottom, 0px));
+  }
+
+  .pageup {
+    bottom: calc(var(--sticky-call-h, 7.2rem) + 1.2rem + env(safe-area-inset-bottom, 0px));
+    z-index: 95;
+    right: 1.2rem;
+  }
+}
+
+/* Not-found page */
+.not-found {
+  padding: 6rem 1.5rem 8rem;
+  text-align: center;
+
+  &__code {
+    font-size: 6rem;
+    font-weight: 800;
+    color: #c4a574;
+    margin: 0;
+    line-height: 1;
+  }
+
+  &__title {
+    margin: 1.2rem 0;
+  }
+
+  &__text {
+    max-width: 40rem;
+    margin: 0 auto 2.4rem;
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.2rem;
+    justify-content: center;
+    align-items: center;
+  }
+
+  &__call {
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* Content HTML pages */
+.content-page {
+  padding: 3rem 0 5rem;
+  max-width: 72rem;
+
+  &__title {
+    margin-bottom: 2rem;
+  }
+
+  &__body {
+    font-size: 1.6rem;
+    line-height: 1.55;
+
+    p {
+      margin: 0 0 1.2rem;
+    }
+
+    a {
+      color: #02a653;
+    }
+  }
+}
+ 
+.ps-hide-mobile{display:contents}  
+@media (max-width:767px){.ps-hide-mobile{display:none !important}}  
+.ps-hide-desktop{display:contents}  
+@media (min-width:768px){.ps-hide-desktop{display:none !important}}  

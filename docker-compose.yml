@@ -1,0 +1,57 @@
+# B_You production stack: Next.js + nginx
+# Local:  NGINX_PORT=8080 npm run docker:up
+# Open:   http://localhost:8080  and  http://localhost:8080/admin
+
+services:
+  next-app:
+    container_name: byou-app
+    build: .
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme}
+      SESSION_SECRET: ${SESSION_SECRET:-byou-dev-session-secret-change-me}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      ADMIN_IP_ALLOWLIST: ${ADMIN_IP_ALLOWLIST:-}
+      AUTO_BACKUP: ${AUTO_BACKUP:-true}
+      BACKUP_KEEP: ${BACKUP_KEEP:-20}
+      BACKUP_CRON_SECRET: ${BACKUP_CRON_SECRET:-}
+      SITE_URL: ${SITE_URL:-http://localhost:8080}
+      DATA_DIR: /app/data
+      HOSTNAME: 0.0.0.0
+      PORT: "3000"
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      MAIL_TO: ${MAIL_TO:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      ADMIN_TOTP_SECRET: ${ADMIN_TOTP_SECRET:-}
+    volumes:
+      - ./data:/app/data
+      - ./public/uploads:/app/public/uploads
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 40s
+
+  nginx:
+    container_name: byou-nginx
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "${NGINX_PORT:-8080}:80"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./public/uploads:/var/www/uploads:ro
+    depends_on:
+      next-app:
+        condition: service_healthy

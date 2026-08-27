@@ -1,0 +1,287 @@
+{
+  "sessions": [
+    {
+      "id": "d3d1a2dcebaa",
+      "fingerprint": "1e71672da8e6415c",
+      "username": "admin",
+      "role": "legacy",
+      "createdAt": "2026-08-27T02:43:36.750Z",
+      "lastSeenAt": "2026-08-27T02:43:36.750Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "334aa8a30ea9",
+      "fingerprint": "adc06fa393c11a95",
+      "username": "admin",
+      "role": "legacy",
+      "createdAt": "2026-08-27T02:42:41.430Z",
+      "lastSeenAt": "2026-08-27T02:42:41.430Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "e213e309ffd1",
+      "fingerprint": "2abab2c150ba1d4c",
+      "username": "admin",
+      "role": "legacy",
+      "createdAt": "2026-08-27T02:41:28.448Z",
+      "lastSeenAt": "2026-08-27T02:41:28.448Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "bf2b0939e790",
+      "fingerprint": "c2f6a11725f26e83",
+      "username": "admin",
+      "role": "legacy",
+      "createdAt": "2026-08-27T02:40:42.496Z",
+      "lastSeenAt": "2026-08-27T02:40:42.496Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "4df6f7e6d3f8",
+      "fingerprint": "70bab03724122b82",
+      "username": "admin",
+      "role": "legacy",
+      "createdAt": "2026-08-27T02:39:09.979Z",
+      "lastSeenAt": "2026-08-27T02:39:09.979Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "3e7aa382c000",
+      "fingerprint": "fe9ae41b9f0ce2d0",
+      "username": "admin",
+      "role": "legacy",
+      "createdAt": "2026-08-27T02:36:46.329Z",
+      "lastSeenAt": "2026-08-27T02:36:46.329Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "4d916e815b40",
+      "fingerprint": "049a8064b070fe98",
+      "username": "admin",
+      "role": "legacy",
+      "createdAt": "2026-08-27T02:34:31.951Z",
+      "lastSeenAt": "2026-08-27T02:34:31.951Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "a2c0f3ea8c80",
+      "fingerprint": "b1226c521be3ea10",
+      "username": "admin",
+      "role": "legacy",
+      "createdAt": "2026-08-27T02:33:32.715Z",
+      "lastSeenAt": "2026-08-27T02:33:32.715Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "ebf18a758778",
+      "fingerprint": "eeeb2d5d4975f4d3",
+      "username": "admin",
+      "role": "legacy",
+      "createdAt": "2026-08-27T02:32:02.720Z",
+      "lastSeenAt": "2026-08-27T02:32:02.720Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "14517ab93e6d",
+      "fingerprint": "06e4937e61b2495f",
+      "username": "admin",
+      "role": "legacy",
+      "createdAt": "2026-08-27T02:29:08.823Z",
+      "lastSeenAt": "2026-08-27T02:29:08.823Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "4ed2758950a8",
+      "fingerprint": "2014f9693264424f",
+      "username": "admin",
+      "role": "legacy",
+      "createdAt": "2026-08-27T02:28:20.438Z",
+      "lastSeenAt": "2026-08-27T02:28:20.438Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "57b6554489f7",
+      "fingerprint": "15d8f95b26afb7b4",
+      "username": "admin",
+      "role": "legacy",
+      "createdAt": "2026-08-27T02:26:09.382Z",
+      "lastSeenAt": "2026-08-27T02:26:09.382Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "14029f75f0ca",
+      "fingerprint": "d372b5c92e298d79",
+      "username": "admin",
+      "role": "legacy",
+      "createdAt": "2026-08-27T02:23:08.429Z",
+      "lastSeenAt": "2026-08-27T02:23:08.429Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "0530a425e9ac",
+      "fingerprint": "527cd9f4180ea240",
+      "username": "admin",
+      "role": "legacy",
+      "createdAt": "2026-08-27T02:02:27.488Z",
+      "lastSeenAt": "2026-08-27T02:02:27.488Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36",
+      "ip": "::1"
+    },
+    {
+      "id": "4fbbae80b35f",
+      "fingerprint": "14b6fa686bc518da",
+      "username": "admin",
+      "role": "legacy",
+      "createdAt": "2026-08-27T02:02:00.345Z",
+      "lastSeenAt": "2026-08-27T02:02:00.345Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36",
+      "ip": "::1"
+    },
+    {
+      "id": "b9f6e7aa47db",
+      "fingerprint": "07f138ef6ff359cf",
+      "username": "admin",
+      "role": "legacy",
+      "createdAt": "2026-08-27T01:58:31.955Z",
+      "lastSeenAt": "2026-08-27T01:58:31.955Z",
+      "userAgent": "curl/8.21.0",
+      "ip": "::1"
+    },
+    {
+      "id": "f1da117aedeb",
+      "fingerprint": "a2dcf0338a0cc8da",
+      "username": "admin",
+      "role": "legacy",
+      "createdAt": "2026-08-27T01:51:41.583Z",
+      "lastSeenAt": "2026-08-27T01:51:41.583Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36",
+      "ip": "::1"
+    },
+    {
+      "id": "d28b5dc9a243",
+      "fingerprint": "22823969f2857664",
+      "username": "admin",
+      "role": "legacy",
+      "createdAt": "2026-08-27T01:51:10.681Z",
+      "lastSeenAt": "2026-08-27T01:51:10.681Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36",
+      "ip": "::1"
+    },
+    {
+      "id": "8bd5e7769dc2",
+      "fingerprint": "3f3b9a24805a0a25",
+      "username": "admin",
+      "role": "legacy",
+      "createdAt": "2026-08-27T01:49:41.057Z",
+      "lastSeenAt": "2026-08-27T01:49:41.057Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36",
+      "ip": "::1"
+    },
+    {
+      "id": "0b11780a08c5",
+      "fingerprint": "d81514033dcf6483",
+      "username": "admin",
+      "role": "legacy",
+      "createdAt": "2026-08-27T01:48:27.592Z",
+      "lastSeenAt": "2026-08-27T01:48:27.592Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:154.0) Gecko/20100101 Firefox/154.0",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "8bfb4a0b74d3",
+      "fingerprint": "3a4fe39897d35a3b",
+      "username": "admin",
+      "role": "legacy",
+      "createdAt": "2026-08-27T01:46:54.779Z",
+      "lastSeenAt": "2026-08-27T01:46:54.779Z",
+      "userAgent": "curl/8.21.0",
+      "ip": "::1"
+    },
+    {
+      "id": "bf5367ddb6e7",
+      "fingerprint": "36426cda43a50b2a",
+      "username": "admin",
+      "role": "legacy",
+      "createdAt": "2026-08-27T01:41:48.136Z",
+      "lastSeenAt": "2026-08-27T01:41:48.136Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36",
+      "ip": "::1"
+    },
+    {
+      "id": "aef6429c875c",
+      "fingerprint": "51ed58edde5cd489",
+      "username": "admin",
+      "role": "legacy",
+      "createdAt": "2026-08-27T01:41:04.281Z",
+      "lastSeenAt": "2026-08-27T01:41:04.281Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36",
+      "ip": "::1"
+    },
+    {
+      "id": "6cf61a6eb43a",
+      "fingerprint": "e3ce3eaa9d4e7385",
+      "username": "admin",
+      "role": "legacy",
+      "createdAt": "2026-08-27T01:39:21.987Z",
+      "lastSeenAt": "2026-08-27T01:39:21.987Z",
+      "userAgent": "curl/8.21.0",
+      "ip": "::1"
+    },
+    {
+      "id": "309392fad207",
+      "fingerprint": "fbcd677b962277ad",
+      "username": "admin",
+      "role": "legacy",
+      "createdAt": "2026-08-27T01:38:43.950Z",
+      "lastSeenAt": "2026-08-27T01:38:43.950Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36",
+      "ip": "::1"
+    },
+    {
+      "id": "d4e85419fa31",
+      "fingerprint": "baf64a909e18cc01",
+      "username": "admin",
+      "role": "legacy",
+      "createdAt": "2026-08-26T18:46:17.560Z",
+      "lastSeenAt": "2026-08-26T18:46:17.560Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "bbe7d7f4299d",
+      "fingerprint": "c9b628e404597d34",
+      "username": "admin",
+      "role": "legacy",
+      "createdAt": "2026-08-26T18:44:07.985Z",
+      "lastSeenAt": "2026-08-26T18:44:07.985Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "5a7dd0ef2b39",
+      "fingerprint": "925d5fe9582edc71",
+      "username": "admin",
+      "role": "legacy",
+      "createdAt": "2026-08-26T18:40:11.406Z",
+      "lastSeenAt": "2026-08-26T18:40:11.406Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    }
+  ],
+  "revoked": [
+    "fc6de1f312d80e0e"
+  ]
+}

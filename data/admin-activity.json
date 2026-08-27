@@ -1,0 +1,214 @@
+{
+  "entries": [
+    {
+      "id": "546a23976fb2",
+      "at": "2026-08-27T02:43:36.762Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "5668b0f61647",
+      "at": "2026-08-27T02:42:41.442Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "fadbfb1de6a6",
+      "at": "2026-08-27T02:41:28.462Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "5d9be7a19968",
+      "at": "2026-08-27T02:40:42.512Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "f87a10d098e1",
+      "at": "2026-08-27T02:39:10.001Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "6c3970b91170",
+      "at": "2026-08-27T02:36:46.341Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "31ce85a294dd",
+      "at": "2026-08-27T02:34:31.961Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "755c04b6e49d",
+      "at": "2026-08-27T02:33:32.727Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "4d110b3a4c46",
+      "at": "2026-08-27T02:32:02.732Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "73126e0eafc4",
+      "at": "2026-08-27T02:29:08.834Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "7a9bea08d8b4",
+      "at": "2026-08-27T02:28:20.457Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "c2c72033b466",
+      "at": "2026-08-27T02:26:09.395Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "839d11a528c1",
+      "at": "2026-08-27T02:23:08.439Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "b48215bc8c7b",
+      "at": "2026-08-27T02:02:27.500Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "e486178a2254",
+      "at": "2026-08-27T02:02:00.359Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "0289e5c58d8b",
+      "at": "2026-08-27T01:58:31.964Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "59859e14753b",
+      "at": "2026-08-27T01:51:41.598Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "45c2dc408500",
+      "at": "2026-08-27T01:51:10.715Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "4abd4520af9a",
+      "at": "2026-08-27T01:49:41.069Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "56f9ddd6d094",
+      "at": "2026-08-27T01:48:27.605Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "60c5f46f46e3",
+      "at": "2026-08-27T01:46:54.793Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "82510193917f",
+      "at": "2026-08-27T01:41:48.148Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "5a635d64d6da",
+      "at": "2026-08-27T01:41:04.295Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "2ccd0735a8fe",
+      "at": "2026-08-27T01:39:22.005Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "8a31da0e7abb",
+      "at": "2026-08-27T01:38:43.986Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "e3b7ca658eee",
+      "at": "2026-08-26T18:48:27.886Z",
+      "kind": "logout",
+      "message": "Вихід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "5753859755fa",
+      "at": "2026-08-26T18:48:00.811Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "bcac7a04c6a4",
+      "at": "2026-08-26T18:46:17.572Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "a680b1d5a04f",
+      "at": "2026-08-26T18:44:07.997Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "6205610b40e6",
+      "at": "2026-08-26T18:40:11.415Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+._title {
+  line-height: 130%;
+  font-weight: 800;
+  font-size: 4.6rem;
+  font-size: var(--title-size, 4.6rem);
+  span{
+    font-weight: 400;
+  }
+}
