@@ -1,13 +1,17 @@
-# Host update: backup CMS JSON, git pull --ff-only, install if needed, always build, pm2 restart byou.
-# Usage (on the laptop that serves the site):
+# Host update — one command: npm run update
+# backup CMS JSON, fetch, checkout DEPLOY_BRANCH if set, ff-only pull, install if needed,
+# always build, pm2 restart byou, health check.
+#
 #   npm run update
 #   npm run update -- -SkipPull
 #   npm run update -- -SkipBackup
 #   npm run update -- -SkipHealth
+#   npm run update -- -Branch startProjectOnHost
 param(
   [switch]$SkipPull,
   [switch]$SkipBackup,
-  [switch]$SkipHealth
+  [switch]$SkipHealth,
+  [string]$Branch = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -30,21 +34,33 @@ function Update-SessionPath {
   $env:Path = "C:\Program Files\nodejs;$env:APPDATA\npm;" + $machine + ";" + $user
 }
 
-function Read-AppPort {
-  $port = 3000
+function Read-DotEnvValue {
+  param([string]$Name)
   $envFile = Join-Path $Root ".env"
-  if (Test-Path $envFile) {
-    foreach ($line in Get-Content $envFile -ErrorAction SilentlyContinue) {
-      if ($line -match "^\s*PORT\s*=\s*(\d+)") {
-        $port = [int]$Matches[1]
-        break
-      }
+  if (-not (Test-Path $envFile)) { return $null }
+  foreach ($line in Get-Content $envFile -ErrorAction SilentlyContinue) {
+    if ($line -match ("^\s*" + [regex]::Escape($Name) + "\s*=\s*(.*?)\s*$")) {
+      $v = $Matches[1].Trim().Trim('"').Trim("'")
+      if ($v) { return $v }
     }
   }
-  if ($env:PORT -match "^\d+$") {
-    $port = [int]$env:PORT
-  }
+  return $null
+}
+
+function Read-AppPort {
+  $port = 3000
+  $fromEnv = Read-DotEnvValue "PORT"
+  if ($fromEnv -match "^\d+$") { $port = [int]$fromEnv }
+  if ($env:PORT -match "^\d+$") { $port = [int]$env:PORT }
   return $port
+}
+
+function Read-DeployBranch {
+  if ($Branch) { return $Branch.Trim() }
+  if ($env:DEPLOY_BRANCH) { return $env:DEPLOY_BRANCH.Trim() }
+  $fromFile = Read-DotEnvValue "DEPLOY_BRANCH"
+  if ($fromFile) { return $fromFile }
+  return ""
 }
 
 function Get-FileSha256 {
@@ -53,14 +69,20 @@ function Get-FileSha256 {
   return (Get-FileHash -Path $Path -Algorithm SHA256).Hash
 }
 
-function Invoke-Native {
-  param(
-    [string]$File,
-    [string[]]$CmdArgs
-  )
-  & $File @CmdArgs
+function Invoke-Git {
+  param([string]$GitArgs)
+  # Out-Host: git stdout ("Already up to date.") must not join the return value.
+  # `$code = Invoke-Git ...` would otherwise become an array and `-ne 0` a filter.
+  Write-Host "    git $GitArgs"
+  cmd.exe /c "git $GitArgs" | Out-Host
   if ($null -eq $LASTEXITCODE) { return 0 }
-  return $LASTEXITCODE
+  return [int]$LASTEXITCODE
+}
+
+function Get-CurrentBranch {
+  $name = (cmd.exe /c "git rev-parse --abbrev-ref HEAD").Trim()
+  if (-not $name -or $name -eq "HEAD") { return "" }
+  return $name
 }
 
 function Get-Pm2Apps {
@@ -116,7 +138,7 @@ function Backup-CmsJson {
 }
 
 function Get-TrackedDirty {
-  $raw = & git status --porcelain --untracked-files=no 2>&1 | Out-String
+  $raw = cmd.exe /c "git status --porcelain --untracked-files=no" | Out-String
   if ($LASTEXITCODE -ne 0) {
     Write-Error "git status failed"
     exit 1
@@ -175,6 +197,8 @@ if (-not (Test-Path $Eco)) {
 Write-Host "==== B_You host update ===="
 Write-Host "Root: $Root"
 Write-Host "PM2:  $AppName"
+$deployHint = Read-DeployBranch
+if ($deployHint) { Write-Host "Branch: $deployHint (DEPLOY_BRANCH)" }
 
 if (-not $SkipBackup) {
   Write-Host "==> Backup CMS JSON (data/*.json)..."
@@ -205,23 +229,43 @@ if (-not $SkipPull) {
     exit 1
   }
 
-  $upstream = & git rev-parse --abbrev-ref --symbolic-full-name "@{u}" 2>$null
-  if ($LASTEXITCODE -ne 0 -or -not $upstream) {
-    Write-Error "Current branch has no upstream. On the host: git branch -u origin/<branch>"
-    exit 1
-  }
-
-  Write-Host "==> git fetch ($upstream)..."
-  $code = Invoke-Native git @("fetch")
+  Write-Host "==> git fetch origin..."
+  $code = Invoke-Git "fetch origin"
   if ($code -ne 0) {
-    Write-Error "git fetch failed (exit $code)"
+    Write-Error "git fetch origin failed (exit $code)"
     exit $code
   }
 
-  Write-Host "==> git pull --ff-only..."
-  $code = Invoke-Native git @("pull", "--ff-only")
+  $want = Read-DeployBranch
+  if ($want) {
+    if ($want -notmatch '^[\w./-]+$') {
+      Write-Error "Invalid DEPLOY_BRANCH / -Branch value: $want"
+      exit 1
+    }
+    $now = Get-CurrentBranch
+    if ($now -ne $want) {
+      Write-Host "==> git checkout $want (DEPLOY_BRANCH)..."
+      $code = Invoke-Git "checkout $want"
+      if ($code -ne 0) {
+        $code = Invoke-Git "checkout -B $want origin/$want"
+      }
+      if ($code -ne 0) {
+        Write-Error "git checkout $want failed (exit $code). Create the branch on origin or unset DEPLOY_BRANCH."
+        exit $code
+      }
+    }
+  }
+
+  $head = Get-CurrentBranch
+  if (-not $head) {
+    Write-Error "Detached HEAD. Check out a branch (or set DEPLOY_BRANCH in .env), then re-run npm run update."
+    exit 1
+  }
+
+  Write-Host "==> git pull --ff-only origin $head..."
+  $code = Invoke-Git "pull --ff-only origin $head"
   if ($code -ne 0) {
-    Write-Error "git pull --ff-only failed (exit $code). Fix history on the dev machine; do not force-pull on the host."
+    Write-Error "git pull --ff-only origin $head failed (exit $code). Fix history on the dev machine; do not force-pull on the host."
     exit $code
   }
 }
@@ -346,3 +390,4 @@ if ($stoppedForLock) {
   Write-Host "Note: pm2 was stopped briefly so next build could write .next on Windows."
 }
 Write-Host "Do not run npm run seed on the host (it overwrites live CMS data)."
+Write-Host "Next update: npm run update"

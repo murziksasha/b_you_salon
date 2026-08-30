@@ -16,8 +16,8 @@ body {
   flex-direction: column;
   margin: 0 auto;
   /* Theme-aware: hardcoded #fff broke dark mode (light --ps-text on white). */
-  background-color: var(--ps-surface, #fff);
-  color: var(--ps-text, #1a1a1a);
+  background-color: var(--by-bg, var(--ps-surface, #0d0d0d));
+  color: var(--by-text, var(--ps-text, #f5ede4));
 }
 
 .wrapper {
@@ -86,7 +86,7 @@ main.main {
   &__code {
     font-size: 6rem;
     font-weight: 700;
-    color: #02a653;
+    color: var(--by-gold, #c4a574);
     margin: 0 0 0.5rem;
     line-height: 1;
   }
@@ -108,7 +108,8 @@ main.main {
   }
 
   &__call {
-    background: #0f3d2e;
+    background: var(--by-gold, #c4a574);
+    color: var(--by-ink, #1a1208);
   }
 }
 

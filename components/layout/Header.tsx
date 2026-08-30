@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { ShoppingBag } from 'lucide-react';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { useCart } from '@/components/cart/CartProvider';
+import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import type { MenuItem, SiteData, SiteSettings } from '@/lib/types';
 import { formatTelHref } from '@/lib/phone';
 import { menuForZone, phoneForZone, zoneFromPath } from '@/lib/zone';
@@ -53,6 +54,7 @@ export function Header({ settings, menu, site }: HeaderProps) {
               {count > 0 ? <span className='by-header__cart-count'>{count}</span> : null}
             </Link>
           ) : null}
+          <ThemeToggle className='by-header__theme' />
           <a className='by-header__phone' href={telHref}>
             {phone.display}
           </a>
