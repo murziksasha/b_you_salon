@@ -95,29 +95,32 @@ else {
 
 Write-Host "    [2/4] ensuring pm2 daemon is up (pm2 ping)..."
 $pingCode = Invoke-Pm2Timed -Pm2Args "ping" -TimeoutSec 25
-$pingOk = ($pingCode -eq 0)
-if (-not $pingOk) {
+if (Test-Pm2CommandFailed $pingCode) {
   Write-Host "    daemon not responding (exit $pingCode) - pm2 kill + retry..."
   [void](Invoke-Pm2Timed -Pm2Args "kill" -TimeoutSec 20)
   Start-Sleep -Seconds 2
   $pingCode = Invoke-Pm2Timed -Pm2Args "ping" -TimeoutSec 25
-  $pingOk = ($pingCode -eq 0)
   Write-Host "    ping retry exit=$pingCode"
+}
+else {
+  Write-Host "    ping ok (exit $pingCode)"
 }
 
 Write-Host "    [3/4] pm2 start ecosystem.config.cjs ..."
 Write-Host "    (first time can take 15-60s; timeout 90s then retry once)"
 $startCode = Invoke-Pm2Timed -Pm2Args "start ecosystem.config.cjs" -TimeoutSec 90
-if ($startCode -eq 124 -or $startCode -ne 0) {
+if (Test-Pm2CommandFailed $startCode) {
   Write-Host "    start failed/hung (exit $startCode) - pm2 kill + retry..."
   [void](Invoke-Pm2Timed -Pm2Args "kill" -TimeoutSec 20)
   Start-Sleep -Seconds 2
   $startCode = Invoke-Pm2Timed -Pm2Args "start ecosystem.config.cjs" -TimeoutSec 90
 }
-if ($startCode -ne 0) {
+if (Test-Pm2CommandFailed $startCode) {
   Write-Error "pm2 start failed (exit $startCode). Try manually: pm2 kill && pm2 start ecosystem.config.cjs"
+  if ($null -eq $startCode) { exit 1 }
   exit $startCode
 }
+Write-Host "    start ok (exit $startCode)"
 
 Write-Host "    [4/4] pm2 save ..."
 $saveCode = Invoke-Pm2Timed -Pm2Args "save --force" -TimeoutSec 30

@@ -101,8 +101,9 @@ if (-not (Test-Path (Join-Path $Root ".next\BUILD_ID"))) {
 
 [void](Invoke-Pm2Timed -Pm2Args "delete $AppName" -TimeoutSec 20)
 $startCode = Invoke-Pm2Timed -Pm2Args "start ecosystem.config.cjs" -TimeoutSec 90
-if ($startCode -ne 0) {
+if (Test-Pm2CommandFailed $startCode) {
   Write-Log "ERROR: pm2 start failed exit=$startCode"
+  if ($null -eq $startCode) { exit 1 }
   exit $startCode
 }
 
