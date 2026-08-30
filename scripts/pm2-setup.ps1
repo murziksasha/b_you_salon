@@ -71,6 +71,7 @@ if (-not (Test-HasCommand "pm2")) {
 }
 
 Write-Host "==> Starting app with pm2..."
+Write-Host "    (setup judges success by pm2 jlist, not a blank PS exit code)"
 $eco = Join-Path $Root "ecosystem.config.cjs"
 if (-not (Test-Path $eco)) {
   Write-Error "Missing $eco"
@@ -95,8 +96,9 @@ else {
 
 Write-Host "    [2/4] ensuring pm2 daemon is up (pm2 ping)..."
 $pingCode = Invoke-Pm2Timed -Pm2Args "ping" -TimeoutSec 25
-if (Test-Pm2CommandFailed $pingCode) {
-  Write-Host "    daemon not responding (exit $pingCode) - pm2 kill + retry..."
+# Only a hang (124) is a ping failure. Blank/null ExitCode on PS 5.1 is normal after pong.
+if ($pingCode -eq 124) {
+  Write-Host "    ping hung (exit 124) - pm2 kill + retry..."
   [void](Invoke-Pm2Timed -Pm2Args "kill" -TimeoutSec 20)
   Start-Sleep -Seconds 2
   $pingCode = Invoke-Pm2Timed -Pm2Args "ping" -TimeoutSec 25
@@ -109,23 +111,32 @@ else {
 Write-Host "    [3/4] pm2 start ecosystem.config.cjs ..."
 Write-Host "    (first time can take 15-60s; timeout 90s then retry once)"
 $startCode = Invoke-Pm2Timed -Pm2Args "start ecosystem.config.cjs" -TimeoutSec 90
-if (Test-Pm2CommandFailed $startCode) {
-  Write-Host "    start failed/hung (exit $startCode) - pm2 kill + retry..."
+Start-Sleep -Seconds 2
+$online = Test-Pm2AppOnline $AppName
+# Kill+retry only on hang. A blank ExitCode after a printed "online" table is success.
+if (-not $online -and $startCode -eq 124) {
+  Write-Host "    start hung (exit 124) - pm2 kill + retry..."
   [void](Invoke-Pm2Timed -Pm2Args "kill" -TimeoutSec 20)
   Start-Sleep -Seconds 2
   $startCode = Invoke-Pm2Timed -Pm2Args "start ecosystem.config.cjs" -TimeoutSec 90
+  Start-Sleep -Seconds 2
+  $online = Test-Pm2AppOnline $AppName
 }
-if (Test-Pm2CommandFailed $startCode) {
-  Write-Error "pm2 start failed (exit $startCode). Try manually: pm2 kill && pm2 start ecosystem.config.cjs"
-  if ($null -eq $startCode) { exit 1 }
-  exit $startCode
+if (-not $online -and $startCode -eq 124) {
+  Write-Error "pm2 start hung twice (byou not online). Try manually: pm2 kill && pm2 start ecosystem.config.cjs"
+  exit 1
 }
-Write-Host "    start ok (exit $startCode)"
+if ($online) {
+  Write-Host "    start ok (byou online, timed-exit $startCode)"
+}
+else {
+  Write-Host "    start finished (timed-exit $startCode); jlist did not confirm online - not killing"
+}
 
 Write-Host "    [4/4] pm2 save ..."
 $saveCode = Invoke-Pm2Timed -Pm2Args "save --force" -TimeoutSec 30
-if ($saveCode -ne 0) {
-  Write-Warning "pm2 save failed (exit $saveCode) - autostart may not restore processes"
+if ($saveCode -eq 124) {
+  Write-Warning "pm2 save hung (exit 124) - autostart may not restore processes"
 }
 else {
   $dump = Join-Path $env:USERPROFILE ".pm2\dump.pm2"

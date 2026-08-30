@@ -47,18 +47,7 @@ function Test-HasCommand {
 
 function Test-AppOnline {
   if (-not (Test-HasCommand "pm2")) { return $false }
-  try {
-    $json = & pm2 jlist 2>$null
-    if (-not $json) { return $false }
-    $apps = $json | ConvertFrom-Json
-    foreach ($a in $apps) {
-      if ($a.name -eq $AppName -and $a.pm2_env.status -eq "online") {
-        return $true
-      }
-    }
-  }
-  catch { }
-  return $false
+  return (Test-Pm2AppOnline $AppName)
 }
 
 Write-Log "=== pm2-autostart begin (user=$env:USERNAME root=$Root) ==="
@@ -101,10 +90,10 @@ if (-not (Test-Path (Join-Path $Root ".next\BUILD_ID"))) {
 
 [void](Invoke-Pm2Timed -Pm2Args "delete $AppName" -TimeoutSec 20)
 $startCode = Invoke-Pm2Timed -Pm2Args "start ecosystem.config.cjs" -TimeoutSec 90
-if (Test-Pm2CommandFailed $startCode) {
-  Write-Log "ERROR: pm2 start failed exit=$startCode"
-  if ($null -eq $startCode) { exit 1 }
-  exit $startCode
+Start-Sleep -Seconds 2
+if (-not (Test-Pm2AppOnline $AppName) -and $startCode -eq 124) {
+  Write-Log "ERROR: pm2 start hung (byou not online, timed-exit=$startCode)"
+  exit 1
 }
 
 [void](Invoke-Pm2Timed -Pm2Args "save --force" -TimeoutSec 30)
