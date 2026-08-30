@@ -1,12 +1,14 @@
 # Host update — one command: npm run update
-# backup CMS JSON, fetch, checkout DEPLOY_BRANCH if set, ff-only pull, install if needed,
+# backup CMS JSON, fetch, checkout deploy branch, ff-only pull, install if needed,
 # always build, pm2 restart byou, health check.
+#
+# Deploy branch (first match wins): -Branch, env DEPLOY_BRANCH, .env DEPLOY_BRANCH, else `dev`.
 #
 #   npm run update
 #   npm run update -- -SkipPull
 #   npm run update -- -SkipBackup
 #   npm run update -- -SkipHealth
-#   npm run update -- -Branch startProjectOnHost
+#   npm run update -- -Branch dev
 param(
   [switch]$SkipPull,
   [switch]$SkipBackup,
@@ -60,7 +62,7 @@ function Read-DeployBranch {
   if ($env:DEPLOY_BRANCH) { return $env:DEPLOY_BRANCH.Trim() }
   $fromFile = Read-DotEnvValue "DEPLOY_BRANCH"
   if ($fromFile) { return $fromFile }
-  return ""
+  return "dev"
 }
 
 function Get-FileSha256 {
@@ -199,6 +201,9 @@ Write-Host "Root: $Root"
 Write-Host "PM2:  $AppName"
 $deployHint = Read-DeployBranch
 if ($deployHint) { Write-Host "Branch: $deployHint (DEPLOY_BRANCH)" }
+if ($deployHint -eq "startProjectOnHost") {
+  Write-Warning "DEPLOY_BRANCH=startProjectOnHost is obsolete. GitHub default is 'dev'. Set DEPLOY_BRANCH=dev in .env, then re-run npm run update."
+}
 
 if (-not $SkipBackup) {
   Write-Host "==> Backup CMS JSON (data/*.json)..."
