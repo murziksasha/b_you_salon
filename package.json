@@ -18,6 +18,7 @@
     "pm2:stop": "pm2 stop byou",
     "pm2:restart": "pm2 restart byou",
     "pm2:logs": "pm2 logs byou",
+    "update": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/update-app.ps1",
     "seed": "tsx scripts/seed.ts",
     "backup": "tsx scripts/backup.ts",
     "uploads:reprocess": "node scripts/reprocess-uploads.mjs",
