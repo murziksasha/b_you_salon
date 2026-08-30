@@ -4,8 +4,9 @@ $ErrorActionPreference = "Continue"
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $LogDir = Join-Path $Root "logs"
 $LogFile = Join-Path $LogDir "pm2-autostart.log"
-$AppName = "properservice"
+$AppName = "byou"
 $Eco = Join-Path $Root "ecosystem.config.cjs"
+. (Join-Path $PSScriptRoot "pm2-win.ps1")
 
 function Write-Log {
   param([string]$Message)
@@ -80,7 +81,7 @@ Write-Log "node=$(node -v) pm2 ok"
 
 # 1) Prefer resurrect from last pm2 save
 Write-Log "Trying pm2 resurrect..."
-cmd.exe /c "pm2 resurrect" | Out-Null
+[void](Invoke-Pm2Timed -Pm2Args "resurrect" -TimeoutSec 40)
 Start-Sleep -Seconds 3
 
 if (Test-AppOnline) {
@@ -98,14 +99,14 @@ if (-not (Test-Path (Join-Path $Root ".next\BUILD_ID"))) {
   Write-Log "WARN: .next/BUILD_ID missing - next start may fail until npm run build"
 }
 
-cmd.exe /c "pm2 delete $AppName >nul 2>&1" | Out-Null
-& pm2 start $Eco
-if ($LASTEXITCODE -ne 0) {
-  Write-Log "ERROR: pm2 start failed exit=$LASTEXITCODE"
-  exit $LASTEXITCODE
+[void](Invoke-Pm2Timed -Pm2Args "delete $AppName" -TimeoutSec 20)
+$startCode = Invoke-Pm2Timed -Pm2Args "start ecosystem.config.cjs" -TimeoutSec 90
+if ($startCode -ne 0) {
+  Write-Log "ERROR: pm2 start failed exit=$startCode"
+  exit $startCode
 }
 
-& pm2 save
+[void](Invoke-Pm2Timed -Pm2Args "save --force" -TimeoutSec 30)
 Start-Sleep -Seconds 2
 
 if (Test-AppOnline) {

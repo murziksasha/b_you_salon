@@ -4,9 +4,11 @@ $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 Set-Location $Root
 
-$AppName = "properservice"
+$AppName = "byou"
+$LegacyAppName = "properservice"
 $TaskName = "ProperService-pm2"
 $AutostartPs1 = Join-Path $PSScriptRoot "pm2-autostart.ps1"
+. (Join-Path $PSScriptRoot "pm2-win.ps1")
 
 function Test-HasCommand {
   param([string]$Name)
@@ -75,41 +77,52 @@ if (-not (Test-Path $eco)) {
   exit 1
 }
 
-# First run: process may not exist. Avoid terminating errors from pm2.ps1.
+# First run: no daemon yet. `pm2 delete ... >nul` starts God with stdio on NUL and
+# hangs forever on Windows. Skip delete unless a prior pm2 home exists; always time out.
 Write-Host "    [1/4] pm2 delete $AppName (ignore if missing)..."
-cmd.exe /c "pm2 delete $AppName >nul 2>&1" | Out-Null
+if (-not (Test-Pm2PriorState)) {
+  Write-Host "    skip (no existing pm2 daemon - first run)"
+}
+else {
+  $delCode = Invoke-Pm2Timed -Pm2Args "delete $AppName" -TimeoutSec 20
+  [void](Invoke-Pm2Timed -Pm2Args "delete $LegacyAppName" -TimeoutSec 15)
+  if ($delCode -eq 124) {
+    Write-Host "    delete hung - pm2 kill and continue"
+    [void](Invoke-Pm2Timed -Pm2Args "kill" -TimeoutSec 20)
+    Start-Sleep -Seconds 2
+  }
+}
 
-# If an old daemon is wedged, a plain "pm2 start" can hang forever on Windows.
 Write-Host "    [2/4] ensuring pm2 daemon is up (pm2 ping)..."
-$pingOk = $false
-try {
-  $pingOut = cmd.exe /c "pm2 ping" 2>&1 | Out-String
-  if ($pingOut -match "pong|PM2") { $pingOk = $true }
-  Write-Host "    pm2 ping: $($pingOut.Trim())"
-}
-catch {
-  Write-Host "    pm2 ping threw: $_"
-}
-
+$pingCode = Invoke-Pm2Timed -Pm2Args "ping" -TimeoutSec 25
+$pingOk = ($pingCode -eq 0)
 if (-not $pingOk) {
-  Write-Host "    daemon not responding - pm2 kill + retry..."
-  cmd.exe /c "pm2 kill >nul 2>&1" | Out-Null
+  Write-Host "    daemon not responding (exit $pingCode) - pm2 kill + retry..."
+  [void](Invoke-Pm2Timed -Pm2Args "kill" -TimeoutSec 20)
   Start-Sleep -Seconds 2
+  $pingCode = Invoke-Pm2Timed -Pm2Args "ping" -TimeoutSec 25
+  $pingOk = ($pingCode -eq 0)
+  Write-Host "    ping retry exit=$pingCode"
 }
 
 Write-Host "    [3/4] pm2 start ecosystem.config.cjs ..."
-Write-Host "    (first time can take 15-60s; if stuck >2 min press Ctrl+C and see docs below)"
-# Use cmd so npm/powershell do not wait on node child stdio oddly
-cmd.exe /c "pm2 start `"$eco`""
-if ($LASTEXITCODE -ne 0) {
-  Write-Error "pm2 start failed (exit $LASTEXITCODE). Try manually: pm2 kill && pm2 start ecosystem.config.cjs"
-  exit $LASTEXITCODE
+Write-Host "    (first time can take 15-60s; timeout 90s then retry once)"
+$startCode = Invoke-Pm2Timed -Pm2Args "start ecosystem.config.cjs" -TimeoutSec 90
+if ($startCode -eq 124 -or $startCode -ne 0) {
+  Write-Host "    start failed/hung (exit $startCode) - pm2 kill + retry..."
+  [void](Invoke-Pm2Timed -Pm2Args "kill" -TimeoutSec 20)
+  Start-Sleep -Seconds 2
+  $startCode = Invoke-Pm2Timed -Pm2Args "start ecosystem.config.cjs" -TimeoutSec 90
+}
+if ($startCode -ne 0) {
+  Write-Error "pm2 start failed (exit $startCode). Try manually: pm2 kill && pm2 start ecosystem.config.cjs"
+  exit $startCode
 }
 
 Write-Host "    [4/4] pm2 save ..."
-cmd.exe /c "pm2 save"
-if ($LASTEXITCODE -ne 0) {
-  Write-Warning "pm2 save failed (exit $LASTEXITCODE) - autostart may not restore processes"
+$saveCode = Invoke-Pm2Timed -Pm2Args "save --force" -TimeoutSec 30
+if ($saveCode -ne 0) {
+  Write-Warning "pm2 save failed (exit $saveCode) - autostart may not restore processes"
 }
 else {
   $dump = Join-Path $env:USERPROFILE ".pm2\dump.pm2"
@@ -160,8 +173,9 @@ Write-Host "Site:    http://localhost:$port"
 Write-Host "Admin:   http://localhost:$port/admin"
 Write-Host ""
 Write-Host "Commands:"
+Write-Host "  npm run update                 # git pull + build + pm2 restart (host)"
 Write-Host "  npm run pm2:logs               # tail logs"
-Write-Host "  npm run pm2:restart            # after code changes + npm run build"
+Write-Host "  npm run pm2:restart            # restart only (no pull/build)"
 Write-Host "  npm run pm2:register-autostart # only re-register logon task"
 Write-Host "  npm run pm2:autostart          # run autostart script now (test)"
 Write-Host ""
