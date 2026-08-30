@@ -7,10 +7,11 @@ function Get-Pm2HomeDir {
 }
 
 function Test-Pm2PriorState {
-  $home = Get-Pm2HomeDir
-  if (-not (Test-Path $home)) { return $false }
+  # Do not use $home — $HOME is a read-only automatic variable (case-insensitive).
+  $pm2Home = Get-Pm2HomeDir
+  if (-not (Test-Path $pm2Home)) { return $false }
   foreach ($name in @("pm2.pid", "dump.pm2", "rpc.sock", "pub.sock")) {
-    if (Test-Path (Join-Path $home $name)) { return $true }
+    if (Test-Path (Join-Path $pm2Home $name)) { return $true }
   }
   return $false
 }
