@@ -19,6 +19,8 @@ export function ServicesNav({
   const prefetchUrls = serviceHeroImageUrls(visible, heroImages);
   usePrefetchImages(prefetchUrls);
 
+  if (!visible.length) return null;
+
   return (
     <nav className="services-nav" aria-label="Послуги">
       <ul className="services-nav__list">

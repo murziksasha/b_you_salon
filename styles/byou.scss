@@ -1,37 +1,67 @@
-/* B_You public luxury theme */
+/* B_You public luxury theme — dark default, ivory light */
 
 :root {
+  --by-serif: var(--font-serif), 'Cormorant Garamond', 'Times New Roman', serif;
+  --by-sans: var(--font-sans), 'Manrope', system-ui, sans-serif;
+  --by-script: var(--font-script), 'Great Vibes', cursive;
+  --by-blush: #e8a0bf;
+  --by-blush-deep: #d989b5;
+  --by-ink: #1a1208;
+  --by-on-photo: #f5ede4;
+
   --by-bg: #0d0d0d;
   --by-bg-2: #161412;
   --by-surface: #1c1917;
   --by-surface-2: #221e1b;
   --by-gold: #c4a574;
   --by-gold-hover: #d4af37;
-  --by-blush: #e8a0bf;
-  --by-blush-deep: #d989b5;
-  --by-cream: #f5ede4;
-  --by-muted: #b8a99a;
+  --by-text: #f5ede4;
+  --by-cream: var(--by-text);
+  --by-muted: #d4c4b4;
   --by-line: rgba(196, 165, 116, 0.35);
   --by-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
-  --by-serif: var(--font-serif), 'Cormorant Garamond', 'Times New Roman', serif;
-  --by-sans: var(--font-sans), 'Manrope', system-ui, sans-serif;
-  --by-script: var(--font-script), 'Great Vibes', cursive;
+  --by-header-bg: rgba(13, 13, 13, 0.82);
+  --by-nav-bg: #111008;
+  --by-sticky-bg: rgba(13, 13, 13, 0.94);
+  --by-status-bg: #2a2118;
+  --by-status-error-bg: #2a1515;
+  --by-status-error: #f3c2c2;
+}
+
+html[data-theme='light'] {
+  --by-bg: #f6efe6;
+  --by-bg-2: #fffdf9;
+  --by-surface: #fffdf9;
+  --by-surface-2: #f1e6d8;
+  --by-gold: #8b6738;
+  --by-gold-hover: #a67c44;
+  --by-text: #1a1208;
+  --by-cream: var(--by-text);
+  --by-muted: #5c4e42;
+  --by-line: rgba(26, 18, 8, 0.16);
+  --by-shadow: 0 16px 40px rgba(26, 18, 8, 0.1);
+  --by-header-bg: rgba(246, 239, 230, 0.92);
+  --by-nav-bg: #f6efe6;
+  --by-sticky-bg: rgba(246, 239, 230, 0.96);
+  --by-status-bg: #f1e6d8;
+  --by-status-error-bg: #f8e4e0;
+  --by-status-error: #7a2e24;
 }
 
 body:not(:has(.admin-body)) {
   background: var(--by-bg);
-  color: var(--by-cream);
+  color: var(--by-text);
   font-family: var(--by-sans);
 }
 
 body:not(:has(.admin-body)) .container {
   background: var(--by-bg);
-  color: var(--by-cream);
+  color: var(--by-text);
   min-height: 100dvh;
 }
 
 body:not(:has(.admin-body)) .header {
-  background: rgba(13, 13, 13, 0.78);
+  background: var(--by-header-bg);
   backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--by-line);
 }
@@ -49,7 +79,7 @@ body:not(:has(.admin-body)) a {
   top: 1rem;
   z-index: 80;
   background: var(--by-gold);
-  color: #1a1208;
+  color: var(--by-ink);
   padding: 0.6rem 1rem;
 }
 
@@ -91,7 +121,7 @@ body:not(:has(.admin-body)) a {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   font-size: 1.5rem;
-  color: var(--by-cream);
+  color: var(--by-text);
 }
 .by-header__nav a.is-active,
 .by-header__nav a:hover {
@@ -116,7 +146,7 @@ body:not(:has(.admin-body)) a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--by-cream);
+  color: var(--by-text);
   text-decoration: none;
   line-height: 0;
 }
@@ -136,7 +166,7 @@ body:not(:has(.admin-body)) a {
   height: 1.35rem;
   border-radius: 99px;
   background: var(--by-blush);
-  color: #1a1208;
+  color: var(--by-ink);
   font-size: 1rem;
   font-weight: 600;
   line-height: 1;
@@ -144,11 +174,15 @@ body:not(:has(.admin-body)) a {
   place-items: center;
   padding: 0 0.3rem;
 }
+.by-header__theme {
+  flex-shrink: 0;
+}
+
 .by-burger {
   display: none;
   background: none;
   border: 1px solid var(--by-line);
-  color: var(--by-cream);
+  color: var(--by-text);
   padding: 0.5rem 0.8rem;
   font-size: 1.4rem;
   letter-spacing: 0.08em;
@@ -171,10 +205,11 @@ body:not(:has(.admin-body)) a {
   text-align: center;
   pointer-events: none;
   padding: 1.6rem 3.2rem 1.8rem;
-  background: rgba(8, 7, 6, 0.42);
-  border: 1px solid var(--by-line);
+  background: rgba(8, 7, 6, 0.55);
+  border: 1px solid rgba(196, 165, 116, 0.45);
   backdrop-filter: blur(12px);
   max-width: min(64rem, 90vw);
+  color: var(--by-on-photo);
 }
 .doors__kicker {
   font-family: var(--by-script);
@@ -190,12 +225,12 @@ body:not(:has(.admin-body)) a {
   margin: 0.4rem 0 0;
   font-weight: 500;
   line-height: 0.95;
-  color: var(--by-cream);
+  color: var(--by-on-photo);
   text-shadow: 0 4px 28px rgba(0, 0, 0, 0.65);
 }
 .doors__sub {
   margin: 1.2rem 0 0;
-  color: var(--by-cream);
+  color: var(--by-on-photo);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   font-size: 1.4rem;
@@ -207,7 +242,7 @@ body:not(:has(.admin-body)) a {
   display: block;
   min-height: calc(100dvh - 4.4rem);
   text-decoration: none;
-  color: var(--by-cream);
+  color: var(--by-on-photo);
   overflow: hidden;
 }
 .doors__img {
@@ -270,13 +305,13 @@ body:not(:has(.admin-body)) a {
   line-height: 1.05;
   margin: 0;
   font-weight: 500;
-  color: var(--by-cream);
+  color: var(--by-on-photo);
 }
 .doors__lead {
   display: block;
   font-size: 1.9rem;
   line-height: 1.35;
-  color: var(--by-cream);
+  color: var(--by-on-photo);
   max-width: 22ch;
   opacity: 0.92;
 }
@@ -288,9 +323,9 @@ body:not(:has(.admin-body)) a {
   letter-spacing: 0.16em;
   text-transform: uppercase;
   font-size: 1.4rem;
-  background: rgba(196, 165, 116, 0.16);
+  background: rgba(196, 165, 116, 0.22);
   backdrop-filter: blur(8px);
-  color: var(--by-cream);
+  color: var(--by-on-photo);
 }
 .doors__split {
   position: absolute;
@@ -320,6 +355,7 @@ body:not(:has(.admin-body)) a {
   font-size: clamp(2rem, 4vw, 3.2rem);
   font-weight: 500;
   margin: 0 0 0.6rem;
+  color: var(--by-text);
 }
 .by-section__sub {
   color: var(--by-muted);
@@ -344,6 +380,7 @@ body:not(:has(.admin-body)) a {
   font-size: clamp(2.4rem, 5vw, 4rem);
   margin: 0 0 1rem;
   font-weight: 500;
+  color: var(--by-text);
 }
 
 .by-grid {
@@ -437,7 +474,7 @@ body:not(:has(.admin-body)) a {
   justify-content: center;
   border: none;
   background: var(--by-gold);
-  color: #1a1208;
+  color: var(--by-ink);
   padding: 1.2rem 1.8rem;
   min-height: 5.2rem;
   letter-spacing: 0.1em;
@@ -459,7 +496,7 @@ body:not(:has(.admin-body)) a {
 }
 .by-btn--ghost {
   background: transparent;
-  color: var(--by-cream);
+  color: var(--by-text);
   border: 1px solid var(--by-gold);
   width: auto;
   min-height: 0;
@@ -475,7 +512,7 @@ a.by-btn {
 }
 .by-btn.is-in-cart:hover {
   background: var(--by-gold);
-  color: #1a1208;
+  color: var(--by-ink);
 }
 
 .by-form {
@@ -491,12 +528,17 @@ a.by-btn {
   width: 100%;
   background: var(--by-bg-2);
   border: 1px solid var(--by-line);
-  color: var(--by-cream);
+  color: var(--by-text);
   padding: 1.4rem 1.6rem;
   font: inherit;
   font-size: 1.6rem;
   border-radius: 0.6rem;
   box-sizing: border-box;
+}
+.by-form input::placeholder,
+.by-form textarea::placeholder {
+  color: var(--by-muted);
+  opacity: 1;
 }
 .by-form textarea {
   min-height: 7rem;
@@ -522,7 +564,7 @@ a.by-btn {
   font-size: 2.2rem;
   line-height: 1.45;
   margin: 0;
-  color: var(--by-cream);
+  color: var(--by-text);
 }
 .by-quote footer {
   color: var(--by-gold);
@@ -577,7 +619,7 @@ a.by-btn {
   gap: 0.4rem 1.2rem;
 }
 .by-footer a {
-  color: var(--by-cream);
+  color: var(--by-text);
 }
 
 .sticky-call {
@@ -587,7 +629,7 @@ a.by-btn {
   bottom: 0;
   z-index: 40;
   display: none;
-  background: rgba(13, 13, 13, 0.92);
+  background: var(--by-sticky-bg);
   border-top: 1px solid var(--by-line);
   backdrop-filter: blur(12px);
 }
@@ -598,7 +640,7 @@ a.by-btn {
   text-align: center;
   padding: 1.2rem 0.4rem;
   text-decoration: none;
-  color: var(--by-cream);
+  color: var(--by-text);
   font-size: 1.4rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -633,12 +675,12 @@ a.by-btn {
 .shop-card__promo {
   color: var(--by-gold);
 }
-.shop-card__badge--hit { background: var(--by-blush); color: #1a1208; }
-.shop-card__badge--sale { background: var(--by-gold); color: #1a1208; }
-.shop-card__badge--new { background: #3a2a24; color: var(--by-cream); }
+.shop-card__badge--hit { background: var(--by-blush); color: var(--by-ink); }
+.shop-card__badge--sale { background: var(--by-gold); color: var(--by-ink); }
+.shop-card__badge--new { background: var(--by-surface-2); color: var(--by-text); }
 .shop-card__cart-btn {
   background: var(--by-gold);
-  color: #1a1208;
+  color: var(--by-ink);
 }
 .shop-card__cart-btn:hover {
   background: var(--by-gold-hover);
@@ -653,7 +695,7 @@ a.by-btn {
 }
 .shop-card__cart-btn.is-in-cart:hover {
   background: var(--by-gold);
-  color: #1a1208;
+  color: var(--by-ink);
 }
 
 /* —— Cart page —— */
@@ -935,14 +977,14 @@ a.by-btn {
 }
 
 body:not(:has(.admin-body)) .status {
-  background: #2a2118;
-  color: var(--by-cream);
+  background: var(--by-status-bg);
+  color: var(--by-text);
   border-color: var(--by-gold);
 }
 body:not(:has(.admin-body)) .status--error {
-  background: #2a1515;
-  color: #f3c2c2;
-  border-color: #8b1a1a;
+  background: var(--by-status-error-bg);
+  color: var(--by-status-error);
+  border-color: color-mix(in srgb, var(--by-status-error) 45%, transparent);
 }
 
 /* Contacts — luxury, not the old green repair card */
@@ -1065,10 +1107,14 @@ body:not(:has(.admin-body)) ._callback__phone:focus-visible {
   outline: 2px solid var(--by-gold);
   outline-offset: 2px;
 }
+body:not(:has(.admin-body)) ._callback__phone::placeholder {
+  color: var(--by-muted);
+  opacity: 1;
+}
 body:not(:has(.admin-body)) .contacts__callback .by-btn,
 body:not(:has(.admin-body)) .contacts__callback button {
   background: var(--by-gold);
-  color: #1a1208;
+  color: var(--by-ink);
   box-shadow: none;
   border-radius: 0;
   font-weight: 600;
@@ -1080,7 +1126,7 @@ body:not(:has(.admin-body)) .contacts__callback button {
 body:not(:has(.admin-body)) .contacts__callback .by-btn:hover,
 body:not(:has(.admin-body)) .contacts__callback button:hover {
   background: var(--by-gold-hover);
-  color: #1a1208;
+  color: var(--by-ink);
 }
 
 /* Hero + standalone «Записатись» — по центру, ширша форма */
@@ -1142,20 +1188,20 @@ body:not(:has(.admin-body)) a.feedback-btn {
 }
 body:not(:has(.admin-body)) .feedback .left-arrow,
 body:not(:has(.admin-body)) .feedback .right-arrow {
-  background: rgba(13, 13, 13, 0.85);
+  background: var(--by-surface);
   border: 1px solid var(--by-line);
-  color: var(--by-cream);
+  color: var(--by-text);
 }
 body:not(:has(.admin-body)) ._btn {
   background: var(--by-gold);
-  color: #1a1208;
+  color: var(--by-ink);
   box-shadow: none;
   border-radius: 0;
 }
 body:not(:has(.admin-body)) ._btn:hover,
 body:not(:has(.admin-body)) ._btn:active {
   background: var(--by-gold-hover);
-  color: #1a1208;
+  color: var(--by-ink);
 }
 
 body:not(:has(.admin-body)) .line__circle::before,
@@ -1172,7 +1218,7 @@ body:not(:has(.admin-body)) .pageup {
 }
 body:not(:has(.admin-body)) .pageup:hover {
   background: rgba(196, 165, 116, 0.5);
-  color: #1a1208;
+  color: var(--by-ink);
   border-color: var(--by-gold);
 }
 body:not(:has(.admin-body)) .pageup:focus-visible {
@@ -1186,12 +1232,39 @@ body:not(:has(.admin-body)) .services-nav {
 }
 body:not(:has(.admin-body)) .services-nav__item_active {
   background: var(--by-gold);
-  color: #1a1208;
+  color: var(--by-ink);
 }
 body:not(:has(.admin-body)) .shop-chip.is-active {
   background: var(--by-gold);
   border-color: var(--by-gold);
-  color: #1a1208;
+  color: var(--by-ink);
+}
+
+/* Salon hero copy — must follow --by-text, never leftover dark ink */
+body:not(:has(.admin-body)) .services__title,
+body:not(:has(.admin-body)) .services__about-info,
+body:not(:has(.admin-body)) ._title,
+body:not(:has(.admin-body)) ._paragr {
+  color: var(--by-text);
+}
+
+body:not(:has(.admin-body)) .about-link__title,
+body:not(:has(.admin-body)) .about-link__paragr,
+body:not(:has(.admin-body)) .about-link__wrapper {
+  color: var(--by-text);
+}
+body:not(:has(.admin-body)) .about-link__paragr {
+  color: var(--by-muted);
+}
+body:not(:has(.admin-body)) .about-link__descr {
+  color: var(--by-on-photo);
+}
+body:not(:has(.admin-body)) .about-link__link:hover::after,
+body:not(:has(.admin-body)) .about-link__link:focus-visible::after {
+  background: linear-gradient(180deg, rgba(196, 165, 116, 0) 0%, rgba(196, 165, 116, 0.7) 59%, var(--by-gold) 100%);
+}
+body:not(:has(.admin-body)) .about-link__link:focus-visible {
+  outline-color: var(--by-gold);
 }
 
 @media (max-width: 860px) {
@@ -1250,7 +1323,8 @@ body:not(:has(.admin-body)) .shop-chip.is-active {
     top: 4.4rem;
     left: 0;
     right: 0;
-    background: #111;
+    background: var(--by-nav-bg);
+    border-bottom: 1px solid var(--by-line);
     padding: 1rem;
     z-index: 20;
   }

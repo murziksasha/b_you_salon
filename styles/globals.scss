@@ -14,21 +14,21 @@
   font-size: 1.4rem;
   line-height: 1.35;
   text-align: center;
-  background: rgba(196, 165, 116, 0.16);
-  color: var(--by-cream, #f5ede4);
+  background: var(--by-status-bg, rgba(196, 165, 116, 0.16));
+  color: var(--by-text, #f5ede4);
   border: 1px solid var(--by-line, rgba(196, 165, 116, 0.35));
 }
 
 .status--ok {
-  background: rgba(196, 165, 116, 0.16);
-  color: var(--by-cream, #f5ede4);
+  background: var(--by-status-bg, rgba(196, 165, 116, 0.16));
+  color: var(--by-text, #f5ede4);
   border-color: var(--by-gold, #c4a574);
 }
 
 .status--error {
-  background: rgba(192, 57, 43, 0.18);
-  color: #f5c6c2;
-  border-color: rgba(192, 57, 43, 0.45);
+  background: var(--by-status-error-bg, rgba(192, 57, 43, 0.18));
+  color: var(--by-status-error, #f5c6c2);
+  border-color: color-mix(in srgb, var(--by-status-error, #c0392b) 45%, transparent);
 }
 
 .form-hp {
@@ -66,7 +66,7 @@
     z-index: 90;
     gap: 8px;
     padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0));
-    background: rgba(13, 13, 13, 0.94);
+    background: var(--by-sticky-bg, rgba(13, 13, 13, 0.94));
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.2);
     align-items: stretch;
     /* Height estimate for clearance */
@@ -83,7 +83,7 @@
     flex-direction: column;
     justify-content: center;
     background: transparent;
-    color: #c4a574;
+    color: var(--by-gold, #c4a574);
     text-decoration: none;
     border-radius: 0;
     padding: 10px 14px;
@@ -209,7 +209,7 @@
     }
 
     a {
-      color: #02a653;
+      color: var(--by-gold, #8b6738);
     }
   }
 }

@@ -13,7 +13,8 @@ import {
 export type ThemePreference = 'light' | 'dark' | 'system';
 export type ResolvedTheme = 'light' | 'dark';
 
-const STORAGE_KEY = 'ps-theme';
+const STORAGE_KEY = 'byou-theme';
+const LEGACY_STORAGE_KEY = 'ps-theme';
 
 type ThemeContextValue = {
   preference: ThemePreference;
@@ -39,23 +40,23 @@ function applyTheme(resolved: ResolvedTheme) {
   root.style.colorScheme = resolved;
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) {
-    meta.setAttribute('content', resolved === 'dark' ? '#0d0d0d' : '#161412');
+    meta.setAttribute('content', resolved === 'dark' ? '#0d0d0d' : '#f6efe6');
   }
 }
 
 function readStored(): ThemePreference {
   try {
-    const v = localStorage.getItem(STORAGE_KEY);
+    const v = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
     if (v === 'light' || v === 'dark' || v === 'system') return v;
   } catch {
     /* ignore */
   }
-  return 'system';
+  return 'dark';
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [preference, setPreferenceState] = useState<ThemePreference>('system');
-  const [resolved, setResolved] = useState<ResolvedTheme>('light');
+  const [preference, setPreferenceState] = useState<ThemePreference>('dark');
+  const [resolved, setResolved] = useState<ResolvedTheme>('dark');
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -83,6 +84,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     setPreferenceState(next);
     try {
       localStorage.setItem(STORAGE_KEY, next);
+      localStorage.removeItem(LEGACY_STORAGE_KEY);
     } catch {
       /* ignore */
     }

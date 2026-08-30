@@ -15,14 +15,14 @@ const vibes = Great_Vibes({ subsets: ['latin'], weight: '400', variable: '--font
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#0d0d0d' },
+    { media: '(prefers-color-scheme: light)', color: '#f6efe6' },
     { media: '(prefers-color-scheme: dark)', color: '#0d0d0d' },
   ],
 };
 
-/** Runs before paint to avoid light flash when user prefers dark. */
+/** Runs before paint. Default is dark luxury; migrate leftover ps-theme key. */
 const THEME_BOOT =
-  "(function(){try{var k='ps-theme';var p=localStorage.getItem(k)||'system';var d=window.matchMedia('(prefers-color-scheme: dark)').matches;var t=p==='dark'||(p!=='light'&&d)?'dark':'light';var r=document.documentElement;r.dataset.theme=t;r.style.colorScheme=t;}catch(e){}})();";
+  "(function(){try{var k='byou-theme';var p=localStorage.getItem(k)||localStorage.getItem('ps-theme')||'dark';var t;if(p==='light')t='light';else if(p==='system')t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';else t='dark';var r=document.documentElement;r.dataset.theme=t;r.style.colorScheme=t;}catch(e){document.documentElement.dataset.theme='dark';}})();";
 
 export async function generateMetadata(): Promise<Metadata> {
   const data = await getSiteData();
@@ -74,7 +74,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang='uk' suppressHydrationWarning className={`${manrope.variable} ${cormorant.variable} ${vibes.variable}`}>
+    <html lang='uk' suppressHydrationWarning data-theme='dark' className={`${manrope.variable} ${cormorant.variable} ${vibes.variable}`}>
       <body>
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
         <ThemeProvider>

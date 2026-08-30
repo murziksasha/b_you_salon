@@ -61,14 +61,14 @@
     width: 1rem;
     height: 1rem;
     border-radius: 50%;
-    border: 2px solid #02a653;
+    border: 2px solid var(--by-gold, #c4a574);
     background: transparent;
     padding: 0;
     cursor: pointer;
     transition: background 0.2s ease, transform 0.2s ease;
 
     &.is-active {
-      background: #02a653;
+      background: var(--by-gold, #c4a574);
       transform: scale(1.15);
     }
 
