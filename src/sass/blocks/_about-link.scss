@@ -67,11 +67,11 @@
 
     &:hover::after,
     &:focus-visible::after {
-      background: linear-gradient(180deg, rgba(2, 166, 83, 0) 0%, rgba(2, 166, 83, 0.76) 59.37%, #02a653 100%);
+      background: linear-gradient(180deg, rgba(196, 165, 116, 0) 0%, rgba(196, 165, 116, 0.76) 59.37%, var(--by-gold, #c4a574) 100%);
     }
 
     &:focus-visible {
-      outline: 3px solid #02a653;
+      outline: 3px solid var(--by-gold, #c4a574);
       outline-offset: 3px;
     }
   }

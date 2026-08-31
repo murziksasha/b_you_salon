@@ -5,7 +5,10 @@ import { getProducts, getSiteData } from '@/lib/site-data';
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata() {
-  return { title: 'Кошик' };
+  return {
+    title: 'Кошик',
+    robots: { index: false, follow: false },
+  };
 }
 
 export default async function CartPage() {

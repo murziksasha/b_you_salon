@@ -1,14 +1,15 @@
 import type { MetadataRoute } from 'next';
+import { requestSiteUrl } from '@/lib/request-site-url';
 
-export default function robots(): MetadataRoute.Robots {
-  const base = process.env.SITE_URL?.replace(/\/$/, '') || '';
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  const base = (await requestSiteUrl()) || '';
 
   return {
     rules: [
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/admin', '/admin/', '/api/'],
+        disallow: ['/admin', '/admin/', '/api/', '/cart', '/thanks'],
       },
     ],
     sitemap: base ? `${base}/sitemap.xml` : undefined,

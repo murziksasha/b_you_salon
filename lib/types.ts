@@ -40,6 +40,8 @@ export interface SiteSettings {
   privacyPolicyText: string;
   /** Optional Google / external reviews URL for feedback CTA */
   reviewsUrl?: string;
+  /** Open Graph / WhatsApp share image (1200×630). Falls back to /img/og-cover.jpg */
+  ogImage?: string;
 }
 
 export interface ServiceNavItem {

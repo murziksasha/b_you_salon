@@ -1,8 +1,8 @@
-/* B_You public luxury theme — tokens loaded from globals.scss */
+/* B_You public luxury theme — tokens loaded from tokens-public.scss */
 
 body:not(:has(.admin-body)) {
   background: var(--by-bg);
-  color: var(--by-cream);
+  color: var(--by-text);
   font-family: var(--by-sans);
   color-scheme: inherit;
   /* Leftover --ps-* from theme.scss / src/sass must not paint public text black. */
@@ -27,7 +27,7 @@ body:not(:has(.admin-body)) {
 
 body:not(:has(.admin-body)) .container {
   background: var(--by-bg);
-  color: var(--by-cream);
+  color: var(--by-text);
   min-height: 100dvh;
 }
 
@@ -65,7 +65,7 @@ body:not(:has(.admin-body)) ._list-reset:hover {
   top: 1rem;
   z-index: 80;
   background: var(--by-gold);
-  color: #1a1208;
+  color: var(--by-ink);
   padding: 0.6rem 1rem;
 }
 
@@ -120,7 +120,7 @@ body:not(:has(.admin-body)) ._list-reset:hover {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   font-size: 1.5rem;
-  color: var(--by-cream);
+  color: var(--by-text);
 }
 .by-header__nav a.is-active,
 .by-header__nav a:hover {
@@ -158,7 +158,7 @@ body:not(:has(.admin-body)) .theme-toggle:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--by-cream);
+  color: var(--by-text);
   text-decoration: none;
   line-height: 0;
 }
@@ -178,7 +178,7 @@ body:not(:has(.admin-body)) .theme-toggle:hover {
   height: 1.35rem;
   border-radius: 99px;
   background: var(--by-blush);
-  color: #1a1208;
+  color: var(--by-ink);
   font-size: 1rem;
   font-weight: 600;
   line-height: 1;
@@ -204,6 +204,11 @@ body:not(:has(.admin-body)) .theme-toggle:hover {
   background: var(--by-gold-hover);
   border-color: var(--by-gold-hover);
 }
+.by-header__theme {
+  flex-shrink: 0;
+}
+
+
 .by-burger {
   display: none;
   align-items: center;
@@ -266,10 +271,11 @@ body:not(:has(.admin-body)) .theme-toggle:hover {
   text-align: center;
   pointer-events: none;
   padding: 1.6rem 3.2rem 1.8rem;
-  background: rgba(8, 7, 6, 0.42);
-  border: 1px solid var(--by-line);
+  background: rgba(8, 7, 6, 0.55);
+  border: 1px solid rgba(196, 165, 116, 0.45);
   backdrop-filter: blur(12px);
   max-width: min(64rem, 90vw);
+  color: var(--by-on-photo);
 }
 .doors__kicker {
   font-family: var(--by-script);
@@ -396,7 +402,7 @@ body:not(:has(.admin-body)) .theme-toggle:hover {
   letter-spacing: 0.16em;
   text-transform: uppercase;
   font-size: 1.4rem;
-  background: rgba(196, 165, 116, 0.16);
+  background: rgba(196, 165, 116, 0.22);
   backdrop-filter: blur(8px);
   color: var(--by-on-photo);
 }
@@ -428,7 +434,7 @@ body:not(:has(.admin-body)) .theme-toggle:hover {
   font-size: clamp(2.4rem, 4vw, 3.6rem);
   font-weight: 500;
   margin: 0 0 0.6rem;
-  color: var(--by-cream);
+  color: var(--by-text);
 }
 .by-section__sub {
   color: var(--by-muted);
@@ -458,7 +464,7 @@ body:not(:has(.admin-body)) .theme-toggle:hover {
   font-size: clamp(3.2rem, 5vw, 5.2rem);
   margin: 0 0 1.6rem;
   font-weight: 500;
-  color: var(--by-cream);
+  color: var(--by-text);
   line-height: 1.05;
 }
 .by-hero__about {
@@ -652,7 +658,7 @@ body:not(:has(.admin-body)) .theme-toggle:hover {
   justify-content: center;
   border: none;
   background: var(--by-gold);
-  color: var(--by-ink, #1a1208);
+  color: var(--by-ink);
   padding: 1.2rem 1.8rem;
   min-height: 5.2rem;
   letter-spacing: 0.1em;
@@ -674,7 +680,7 @@ body:not(:has(.admin-body)) .theme-toggle:hover {
 }
 .by-btn--ghost {
   background: transparent;
-  color: var(--by-cream);
+  color: var(--by-text);
   border: 1px solid var(--by-gold);
   width: auto;
   min-height: 0;
@@ -690,7 +696,7 @@ a.by-btn {
 }
 .by-btn.is-in-cart:hover {
   background: var(--by-gold);
-  color: #1a1208;
+  color: var(--by-ink);
 }
 
 .by-form {
@@ -706,12 +712,17 @@ a.by-btn {
   width: 100%;
   background: var(--by-bg-2);
   border: 1px solid var(--by-line);
-  color: var(--by-cream);
+  color: var(--by-text);
   padding: 1.4rem 1.6rem;
   font: inherit;
   font-size: 1.6rem;
   border-radius: 0.6rem;
   box-sizing: border-box;
+}
+.by-form input::placeholder,
+.by-form textarea::placeholder {
+  color: var(--by-muted);
+  opacity: 1;
 }
 .by-form textarea {
   min-height: 7rem;
@@ -738,7 +749,7 @@ a.by-btn {
   font-size: 2.2rem;
   line-height: 1.45;
   margin: 0;
-  color: var(--by-cream);
+  color: var(--by-text);
 }
 .by-quote footer {
   color: var(--by-gold);
@@ -807,7 +818,7 @@ a.by-btn {
 }
 .by-footer__nav a,
 .by-footer a {
-  color: var(--by-cream);
+  color: var(--by-text);
   text-decoration: none;
 }
 .by-footer a:hover {
@@ -824,7 +835,7 @@ a.by-btn {
   bottom: 0;
   z-index: 40;
   display: none;
-  background: color-mix(in srgb, var(--by-bg) 92%, transparent);
+  background: var(--by-sticky-bg);
   border-top: 1px solid var(--by-line);
   backdrop-filter: blur(12px);
 }
@@ -835,7 +846,7 @@ a.by-btn {
   text-align: center;
   padding: 1.2rem 0.4rem;
   text-decoration: none;
-  color: var(--by-cream);
+  color: var(--by-text);
   font-size: 1.4rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -871,12 +882,12 @@ body:not(:has(.admin-body)) .shop-card {
 .shop-card__promo {
   color: var(--by-gold);
 }
-.shop-card__badge--hit { background: var(--by-blush); color: #1a1208; }
-.shop-card__badge--sale { background: var(--by-gold); color: #1a1208; }
-.shop-card__badge--new { background: #3a2a24; color: var(--by-cream); }
+.shop-card__badge--hit { background: var(--by-blush); color: var(--by-ink); }
+.shop-card__badge--sale { background: var(--by-gold); color: var(--by-ink); }
+.shop-card__badge--new { background: var(--by-surface-2); color: var(--by-text); }
 .shop-card__cart-btn {
   background: var(--by-gold);
-  color: #1a1208;
+  color: var(--by-ink);
 }
 .shop-card__cart-btn:hover {
   background: var(--by-gold-hover);
@@ -891,7 +902,7 @@ body:not(:has(.admin-body)) .shop-card {
 }
 .shop-card__cart-btn.is-in-cart:hover {
   background: var(--by-gold);
-  color: #1a1208;
+  color: var(--by-ink);
 }
 
 /* —— Cart page —— */
@@ -1173,14 +1184,14 @@ body:not(:has(.admin-body)) .shop-card {
 }
 
 body:not(:has(.admin-body)) .status {
-  background: #2a2118;
-  color: var(--by-cream);
+  background: var(--by-status-bg);
+  color: var(--by-text);
   border-color: var(--by-gold);
 }
 body:not(:has(.admin-body)) .status--error {
-  background: #2a1515;
-  color: #f3c2c2;
-  border-color: #8b1a1a;
+  background: var(--by-status-error-bg);
+  color: var(--by-status-error);
+  border-color: color-mix(in srgb, var(--by-status-error) 45%, transparent);
 }
 
 /* Contacts — luxury, not the old green repair card */
@@ -1320,10 +1331,14 @@ body:not(:has(.admin-body)) ._callback__phone:focus-visible {
   outline: 2px solid var(--by-gold);
   outline-offset: 2px;
 }
+body:not(:has(.admin-body)) ._callback__phone::placeholder {
+  color: var(--by-muted);
+  opacity: 1;
+}
 body:not(:has(.admin-body)) .contacts__callback .by-btn,
 body:not(:has(.admin-body)) .contacts__callback button {
   background: var(--by-gold);
-  color: #1a1208;
+  color: var(--by-ink);
   box-shadow: none;
   border-radius: 0;
   font-weight: 600;
@@ -1335,7 +1350,7 @@ body:not(:has(.admin-body)) .contacts__callback button {
 body:not(:has(.admin-body)) .contacts__callback .by-btn:hover,
 body:not(:has(.admin-body)) .contacts__callback button:hover {
   background: var(--by-gold-hover);
-  color: #1a1208;
+  color: var(--by-ink);
 }
 
 /* Hero + standalone «Записатись» — по центру, ширша форма */
@@ -1397,20 +1412,20 @@ body:not(:has(.admin-body)) a.feedback-btn {
 }
 body:not(:has(.admin-body)) .feedback .left-arrow,
 body:not(:has(.admin-body)) .feedback .right-arrow {
-  background: rgba(13, 13, 13, 0.85);
+  background: var(--by-surface);
   border: 1px solid var(--by-line);
-  color: var(--by-cream);
+  color: var(--by-text);
 }
 body:not(:has(.admin-body)) ._btn {
   background: var(--by-gold);
-  color: #1a1208;
+  color: var(--by-ink);
   box-shadow: none;
   border-radius: 0;
 }
 body:not(:has(.admin-body)) ._btn:hover,
 body:not(:has(.admin-body)) ._btn:active {
   background: var(--by-gold-hover);
-  color: #1a1208;
+  color: var(--by-ink);
 }
 
 body:not(:has(.admin-body)) .line__circle::before,
@@ -1427,7 +1442,7 @@ body:not(:has(.admin-body)) .pageup {
 }
 body:not(:has(.admin-body)) .pageup:hover {
   background: rgba(196, 165, 116, 0.5);
-  color: #1a1208;
+  color: var(--by-ink);
   border-color: var(--by-gold);
 }
 body:not(:has(.admin-body)) .pageup:focus-visible {
@@ -1453,13 +1468,40 @@ body:not(:has(.admin-body)) .services-nav__item {
 }
 body:not(:has(.admin-body)) .services-nav__item_active {
   background: var(--by-gold);
-  color: #1a1208;
+  color: var(--by-ink);
   border-color: var(--by-gold);
 }
 body:not(:has(.admin-body)) .shop-chip.is-active {
   background: var(--by-gold);
   border-color: var(--by-gold);
-  color: #1a1208;
+  color: var(--by-ink);
+}
+
+/* Salon hero copy — must follow --by-text, never leftover dark ink */
+body:not(:has(.admin-body)) .services__title,
+body:not(:has(.admin-body)) .services__about-info,
+body:not(:has(.admin-body)) ._title,
+body:not(:has(.admin-body)) ._paragr {
+  color: var(--by-text);
+}
+
+body:not(:has(.admin-body)) .about-link__title,
+body:not(:has(.admin-body)) .about-link__paragr,
+body:not(:has(.admin-body)) .about-link__wrapper {
+  color: var(--by-text);
+}
+body:not(:has(.admin-body)) .about-link__paragr {
+  color: var(--by-muted);
+}
+body:not(:has(.admin-body)) .about-link__descr {
+  color: var(--by-on-photo);
+}
+body:not(:has(.admin-body)) .about-link__link:hover::after,
+body:not(:has(.admin-body)) .about-link__link:focus-visible::after {
+  background: linear-gradient(180deg, rgba(196, 165, 116, 0) 0%, rgba(196, 165, 116, 0.7) 59%, var(--by-gold) 100%);
+}
+body:not(:has(.admin-body)) .about-link__link:focus-visible {
+  outline-color: var(--by-gold);
 }
 
 @media (max-width: 860px) {

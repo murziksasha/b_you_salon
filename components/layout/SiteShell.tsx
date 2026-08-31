@@ -1,6 +1,7 @@
 import type { MenuItem, SiteData, SiteSettings } from '@/lib/types';
 import { LocalBusinessJsonLd } from '@/components/seo/LocalBusinessJsonLd';
 import { CartProvider } from '@/components/cart/CartProvider';
+import { requestSiteUrl } from '@/lib/request-site-url';
 import { Footer } from './Footer';
 import { Header } from './Header';
 import { PageUp } from './PageUp';
@@ -14,8 +15,8 @@ interface SiteShellProps {
   children: React.ReactNode;
 }
 
-export function SiteShell({ settings, menu, site, children }: SiteShellProps) {
-  const siteUrl = process.env.SITE_URL?.replace(/\/$/, '') || undefined;
+export async function SiteShell({ settings, menu, site, children }: SiteShellProps) {
+  const siteUrl = await requestSiteUrl();
 
   return (
     <CartProvider>

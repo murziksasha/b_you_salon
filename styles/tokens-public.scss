@@ -10,6 +10,7 @@
   --by-blush: #e8a0bf;
   --by-blush-deep: #d989b5;
   --by-cream: #f5ede4;
+  --by-text: var(--by-cream);
   --by-muted: #c4b8aa;
   --by-line: rgba(196, 165, 116, 0.35);
   --by-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
@@ -18,6 +19,11 @@
   --by-script: var(--font-script), 'Great Vibes', cursive;
   --by-radius: 0.6rem;
   --by-header-bg: rgba(13, 13, 13, 0.86);
+  --by-nav-bg: #111008;
+  --by-sticky-bg: rgba(13, 13, 13, 0.94);
+  --by-status-bg: #2a2118;
+  --by-status-error-bg: #2a1515;
+  --by-status-error: #f3c2c2;
   --by-focus: var(--by-gold);
   --by-ink: #1a1208;
   --by-on-photo: #f5ede4;
@@ -33,10 +39,16 @@ html[data-theme='light'] {
   --by-blush: #c45d86;
   --by-blush-deep: #b44a74;
   --by-cream: #1a1208;
+  --by-text: var(--by-cream);
   --by-muted: #6b5748;
   --by-line: rgba(138, 110, 62, 0.28);
   --by-shadow: 0 16px 40px rgba(26, 18, 8, 0.08);
   --by-header-bg: rgba(246, 239, 230, 0.92);
+  --by-nav-bg: #f6efe6;
+  --by-sticky-bg: rgba(246, 239, 230, 0.96);
+  --by-status-bg: #f1e6d8;
+  --by-status-error-bg: #f8e4e0;
+  --by-status-error: #7a2e24;
   --by-ink: #1a1208;
   --by-on-photo: #f5ede4;
 }

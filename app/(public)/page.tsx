@@ -1,7 +1,10 @@
 import type { Metadata } from 'next';
 import { PageFrame } from '@/components/layout/SiteShell';
+import { FaqJsonLd } from '@/components/seo/FaqJsonLd';
 import { SectionRenderer } from '@/components/sections/SectionRenderer';
 import { collectHeroImages } from '@/lib/hero-images';
+import { requestSiteUrl } from '@/lib/request-site-url';
+import { buildPublicMetadata, shareImageFromSettings } from '@/lib/seo-metadata';
 import { getSiteData } from '@/lib/site-data';
 
 export const dynamic = 'force-dynamic';
@@ -12,16 +15,15 @@ export async function generateMetadata(): Promise<Metadata> {
     data.pages.find((p) => p.slug === '' && p.visible) ?? data.pages.find((p) => p.id === 'home');
   const title = page?.title || data.settings.title;
   const description = page?.description || data.settings.description;
-  return {
-    title,
-    description,
-    openGraph: {
+  return buildPublicMetadata(
+    {
       title,
       description,
-      type: 'website',
-      images: data.settings.logo ? [{ url: data.settings.logo }] : undefined,
+      path: '/',
+      image: shareImageFromSettings(data.settings),
     },
-  };
+    await requestSiteUrl(),
+  );
 }
 
 export default async function HomePage() {
@@ -42,6 +44,7 @@ export default async function HomePage() {
 
   return (
     <PageFrame titleSize={page.titleSize} textScale={page.textScale}>
+      <FaqJsonLd />
       <SectionRenderer
         sections={page.sections}
         servicesNav={data.servicesNav}

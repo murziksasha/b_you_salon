@@ -2,6 +2,12 @@ import type { Metadata, Viewport } from 'next';
 import { Cormorant_Garamond, Great_Vibes, Manrope } from 'next/font/google';
 import { PwaRegister } from '@/components/PwaRegister';
 import { ThemeProvider } from '@/components/layout/ThemeProvider';
+import { requestSiteUrl } from '@/lib/request-site-url';
+import {
+  DEFAULT_SEO_KEYWORDS,
+  buildPublicMetadata,
+  shareImageFromSettings,
+} from '@/lib/seo-metadata';
 import { getSiteData } from '@/lib/site-data';
 import '@/styles/globals.scss';
 
@@ -20,15 +26,25 @@ export const viewport: Viewport = {
   ],
 };
 
-/** Runs before paint to avoid light flash when user prefers dark. */
+/** Runs before paint. Default is dark luxury; migrate leftover ps-theme key. */
 const THEME_BOOT =
-  "(function(){try{var k='ps-theme';var p=localStorage.getItem(k)||'system';var d=window.matchMedia('(prefers-color-scheme: dark)').matches;var t=p==='dark'||(p!=='light'&&d)?'dark':'light';var r=document.documentElement;r.dataset.theme=t;r.style.colorScheme=t;}catch(e){}})();";
+  "(function(){try{var k='byou-theme';var p=localStorage.getItem(k)||localStorage.getItem('ps-theme')||'dark';var t;if(p==='light')t='light';else if(p==='system')t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';else t='dark';var r=document.documentElement;r.dataset.theme=t;r.style.colorScheme=t;}catch(e){document.documentElement.dataset.theme='dark';}})();";
 
 export async function generateMetadata(): Promise<Metadata> {
   const data = await getSiteData();
   const title = data.settings.title;
   const description = data.settings.description;
-  const base = process.env.SITE_URL?.replace(/\/$/, '') || undefined;
+  const base = await requestSiteUrl();
+  const share = buildPublicMetadata(
+    {
+      title,
+      description,
+      path: '/',
+      image: shareImageFromSettings(data.settings),
+      keywords: DEFAULT_SEO_KEYWORDS,
+    },
+    base,
+  );
 
   return {
     metadataBase: base ? new URL(base) : undefined,
@@ -36,7 +52,9 @@ export async function generateMetadata(): Promise<Metadata> {
       default: title,
       template: `%s | B_You`,
     },
-    description,
+    description: share.description,
+    keywords: share.keywords,
+    alternates: share.alternates,
     icons: { icon: data.settings.favicon },
     manifest: '/manifest.webmanifest',
     appleWebApp: {
@@ -44,37 +62,15 @@ export async function generateMetadata(): Promise<Metadata> {
       statusBarStyle: 'default',
       title: 'B_You',
     },
-    openGraph: {
-      type: 'website',
-      locale: 'uk_UA',
-      title,
-      description,
-      siteName: 'B_You',
-      images: [
-        {
-          url: data.settings.logo || '/img/icons/logo.png',
-          width: 1200,
-          height: 630,
-          alt: title,
-        },
-      ],
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title,
-      description,
-      images: [data.settings.logo || '/img/icons/logo.png'],
-    },
-    robots: {
-      index: true,
-      follow: true,
-    },
+    openGraph: share.openGraph,
+    twitter: share.twitter,
+    robots: share.robots,
   };
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang='uk' suppressHydrationWarning className={`${manrope.variable} ${cormorant.variable} ${vibes.variable}`}>
+    <html lang='uk' suppressHydrationWarning data-theme='dark' className={`${manrope.variable} ${cormorant.variable} ${vibes.variable}`}>
       <body>
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
         <ThemeProvider>

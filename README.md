@@ -55,6 +55,7 @@ Dev з hot-reload у контейнері: `npm run docker:dev` (теж порт
 |---------|-----|
 | `npm run dev` | Dev-сервер |
 | `npm run seed` | Записати дефолтний контент у `data/site.json` |
+| `npm run update` | Хост: checkout `dev` + `git pull` + build + `pm2 restart` (див. `docs/deploy.md`) |
 | `npm test` | Vitest |
 | `npm run test:smoke` | Playwright smoke |
 | `npm run docker:up` | Prod-стек |

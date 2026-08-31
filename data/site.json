@@ -1,9 +1,10 @@
 {
   "settings": {
     "title": "B_You — студія краси",
-    "description": "B_You — студія краси. Салон праворуч: манікюр, педікюр, зачіски. Магазин косметики ліворуч. Be you!",
+    "description": "Студія краси B_You: салон праворуч — манікюр, педікюр, зачіски; магазин косметики ліворуч. Запис і самовивіз. Be you!",
     "logo": "/img/icons/logo.jpg",
     "favicon": "/img/icons/logo.jpg",
+    "ogImage": "/img/og-cover.jpg",
     "phones": [
       {
         "display": "063 128 45 51",
@@ -156,7 +157,7 @@
       "id": "home",
       "slug": "",
       "title": "B_You — Be you!",
-      "description": "B_You — студія краси. Салон праворуч: манікюр, педікюр, зачіски. Магазин косметики ліворуч. Be you!",
+      "description": "Студія краси B_You: салон праворуч — манікюр, педікюр, зачіски; магазин косметики ліворуч. Запис і самовивіз. Be you!",
       "visible": true,
       "zone": "home",
       "sections": [

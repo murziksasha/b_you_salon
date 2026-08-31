@@ -13,8 +13,8 @@ body.nav-open {
     margin-right: 0.8rem;
     padding: 0.6rem 1rem;
     border-radius: 999px;
-    background: var(--ps-brand, #02a653);
-    color: #fff;
+    background: var(--by-gold, var(--ps-brand, #c4a574));
+    color: var(--by-ink, #1a1208);
     text-decoration: none;
     font-size: 1.3rem;
     font-weight: 600;
@@ -55,7 +55,7 @@ body.nav-open {
     z-index: 110;
 
     &:focus-visible {
-      outline: 2px solid #02a653;
+      outline: 2px solid var(--by-gold, #c4a574);
       outline-offset: 2px;
     }
 
@@ -63,7 +63,7 @@ body.nav-open {
       display: block;
       height: 0.3rem;
       width: 100%;
-      background: #1a1a1a;
+      background: var(--by-text, #1a1a1a);
       border-radius: 2px;
       transition: transform 0.2s ease, opacity 0.2s ease;
     }
@@ -325,8 +325,8 @@ body.nav-open {
   left: -9999px;
   top: 0;
   z-index: 1000;
-  background: #02a653;
-  color: #fff;
+  background: var(--by-gold, #c4a574);
+  color: var(--by-ink, #1a1208);
   padding: 0.8rem 1.2rem;
   border-radius: 0 0 6px 0;
   font-size: 1.4rem;

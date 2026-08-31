@@ -36,11 +36,27 @@ test.describe('public smoke', () => {
     expect(json.offsiteHint).toBeUndefined();
   });
 
+  test('home emits Ukrainian Open Graph tags', async ({ request }) => {
+    const res = await request.get('/');
+    expect(res.ok()).toBeTruthy();
+    const html = await res.text();
+    expect(html).toMatch(/<html[^>]*lang="uk"/i);
+    expect(html).toMatch(/property="og:locale"[^>]*content="uk_UA"|content="uk_UA"[^>]*property="og:locale"/);
+    expect(html).toMatch(/property="og:title"/);
+    expect(html).toMatch(/property="og:description"/);
+    expect(html).toMatch(/property="og:image"/);
+    expect(html).toMatch(/og-cover\.jpg/);
+    expect(html).toMatch(/name="twitter:card"[^>]*content="summary_large_image"|content="summary_large_image"[^>]*name="twitter:card"/);
+    expect(html).not.toMatch(/og:image"[^>]*localhost:3000\/img\/icons\/logo/i);
+  });
+
   test('robots.txt', async ({ request }) => {
     const res = await request.get('/robots.txt');
     expect(res.ok()).toBeTruthy();
     const text = await res.text();
     expect(text.toLowerCase()).toContain('user-agent');
+    expect(text).toContain('/admin');
+    expect(text).toContain('/cart');
   });
 
   test('sitemap.xml', async ({ request }) => {

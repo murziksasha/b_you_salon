@@ -31,7 +31,7 @@ docker compose up -d --build
 - [ ] `ADMIN_PASSWORD` — сильний, не `changeme`
 - [ ] `SESSION_SECRET` — довгий random (напр. `openssl rand -hex 32`)
 - [ ] SMTP для production (інакше заявки лише в логи)
-- [ ] `SITE_URL` — публічний URL (sitemap.xml, Open Graph), напр. `http://service.home`
+- [ ] `SITE_URL` — **публічний** https URL (sitemap.xml, Open Graph / WhatsApp). Не `localhost`. Приклад: `https://beyou.properservice.keenetic.pro`. Після зміни — рестарт і повторний шеринг (кеш месенджера).
 - [ ] `NODE_ENV=production` (в образі вже)
 
 ### Health
@@ -69,22 +69,21 @@ npm run pm2:setup
 | Команда | Дія |
 |---------|-----|
 | `npm run pm2:setup` | install/start + autostart |
+| `npm run update` | git pull + always-build + `pm2 restart byou` |
 | `npm run pm2:logs` | логи |
-| `npm run pm2:restart` | рестарт процесу |
+| `npm run pm2:restart` | рестарт процесу (без pull/build) |
 | `npm run pm2:stop` | стоп |
 | `npm run start:prod` | foreground без pm2 (build-if-needed) |
 
-Після `git pull` / змін у коді (`.next` уже є — auto-build **не** спрацює):
+Після змін у коді на хості **не** робіть голий `git pull` + `pm2 restart`. `pm2:setup` / `start:prod` збирають **лише якщо** немає `.next/BUILD_ID`, тому старий бандл залишиться. Один крок:
 
 ```bash
-npm install
-npm run build
-npm run pm2:restart
+npm run update
 ```
 
 Якщо сайт «голий» (HTML є, стилів/JS немає) і в Network у CSS/JS статус **400** або type **html**:
 
-1. Зробіть повний rebuild + restart (команди вище, або `docker compose up -d --build`).
+1. Зробіть повний rebuild + restart (`npm run update`, або `docker compose up -d --build`).
 2. У браузері: DevTools → Application → Service Workers → **Unregister**, потім hard reload (Ctrl+Shift+R).
 3. Перевірте, що `/_next/static/css/*.css` віддає `200` і `Content-Type: text/css`, а не HTML-сторінку помилки.
 
@@ -194,7 +193,7 @@ curl -X POST -H "Authorization: Bearer $BACKUP_CRON_SECRET" http://localhost/api
 2. В домашней сети: `http://<имя-или-IP>:3000` открывает сайт.
 3. `http://<хост>:3000/api/health` отвечает `{"ok":true,...}`.
 4. Админка `/admin` логинится (при HTTP: `COOKIE_SECURE=false`).
-5. После обновления кода вы делаете `build` + `pm2 restart` вручную.
+5. После обновления кода на хосте: `npm run update` (pull + build + `pm2 restart byou`).
 
 Схема:
 
@@ -205,7 +204,7 @@ curl -X POST -H "Authorization: Bearer $BACKUP_CRON_SECRET" http://localhost/api
 [Task Scheduler или pm2-windows-startup]
         │  pm2 resurrect
         ▼
-[pm2 → properservice]
+[pm2 → byou]
         │  next start -H 0.0.0.0 -p 3000
         ▼
 [браузеры в LAN / KeenDNS]
@@ -250,7 +249,7 @@ curl -X POST -H "Authorization: Bearer $BACKUP_CRON_SECRET" http://localhost/api
 
 | Способ | Как |
 |--------|-----|
-| **Git** | `git clone <url> C:\apps\properservice` затем `git checkout <ветка>` |
+| **Git** | `git clone <url> C:\apps\properservice` (default branch is **`dev`**) |
 | **Архив / USB** | скопировать папку проекта **без** обязательного `node_modules` (его поставите на месте) |
 | **Сетевой диск** | не рекомендуется как единственная копия (при отвале сети сайт упадёт) |
 
@@ -290,6 +289,7 @@ notepad .env
 | `COOKIE_SECURE` | **`false`** (иначе cookie админки не сохранятся по HTTP) |
 | `PORT` | `3000` (или другой свободный) |
 | `SITE_URL` | публичный URL, напр. `http://service.home:3000` или `http://192.168.1.50:3000` |
+| `DEPLOY_BRANCH` | **`dev`** (GitHub default; `npm run update` checkouts this branch) |
 | `SMTP_*` / `MAIL_*` | если нужны заявки на почту |
 | `ADMIN_IP_ALLOWLIST` | опционально: IP, с которых можно в `/admin` |
 
@@ -342,19 +342,20 @@ npm run pm2:setup
 
 1. Prepare: deps + build-if-needed (`start-prod.ps1 -PrepareOnly`).
 2. `npm install -g pm2` (если pm2 ещё нет).
-3. `pm2 start ecosystem.config.cjs` (процесс с именем **`properservice`**).
+3. `pm2 start ecosystem.config.cjs` (процесс с именем **`byou`**).
 4. `pm2 save` (список процессов для восстановления).
 5. Автозагрузка Windows:
    - сначала пробует **`pm2-windows-startup install`**;
    - если не вышло — создаёт задачу Планировщика **`ProperService-pm2`**: при **входе пользователя** → `pm2 resurrect`.
 
-Ожидаемый вывод: `pm2 status` с `properservice` = **online**.
+Ожидаемый вывод: `pm2 status` с `byou` = **online**.
 
 Полезные команды (запомните):
 
 ```powershell
 pm2 status
-pm2 logs properservice
+pm2 logs byou
+npm run update
 npm run pm2:logs
 npm run pm2:restart
 npm run pm2:stop
@@ -393,7 +394,7 @@ cd C:\apps\properservice
 type logs\pm2-autostart.log
 npm run pm2:autostart
 pm2 status
-pm2 logs properservice --lines 50
+pm2 logs byou --lines 50
 ```
 
 Проверьте задачу:
@@ -493,21 +494,42 @@ npm run pm2:restart
 
 ### 9. Обновление сайта на хосте (после правок на dev)
 
-Dev-машина **не** запускает prod-pm2. На хост код попадает так:
+Dev-машина **не** запускает prod-pm2. Код пушится в **`dev`** (default на GitHub). На хосте **одна** команда:
 
 ```powershell
 cd C:\apps\properservice
-
-# если git:
-git pull
-
-npm install
-npm run build
-npm run pm2:restart
+npm run update
 ```
 
-Почему `build` вручную: авто-сборка в скриптах срабатывает **только если нет** `.next\BUILD_ID`.  
-Если сборка уже была, после `git pull` без `npm run build` будет крутиться **старый** код.
+Хост должен сидеть на `dev`. Если ещё на `startProjectOnHost` / `main`:
+
+```powershell
+git fetch origin
+git checkout dev
+git pull --ff-only
+npm run update
+```
+
+В `.env` на хосте: `DEPLOY_BRANCH=dev` (как в `.env.example`). Старое значение `startProjectOnHost` оставит хост на мёртвой ветке.
+
+Что делает `scripts/update-app.ps1`:
+
+1. Копия `data/*.json` → `data/backups/pre-update-<время>/` (живой CMS не теряется без следа).
+2. `git fetch` + checkout ветки **`dev`** (или `DEPLOY_BRANCH` / `-Branch`) + `git pull --ff-only`. Отказ, если дерево грязное или нужен merge.
+3. `npm ci`, только если изменились `package.json` / lockfile (или нет `node_modules`).
+4. **Всегда** `npm run build` (иначе `.next` останется старым).
+5. `pm2 restart byou` (имя процесса одно: **`byou`**). Если Windows залочил `.next`, скрипт коротко стопает pm2 и собирает снова.
+6. Проверка `http://127.0.0.1:<PORT>/api/health`.
+
+Флаги: `npm run update -- -SkipPull` (только build+restart), `-SkipBackup`, `-SkipHealth`.
+
+Почему не `git pull` + `pm2 restart`: авто-сборка в `pm2:setup` / `start:prod` срабатывает **только если нет** `.next\BUILD_ID`. Без `npm run build` будет крутиться **старый** код.
+
+На хосте:
+
+- не запускайте `npm run seed` (перезапишет `data/site.json`);
+- не force-pull и не правьте код локально — только pull с dev;
+- секреты и uploads не в git (`.env`, `public/uploads`).
 
 Проверка после обновления: `/api/health` + главная + админка.
 
@@ -535,7 +557,7 @@ robocopy "C:\apps\properservice\public\uploads" "D:\backups\ps-uploads" /MIR
 | `pm2` not found | Node/npm PATH; новый терминал; `npm install -g pm2` |
 | С телефона не открывается | Firewall, IP ноутбука, `0.0.0.0` (ecosystem уже с `-H 0.0.0.0`), одна ли подсеть |
 | Админка «разлогинивает» | `COOKIE_SECURE=false` при HTTP; перезапуск pm2 после правки `.env` |
-| Старый дизайн/код после pull | Забыли `npm run build` перед `pm2:restart` |
+| Старый дизайн/код после pull | Забыли `npm run update` (нужен `npm run build` перед `pm2:restart`) |
 | Ноут «уснул» | Питание / сон (шаг 1) |
 | Порт занят | `netstat -ano \| findstr :3000` или сменить `PORT` в `.env` и `pm2 delete` + `npm run pm2:setup` |
 
@@ -543,7 +565,7 @@ robocopy "C:\apps\properservice\public\uploads" "D:\backups\ps-uploads" /MIR
 
 - [ ] Node.js LTS в PATH (`node -v`, `npm -v`)
 - [ ] Проект лежит на диске хоста (например `C:\apps\properservice`)
-- [ ] `.env` с сильными секретами, `COOKIE_SECURE=false`, `PORT=3000`, `SITE_URL=...`
+- [ ] `.env` с сильными секретами, `COOKIE_SECURE=false`, `PORT=3000`, `SITE_URL=...`, `DEPLOY_BRANCH=dev`
 - [ ] `npm install` + `npm run build` успешны
 - [ ] `npm run pm2:setup` → `pm2 status` = online
 - [ ] После **перезагрузки** health снова ok
