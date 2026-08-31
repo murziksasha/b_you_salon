@@ -21,9 +21,9 @@ export function ProductCard({ product }: { product: Product }) {
           <PublicImage
             src={product.image}
             alt={product.title}
-            width={240}
-            height={180}
-            sizes='(max-width: 600px) 50vw, 240px'
+            width={480}
+            height={360}
+            sizes='(max-width: 600px) 50vw, 320px'
           />
           {badgeLabel ? (
             <span className={`shop-card__badge shop-card__badge--${badge || 'custom'}`}>{badgeLabel}</span>

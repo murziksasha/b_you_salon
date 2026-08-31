@@ -130,8 +130,8 @@ export function ShopCatalog({
   if (!products.length) {
     return (
       <div className='shop-empty'>
-        <p className='_paragr'>Наразі в каталозі немає опублікованих товарів.</p>
-        <p className='shop-empty__hint'>Зателефонуйте — підберемо комплектуючі під ваш пристрій.</p>
+        <p>Наразі в каталозі немає опублікованих товарів.</p>
+        <p className='shop-empty__hint'>Зателефонуйте — підкажемо догляд під вашу шкіру.</p>
       </div>
     );
   }
@@ -139,8 +139,6 @@ export function ShopCatalog({
   return (
     <div className='shop-catalog'>
       <div className='shop-toolbar' role='search' aria-label='Фільтри каталогу'>
-        <p className='shop-toolbar__heading'>Пошук і сортування</p>
-
         <div className='shop-toolbar__row'>
           <label className='shop-toolbar__search'>
             <span className='shop-toolbar__label'>Пошук товару</span>
@@ -242,10 +240,10 @@ export function ShopCatalog({
         )
       ) : (
         <div className='shop-empty'>
-          <p className='_paragr'>Нічого не знайдено за вашим запитом.</p>
+          <p>Нічого не знайдено за вашим запитом.</p>
           <p className='shop-empty__hint'>Спробуйте інші слова або скиньте фільтри.</p>
           {active ? (
-            <button type='button' className='_btn shop-empty__btn' onClick={reset}>
+            <button type='button' className='by-btn shop-empty__btn' onClick={reset}>
               Скинути фільтри
             </button>
           ) : null}

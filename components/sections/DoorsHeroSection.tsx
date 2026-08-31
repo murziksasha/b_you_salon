@@ -1,4 +1,5 @@
 import type { DoorsHeroSection as DoorsHeroSectionType } from '@/lib/types';
+import { PublicImage } from '@/components/ui/PublicImage';
 
 export function DoorsHeroSection({ section }: { section: DoorsHeroSectionType }) {
   const leftSrc = section.left.image || section.image;
@@ -12,8 +13,17 @@ export function DoorsHeroSection({ section }: { section: DoorsHeroSectionType })
       </div>
       <div className='doors__split' aria-hidden />
       <a className='doors__half doors__half--left' href={section.left.href}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img className='doors__img' src={leftSrc} alt={section.imageAlt || section.left.title} />
+        {leftSrc ? (
+          <PublicImage
+            src={leftSrc}
+            alt={section.imageAlt || section.left.title}
+            fill
+            sizes='(max-width: 860px) 100vw, 50vw'
+            className='doors__img'
+            wrapperClassName='doors__img-wrap'
+            priority
+          />
+        ) : null}
         <span className='doors__shade' />
         <span className='doors__copy'>
           <span className='doors__label'>{section.left.label}</span>
@@ -23,8 +33,17 @@ export function DoorsHeroSection({ section }: { section: DoorsHeroSectionType })
         </span>
       </a>
       <a className='doors__half doors__half--right' href={section.right.href}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img className='doors__img' src={rightSrc} alt={section.imageAlt || section.right.title} />
+        {rightSrc ? (
+          <PublicImage
+            src={rightSrc}
+            alt={section.imageAlt || section.right.title}
+            fill
+            sizes='(max-width: 860px) 100vw, 50vw'
+            className='doors__img'
+            wrapperClassName='doors__img-wrap'
+            priority
+          />
+        ) : null}
         <span className='doors__shade' />
         <span className='doors__copy'>
           <span className='doors__label'>{section.right.label}</span>

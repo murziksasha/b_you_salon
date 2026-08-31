@@ -1,0 +1,83 @@
+/* Public brand tokens. Shop zone overrides via [data-zone='shop'] on .container. */
+
+:root {
+  --by-bg: #0d0d0d;
+  --by-bg-2: #161412;
+  --by-surface: #1c1917;
+  --by-surface-2: #221e1b;
+  --by-gold: #c4a574;
+  --by-gold-hover: #d4af37;
+  --by-blush: #e8a0bf;
+  --by-blush-deep: #d989b5;
+  --by-cream: #f5ede4;
+  --by-text: var(--by-cream);
+  --by-muted: #c4b8aa;
+  --by-line: rgba(196, 165, 116, 0.35);
+  --by-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  --by-serif: var(--font-serif), 'Cormorant Garamond', 'Times New Roman', serif;
+  --by-sans: var(--font-sans), 'Manrope', system-ui, sans-serif;
+  --by-script: var(--font-script), 'Great Vibes', cursive;
+  --by-radius: 0.6rem;
+  --by-header-bg: rgba(13, 13, 13, 0.86);
+  --by-nav-bg: #111008;
+  --by-sticky-bg: rgba(13, 13, 13, 0.94);
+  --by-status-bg: #2a2118;
+  --by-status-error-bg: #2a1515;
+  --by-status-error: #f3c2c2;
+  --by-focus: var(--by-gold);
+  --by-ink: #1a1208;
+  --by-on-photo: #f5ede4;
+}
+
+html[data-theme='light'] {
+  --by-bg: #f6efe6;
+  --by-bg-2: #fffdf9;
+  --by-surface: #ffffff;
+  --by-surface-2: #f3e9dc;
+  --by-gold: #a67c3d;
+  --by-gold-hover: #8f672e;
+  --by-blush: #c45d86;
+  --by-blush-deep: #b44a74;
+  --by-cream: #1a1208;
+  --by-text: var(--by-cream);
+  --by-muted: #6b5748;
+  --by-line: rgba(138, 110, 62, 0.28);
+  --by-shadow: 0 16px 40px rgba(26, 18, 8, 0.08);
+  --by-header-bg: rgba(246, 239, 230, 0.92);
+  --by-nav-bg: #f6efe6;
+  --by-sticky-bg: rgba(246, 239, 230, 0.96);
+  --by-status-bg: #f1e6d8;
+  --by-status-error-bg: #f8e4e0;
+  --by-status-error: #7a2e24;
+  --by-ink: #1a1208;
+  --by-on-photo: #f5ede4;
+}
+
+.container[data-zone='shop'] {
+  --by-bg: #14110e;
+  --by-bg-2: #1c1814;
+  --by-surface: #241c16;
+  --by-surface-2: #2a211a;
+  --by-line: rgba(212, 175, 125, 0.32);
+  --by-header-bg: rgba(20, 17, 14, 0.9);
+  --by-blush: #f0a8c4;
+  --by-gold: #d1b07e;
+}
+
+.container[data-zone='salon'] {
+  --by-header-bg: rgba(10, 10, 10, 0.88);
+}
+
+html[data-theme='light'] .container[data-zone='shop'] {
+  --by-bg: #f3eadf;
+  --by-bg-2: #fffaf3;
+  --by-surface: #fffdf8;
+  --by-surface-2: #efe4d4;
+  --by-header-bg: rgba(243, 234, 223, 0.94);
+  --by-line: rgba(150, 112, 64, 0.28);
+  --by-gold: #b08440;
+}
+
+html[data-theme='light'] .container[data-zone='salon'] {
+  --by-header-bg: rgba(246, 239, 230, 0.94);
+}

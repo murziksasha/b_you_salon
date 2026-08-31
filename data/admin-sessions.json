@@ -1,24 +1,24 @@
 {
   "sessions": [
     {
-      "id": "4e864090f26c",
-      "fingerprint": "7271e69a65c3112d",
+      "id": "6a1d726c9657",
+      "fingerprint": "5e8dbb8201d2f497",
       "username": "admin",
       "role": "legacy",
-      "createdAt": "2026-08-31T04:00:55.648Z",
-      "lastSeenAt": "2026-08-31T04:00:55.648Z",
+      "createdAt": "2026-08-31T20:20:29.980Z",
+      "lastSeenAt": "2026-08-31T20:20:29.980Z",
       "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36",
-      "ip": "127.0.0.1"
+      "ip": "::1"
     },
     {
-      "id": "0dd39ea3c7f6",
-      "fingerprint": "28694117f0ef46ce",
+      "id": "177c1393ebd5",
+      "fingerprint": "fe78d53472b9d664",
       "username": "admin",
       "role": "legacy",
-      "createdAt": "2026-08-31T04:00:38.213Z",
-      "lastSeenAt": "2026-08-31T04:00:38.213Z",
+      "createdAt": "2026-08-31T20:19:12.208Z",
+      "lastSeenAt": "2026-08-31T20:19:12.208Z",
       "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36",
-      "ip": "127.0.0.1"
+      "ip": "::1"
     },
     {
       "id": "d3d1a2dcebaa",

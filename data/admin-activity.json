@@ -1,15 +1,15 @@
 {
   "entries": [
     {
-      "id": "232650a5fea1",
-      "at": "2026-08-31T04:00:55.650Z",
+      "id": "12e801e8e013",
+      "at": "2026-08-31T20:20:30.008Z",
       "kind": "login",
       "message": "Вхід: admin",
       "actor": "admin"
     },
     {
-      "id": "7793916b38cb",
-      "at": "2026-08-31T04:00:38.216Z",
+      "id": "8aeaf29d2bf8",
+      "at": "2026-08-31T20:19:12.230Z",
       "kind": "login",
       "message": "Вхід: admin",
       "actor": "admin"

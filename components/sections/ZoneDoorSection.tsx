@@ -1,4 +1,5 @@
 import type { ZoneDoorSection as ZoneDoorSectionType } from '@/lib/types';
+import { PublicImage } from '@/components/ui/PublicImage';
 
 export function ZoneDoorSection({ section }: { section: ZoneDoorSectionType }) {
   return (
@@ -8,8 +9,15 @@ export function ZoneDoorSection({ section }: { section: ZoneDoorSectionType }) {
           href={section.href}
           className={`zone-door${section.side === 'right' ? ' zone-door--right' : ''}`}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={section.image} alt={section.imageAlt || section.title} />
+          {section.image ? (
+            <PublicImage
+              src={section.image}
+              alt={section.imageAlt || section.title}
+              width={720}
+              height={480}
+              sizes='(max-width: 860px) 100vw, 55vw'
+            />
+          ) : null}
           <span className='zone-door__copy'>
             <span className='doors__label'>{section.side === 'left' ? 'Ліворуч' : 'Праворуч'}</span>
             <h2 className='by-section__title'>{section.title}</h2>

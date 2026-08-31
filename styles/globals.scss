@@ -1,8 +1,9 @@
-@import '../src/sass/style.scss';
-@import './theme.scss';
-@import './shop.scss';
-@import './motion.scss';
-@import './byou.scss';
+@use '../src/sass/style.scss';
+@use './tokens-public.scss';
+@use './theme.scss';
+@use './shop.scss';
+@use './motion.scss';
+@use './byou.scss';
 
 /* Shared form status (callback + order) */
 .status {
@@ -66,7 +67,7 @@
     z-index: 90;
     gap: 8px;
     padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0));
-    background: var(--by-sticky-bg, rgba(13, 13, 13, 0.94));
+    background: var(--by-sticky-bg, color-mix(in srgb, var(--by-bg, #0d0d0d) 92%, transparent));
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.2);
     align-items: stretch;
     /* Height estimate for clearance */

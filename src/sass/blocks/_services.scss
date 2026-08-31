@@ -93,7 +93,7 @@
     max-width: 63rem;
     @include flex-all-sb;
     gap: 4rem;
-    align-items: start;
+    align-items: flex-start;
     margin-bottom: 2rem;
   }
 

@@ -72,6 +72,12 @@ export function ContactsSection({
             ) : null}
           </div>
           <div className='contacts__aside'>
+            <div className='contacts__find'>
+              <p className='contacts__find-title'>Як знайти</p>
+              <p>Салон — праворуч від входу.</p>
+              <p>Магазин косметики — ліворуч.</p>
+              {settings?.hours ? <p>{settings.hours}</p> : null}
+            </div>
             {mapUrl ? (
               <div className='contacts__map'>
                 <iframe

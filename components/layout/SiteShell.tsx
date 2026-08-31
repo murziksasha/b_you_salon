@@ -6,6 +6,7 @@ import { Footer } from './Footer';
 import { Header } from './Header';
 import { PageUp } from './PageUp';
 import { StickyCallBar } from './StickyCallBar';
+import { ZoneRoot } from './ZoneRoot';
 
 interface SiteShellProps {
   settings: SiteSettings;
@@ -19,7 +20,7 @@ export async function SiteShell({ settings, menu, site, children }: SiteShellPro
 
   return (
     <CartProvider>
-      <div className='container' id='up'>
+      <ZoneRoot className='container'>
         <LocalBusinessJsonLd settings={settings} siteUrl={siteUrl} />
         <a className='skip-link' href='#main-content'>
           Перейти до вмісту
@@ -31,7 +32,7 @@ export async function SiteShell({ settings, menu, site, children }: SiteShellPro
         <PageUp />
         <Footer settings={settings} />
         <StickyCallBar settings={settings} />
-      </div>
+      </ZoneRoot>
     </CartProvider>
   );
 }

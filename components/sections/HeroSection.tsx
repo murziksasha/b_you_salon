@@ -15,26 +15,33 @@ export function HeroSection({
   /** slug/href → hero image for idle prefetch of sibling service pages */
   heroImages?: Record<string, string>;
 }) {
+  const aboutLines = (section.aboutLines || []).filter((line) => line && line.trim());
+
   return (
-    <div className="services">
-      <div className="wrapper services__wrapper">
-        <ServicesNav
-          items={servicesNav}
-          activeSlug={section.activeServiceSlug}
-          heroImages={heroImages}
-        />
-        <aside className="services__aside">
-          <div className="services__top">
-            <h1 className="services__title _title" dangerouslySetInnerHTML={{ __html: sanitizeHtml(section.titleHtml) }} />
-            <div className="services__about">
-              {section.aboutLines.map((line) => (
-                <p key={line} className="services__about-info _paragr" dangerouslySetInnerHTML={{ __html: sanitizeHtml(line) }} />
+    <section className='by-hero-block'>
+      <div className='by-wrap'>
+        <ServicesNav items={servicesNav} activeSlug={section.activeServiceSlug} heroImages={heroImages} />
+      </div>
+      <div className='by-wrap by-hero'>
+        <div className='by-hero__copy'>
+          <h1
+            className='by-hero__title'
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(section.titleHtml) }}
+          />
+          {aboutLines.length ? (
+            <div className='by-hero__about'>
+              {aboutLines.map((line) => (
+                <p
+                  key={line}
+                  className='by-hero__lead'
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(line) }}
+                />
               ))}
             </div>
-          </div>
-          <div className="services__callback _callback">
+          ) : null}
+          <div className='by-hero__form _callback'>
             <p
-              className="_callback__title _paragr"
+              className='_callback__title'
               dangerouslySetInnerHTML={{ __html: sanitizeHtml(section.callbackTitleHtml ?? section.callbackTitle) }}
             />
             <CallbackForm
@@ -43,20 +50,22 @@ export function HeroSection({
               placeholder={section.callbackPlaceholder}
             />
           </div>
-          <div className={`services__main-img${section.imageClass ? ` ${section.imageClass}` : ''}`}>
+        </div>
+        {section.image ? (
+          <div className={`by-hero__media${section.imageClass ? ` ${section.imageClass}` : ''}`}>
             <PublicImage
               src={section.image}
               alt={section.imageAlt}
-              width={500}
-              height={400}
+              width={720}
+              height={560}
               className={section.imageClass}
-              sizes="(max-width: 900px) 90vw, 500px"
+              sizes='(max-width: 900px) 92vw, 560px'
               priority
-              viewTransitionName="service-hero"
+              viewTransitionName='service-hero'
             />
           </div>
-        </aside>
+        ) : null}
       </div>
-    </div>
+    </section>
   );
 }
