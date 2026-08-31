@@ -15,7 +15,7 @@ const vibes = Great_Vibes({ subsets: ['latin'], weight: '400', variable: '--font
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#0d0d0d' },
+    { media: '(prefers-color-scheme: light)', color: '#f6efe6' },
     { media: '(prefers-color-scheme: dark)', color: '#0d0d0d' },
   ],
 };

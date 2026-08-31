@@ -144,6 +144,28 @@ test.describe('public smoke', () => {
     await expect(page.getByRole('heading', { name: /кошик/i })).toBeVisible();
   });
 
+  test('theme toggle is on every public page and persists', async ({ page }) => {
+    const urls = ['/', '/salon', '/shop', '/cart', '/confident'];
+    const toggle = page.getByRole('button', { name: /увімкнути (світлу|темну) тему/i });
+
+    for (const url of urls) {
+      await page.goto(url);
+      await expect(toggle.first()).toBeVisible();
+    }
+
+    await page.goto('/');
+    const before = await page.locator('html').getAttribute('data-theme');
+    expect(before === 'light' || before === 'dark').toBeTruthy();
+
+    await toggle.first().click();
+    const flipped = before === 'dark' ? 'light' : 'dark';
+    await expect(page.locator('html')).toHaveAttribute('data-theme', flipped);
+
+    await page.goto('/salon');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', flipped);
+    await expect(toggle.first()).toBeVisible();
+  });
+
   test('mobile doors stack shop then salon', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');

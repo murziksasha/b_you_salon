@@ -155,10 +155,10 @@ body:not(:has(.admin-body)) .shop-chip.is-active {
 }
 
 body:not(:has(.admin-body)) .shop-card {
-  background: var(--by-surface-2, #221e1b);
+  background: transparent;
   color: var(--by-cream, #f5ede4);
-  border-color: var(--by-line, rgba(196, 165, 116, 0.35));
-  box-shadow: var(--by-shadow, 0 16px 40px rgba(0, 0, 0, 0.35));
+  border-color: transparent;
+  box-shadow: none;
 }
 
 body:not(:has(.admin-body)) .shop-card__title {

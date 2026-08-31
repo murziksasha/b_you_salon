@@ -66,6 +66,7 @@ Secret: `SESSION_SECRET` (або fallback `ADMIN_PASSWORD` / dev default).
 - `app/page.tsx` — home (`slug === ''`)
 - `app/[slug]/page.tsx` — CMS pages
 - `app/shop/*` — catalog (`ShopCatalog`: search / sort / category)
+- Тема публічки: `ThemeProvider` + кнопка в `Header` (і в мобільному drawer). `html[data-theme=light|dark]`, ключ `ps-theme`. Адмінка не використовує цей перемикач.
 - `force-dynamic` — актуальний контент без ISR (file CMS)
 - **Feedback carousel** (`FeedbackSection`): CSS grid stack — усі слайди в одній комірці, розмір viewport = max по контенту (найвищий/найширший скрін); перемикання без layout shift. Зображення з `section.images`, CTA «більше відгуків» з `settings.reviewsUrl`.
 

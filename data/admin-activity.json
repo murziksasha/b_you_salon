@@ -1,6 +1,20 @@
 {
   "entries": [
     {
+      "id": "12e801e8e013",
+      "at": "2026-08-31T20:20:30.008Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "8aeaf29d2bf8",
+      "at": "2026-08-31T20:19:12.230Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
       "id": "546a23976fb2",
       "at": "2026-08-27T02:43:36.762Z",
       "kind": "login",

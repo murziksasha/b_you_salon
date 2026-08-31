@@ -15,6 +15,9 @@ const nextConfig: NextConfig = {
       path.join(__dirname, 'src/sass'),
       path.join(__dirname, 'src'),
     ],
+    // Must include legacy-js-api: this array replaces Next's default, which only silences that ID.
+    // `import` is the Dart Sass 1.80+ deprecation that webpack cannot serialize into its cache.
+    silenceDeprecations: ['legacy-js-api', 'import'],
   },
   async headers() {
     return [

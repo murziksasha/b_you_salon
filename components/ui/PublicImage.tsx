@@ -78,7 +78,6 @@ export function PublicImage({
         className={imgClass}
         style={Object.keys(style).length ? style : undefined}
         onLoad={() => setLoadedKey(key)}
-        onLoadingComplete={() => setLoadedKey(key)}
       />
     </span>
   );

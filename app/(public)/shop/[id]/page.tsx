@@ -78,11 +78,11 @@ export default async function ProductPage({ params }: PageProps) {
               <span className='shop-card__oos shop-card__oos--inline'>Немає в наявності</span>
             ) : null}
           </div>
-          <h1 className='shop-detail__title _title'>{product.title}</h1>
+          <h1 className='shop-detail__title'>{product.title}</h1>
           {product.promoText ? <p className='shop-detail__promo'>{product.promoText}</p> : null}
           {product.code ? <p className='shop-detail__code'>Код: {product.code}</p> : null}
           <p className='shop-detail__price'>{product.price.toLocaleString('uk-UA')} ₴</p>
-          <p className='shop-detail__desc _paragr'>{product.description}</p>
+          <p className='shop-detail__desc'>{product.description}</p>
           {product.video ? (
             <div className='shop-detail__video'>
               <h2 className='shop-detail__video-title'>Огляд</h2>
@@ -110,7 +110,7 @@ export default async function ProductPage({ params }: PageProps) {
 
       {related.length > 0 ? (
         <section className='shop-related' aria-label='Схожі товари'>
-          <h2 className='_title shop-related__title'>Схожі товари</h2>
+          <h2 className='shop-related__title by-section__title'>Схожі товари</h2>
           <div className='shop-grid'>
             {related.map((p) => (
               <ProductCard key={p.id} product={p} />

@@ -34,24 +34,20 @@ export default async function ShopPage({ searchParams }: PageProps) {
 
   const shopPage = data.pages.find((p) => p.slug === 'shop' && p.visible);
   const door = zoneDoorToSalon() as ZoneDoorSectionType;
+  const extraSections = (shopPage?.sections || []).filter((s) => s.visible && s.type !== 'hero');
 
   return (
     <>
-      {shopPage ? (
-        <SectionRenderer
-          sections={shopPage.sections}
-          servicesNav={[]}
-          products={products}
-          services={[]}
-          settings={data.settings}
-        />
-      ) : null}
       <section className='shop-page by-section'>
         <div className='by-wrap'>
-          <h1 className='shop-page__title by-section__title'>Магазин</h1>
-          <p className='shop-page__subtitle by-section__sub'>
-            Додайте товари в кошик. Відтінок або об’єм вкажіть у коментарі до замовлення.
-          </p>
+          <header className='shop-page__intro'>
+            <p className='by-kicker'>Ліворуч від входу</p>
+            <h1 className='shop-page__title by-section__title'>{shopPage?.title || 'Магазин косметики'}</h1>
+            <p className='shop-page__subtitle by-section__sub'>
+              {shopPage?.description ||
+                'Додайте товари в кошик. Відтінок або об’єм вкажіть у коментарі до замовлення.'}
+            </p>
+          </header>
           <ShopCatalog
             products={products}
             initialQuery={initialQuery}
@@ -60,6 +56,15 @@ export default async function ShopPage({ searchParams }: PageProps) {
           />
         </div>
       </section>
+      {extraSections.length ? (
+        <SectionRenderer
+          sections={extraSections}
+          servicesNav={[]}
+          products={products}
+          services={[]}
+          settings={data.settings}
+        />
+      ) : null}
       <ZoneDoorSection section={door} />
     </>
   );
