@@ -249,7 +249,7 @@ curl -X POST -H "Authorization: Bearer $BACKUP_CRON_SECRET" http://localhost/api
 
 | Способ | Как |
 |--------|-----|
-| **Git** | `git clone <url> C:\apps\properservice` затем `git checkout <ветка>` |
+| **Git** | `git clone <url> C:\apps\properservice` (default branch is **`dev`**) |
 | **Архив / USB** | скопировать папку проекта **без** обязательного `node_modules` (его поставите на месте) |
 | **Сетевой диск** | не рекомендуется как единственная копия (при отвале сети сайт упадёт) |
 
@@ -289,6 +289,7 @@ notepad .env
 | `COOKIE_SECURE` | **`false`** (иначе cookie админки не сохранятся по HTTP) |
 | `PORT` | `3000` (или другой свободный) |
 | `SITE_URL` | публичный URL, напр. `http://service.home:3000` или `http://192.168.1.50:3000` |
+| `DEPLOY_BRANCH` | **`dev`** (GitHub default; `npm run update` checkouts this branch) |
 | `SMTP_*` / `MAIL_*` | если нужны заявки на почту |
 | `ADMIN_IP_ALLOWLIST` | опционально: IP, с которых можно в `/admin` |
 
@@ -493,17 +494,28 @@ npm run pm2:restart
 
 ### 9. Обновление сайта на хосте (после правок на dev)
 
-Dev-машина **не** запускает prod-pm2. На хосте **одна** команда:
+Dev-машина **не** запускает prod-pm2. Код пушится в **`dev`** (default на GitHub). На хосте **одна** команда:
 
 ```powershell
 cd C:\apps\properservice
 npm run update
 ```
 
+Хост должен сидеть на `dev`. Если ещё на `startProjectOnHost` / `main`:
+
+```powershell
+git fetch origin
+git checkout dev
+git pull --ff-only
+npm run update
+```
+
+В `.env` на хосте: `DEPLOY_BRANCH=dev` (как в `.env.example`). Старое значение `startProjectOnHost` оставит хост на мёртвой ветке.
+
 Что делает `scripts/update-app.ps1`:
 
 1. Копия `data/*.json` → `data/backups/pre-update-<время>/` (живой CMS не теряется без следа).
-2. `git fetch` + `git pull --ff-only` текущей ветки. Отказ, если дерево грязное или нужен merge.
+2. `git fetch` + checkout ветки **`dev`** (или `DEPLOY_BRANCH` / `-Branch`) + `git pull --ff-only`. Отказ, если дерево грязное или нужен merge.
 3. `npm ci`, только если изменились `package.json` / lockfile (или нет `node_modules`).
 4. **Всегда** `npm run build` (иначе `.next` останется старым).
 5. `pm2 restart byou` (имя процесса одно: **`byou`**). Если Windows залочил `.next`, скрипт коротко стопает pm2 и собирает снова.
@@ -553,7 +565,7 @@ robocopy "C:\apps\properservice\public\uploads" "D:\backups\ps-uploads" /MIR
 
 - [ ] Node.js LTS в PATH (`node -v`, `npm -v`)
 - [ ] Проект лежит на диске хоста (например `C:\apps\properservice`)
-- [ ] `.env` с сильными секретами, `COOKIE_SECURE=false`, `PORT=3000`, `SITE_URL=...`
+- [ ] `.env` с сильными секретами, `COOKIE_SECURE=false`, `PORT=3000`, `SITE_URL=...`, `DEPLOY_BRANCH=dev`
 - [ ] `npm install` + `npm run build` успешны
 - [ ] `npm run pm2:setup` → `pm2 status` = online
 - [ ] После **перезагрузки** health снова ok
