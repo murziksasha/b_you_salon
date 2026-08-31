@@ -133,6 +133,7 @@ const settingsSchema = z
     privacyPolicyUrl: z.string(),
     privacyPolicyText: z.string(),
     reviewsUrl: z.string().optional(),
+    ogImage: z.string().optional(),
   })
   .passthrough();
 

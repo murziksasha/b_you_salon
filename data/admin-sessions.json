@@ -1,6 +1,26 @@
 {
   "sessions": [
     {
+      "id": "4e864090f26c",
+      "fingerprint": "7271e69a65c3112d",
+      "username": "admin",
+      "role": "legacy",
+      "createdAt": "2026-08-31T04:00:55.648Z",
+      "lastSeenAt": "2026-08-31T04:00:55.648Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "0dd39ea3c7f6",
+      "fingerprint": "28694117f0ef46ce",
+      "username": "admin",
+      "role": "legacy",
+      "createdAt": "2026-08-31T04:00:38.213Z",
+      "lastSeenAt": "2026-08-31T04:00:38.213Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
       "id": "d3d1a2dcebaa",
       "fingerprint": "1e71672da8e6415c",
       "username": "admin",

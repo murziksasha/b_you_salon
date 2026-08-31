@@ -2,6 +2,12 @@ import type { Metadata, Viewport } from 'next';
 import { Cormorant_Garamond, Great_Vibes, Manrope } from 'next/font/google';
 import { PwaRegister } from '@/components/PwaRegister';
 import { ThemeProvider } from '@/components/layout/ThemeProvider';
+import { requestSiteUrl } from '@/lib/request-site-url';
+import {
+  DEFAULT_SEO_KEYWORDS,
+  buildPublicMetadata,
+  shareImageFromSettings,
+} from '@/lib/seo-metadata';
 import { getSiteData } from '@/lib/site-data';
 import '@/styles/globals.scss';
 
@@ -28,7 +34,17 @@ export async function generateMetadata(): Promise<Metadata> {
   const data = await getSiteData();
   const title = data.settings.title;
   const description = data.settings.description;
-  const base = process.env.SITE_URL?.replace(/\/$/, '') || undefined;
+  const base = await requestSiteUrl();
+  const share = buildPublicMetadata(
+    {
+      title,
+      description,
+      path: '/',
+      image: shareImageFromSettings(data.settings),
+      keywords: DEFAULT_SEO_KEYWORDS,
+    },
+    base,
+  );
 
   return {
     metadataBase: base ? new URL(base) : undefined,
@@ -36,7 +52,9 @@ export async function generateMetadata(): Promise<Metadata> {
       default: title,
       template: `%s | B_You`,
     },
-    description,
+    description: share.description,
+    keywords: share.keywords,
+    alternates: share.alternates,
     icons: { icon: data.settings.favicon },
     manifest: '/manifest.webmanifest',
     appleWebApp: {
@@ -44,31 +62,9 @@ export async function generateMetadata(): Promise<Metadata> {
       statusBarStyle: 'default',
       title: 'B_You',
     },
-    openGraph: {
-      type: 'website',
-      locale: 'uk_UA',
-      title,
-      description,
-      siteName: 'B_You',
-      images: [
-        {
-          url: data.settings.logo || '/img/icons/logo.png',
-          width: 1200,
-          height: 630,
-          alt: title,
-        },
-      ],
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title,
-      description,
-      images: [data.settings.logo || '/img/icons/logo.png'],
-    },
-    robots: {
-      index: true,
-      follow: true,
-    },
+    openGraph: share.openGraph,
+    twitter: share.twitter,
+    robots: share.robots,
   };
 }
 

@@ -31,7 +31,7 @@ docker compose up -d --build
 - [ ] `ADMIN_PASSWORD` — сильний, не `changeme`
 - [ ] `SESSION_SECRET` — довгий random (напр. `openssl rand -hex 32`)
 - [ ] SMTP для production (інакше заявки лише в логи)
-- [ ] `SITE_URL` — публічний URL (sitemap.xml, Open Graph), напр. `http://service.home`
+- [ ] `SITE_URL` — **публічний** https URL (sitemap.xml, Open Graph / WhatsApp). Не `localhost`. Приклад: `https://beyou.properservice.keenetic.pro`. Після зміни — рестарт і повторний шеринг (кеш месенджера).
 - [ ] `NODE_ENV=production` (в образі вже)
 
 ### Health
