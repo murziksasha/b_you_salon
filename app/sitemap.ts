@@ -1,10 +1,11 @@
 import type { MetadataRoute } from 'next';
+import { requestSiteUrl } from '@/lib/request-site-url';
 import { getSiteData } from '@/lib/site-data';
 
 export const dynamic = 'force-dynamic';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const base = (process.env.SITE_URL || '').replace(/\/$/, '');
+  const base = (await requestSiteUrl()) || '';
   const data = await getSiteData();
   const now = new Date();
 

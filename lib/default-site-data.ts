@@ -29,9 +29,10 @@ const SOCIAL = [
 const SETTINGS: SiteSettings = {
   title: 'B_You — студія краси',
   description:
-    'B_You — студія краси. Салон праворуч: манікюр, педікюр, зачіски. Магазин косметики ліворуч. Be you!',
+    'Студія краси B_You: салон праворуч — манікюр, педікюр, зачіски; магазин косметики ліворуч. Запис і самовивіз. Be you!',
   logo: '/img/icons/logo.jpg',
   favicon: '/img/icons/logo.jpg',
+  ogImage: '/img/og-cover.jpg',
   phones: [PHONE_1, PHONE_2],
   headerPhone: PHONE_1,
   shopPhone: SHOP_PHONE,

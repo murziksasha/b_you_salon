@@ -119,6 +119,12 @@ export function SettingsEditor({ initialData }: { initialData: SiteData }) {
           onChange={(url) => patchSettings({ favicon: url })}
           preset='logo'
         />
+        <ImageField
+          label='Зображення для соцмереж (1200×630)'
+          value={s.ogImage || ''}
+          onChange={(url) => patchSettings({ ogImage: url })}
+          preset='og'
+        />
         <label>
           Години роботи (шапка)
           <input value={s.hours} onChange={(e) => patchSettings({ hours: e.target.value })} />
