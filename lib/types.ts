@@ -230,6 +230,8 @@ export interface ContactsSection extends SectionBase {
   /** Right column lines under the title (address/hours notes). */
   findLines?: string[];
   mapEmbedUrl: string;
+  /** Home contacts: show intent select (salon book vs shop consult). Visual only. */
+  intentChooser?: boolean;
 }
 
 export interface CallbackSection extends SectionBase {

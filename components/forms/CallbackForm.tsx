@@ -29,6 +29,8 @@ interface CallbackFormProps {
   className?: string;
   services?: SalonService[];
   activeServiceId?: string;
+  /** Home contacts: dropdown salon book vs shop consult (visual / form field). */
+  intentChooser?: boolean;
 }
 
 export function CallbackForm({
@@ -38,6 +40,7 @@ export function CallbackForm({
   className = 'by-form',
   services = [],
   activeServiceId,
+  intentChooser = false,
 }: CallbackFormProps) {
   const [status, setStatus] = useState('');
   const [isError, setIsError] = useState(false);
@@ -99,6 +102,18 @@ export function CallbackForm({
 
   return (
     <form className={className} onSubmit={handleSubmit} noValidate>
+      {intentChooser ? (
+        <label>
+          <span className='visually-hidden'>Що вас цікавить</span>
+          <select name='intent' defaultValue='' required>
+            <option value='' disabled>
+              Що вас цікавить?
+            </option>
+            <option value='salon'>Записатись / консультація салону</option>
+            <option value='shop'>Консультація по товарах</option>
+          </select>
+        </label>
+      ) : null}
       {services.length ? (
         <label>
           <span className='visually-hidden'>Послуга</span>

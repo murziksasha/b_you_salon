@@ -147,7 +147,11 @@ export function ContactsSection({
             ) : null}
             <div className='contacts__callback'>
               <p className='contacts__callback-title'>Залишіть заявку — передзвонимо</p>
-              <CallbackForm buttonText='Залишити заявку' className='by-form' />
+              <CallbackForm
+                buttonText='Залишити заявку'
+                className='by-form'
+                intentChooser={Boolean(section.intentChooser)}
+              />
             </div>
           </div>
         </div>

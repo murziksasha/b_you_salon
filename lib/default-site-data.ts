@@ -316,6 +316,33 @@ const HOME: Page = {
       ...CONTACTS,
       id: 'contacts-home',
       inviteText: 'один вхід, два простори зліва',
+      intentChooser: true,
+      people: [
+        {
+          id: 'natalia',
+          title: 'Майстер — універсал Наталія',
+          phones: [PHONE_1, PHONE_2],
+          social: SOCIAL.filter((s) => s.type === 'telegram' || s.type === 'viber'),
+        },
+        {
+          id: 'iryna',
+          title: 'Продавець — консультант Ірина',
+          phones: [
+            { display: '093 632 72 24', tel: '+380936327224' },
+            { display: '050 544 37 19', tel: '+380505443719' },
+          ],
+          social: [
+            { id: 'iryna-telegram', type: 'telegram', url: 'https://t.me/+380936327224', icon: '/img/icons/telegram.svg' },
+            { id: 'iryna-viber', type: 'viber', url: 'viber://chat?number=+380936327224', icon: '/img/icons/viber.svg' },
+            { id: 'iryna-instagram', type: 'instagram', url: 'https://www.instagram.com/iriska_livesta/', icon: '/img/icons/instagram.svg' },
+          ],
+        },
+      ],
+      findTitle: 'Знаходимся м. Чорноморськ, вул. Вишнева, 4',
+      findLines: [
+        'Пн–Сб 09:00–18:00',
+        'У неділю та в інший зручний час — запис за домовленістю.',
+      ],
     },
   ],
 };
@@ -354,7 +381,23 @@ const SALON: Page = {
     FEEDBACK,
     callback('cb-salon', 'Записатись або проконсультуватись'),
     zoneDoorToShop(),
-    { ...CONTACTS, id: 'contacts-salon' },
+    {
+      ...CONTACTS,
+      id: 'contacts-salon',
+      people: [
+        {
+          id: 'natalia',
+          title: 'Майстер — універсал Наталія',
+          phones: [PHONE_1, PHONE_2],
+          social: SOCIAL.filter((s) => s.type === 'telegram' || s.type === 'viber'),
+        },
+      ],
+      findTitle: 'Знаходимся м. Чорноморськ, вул. Вишнева, 4',
+      findLines: [
+        'Пн–Сб 09:00–18:00',
+        'У неділю та в інший зручний час — запис за домовленістю.',
+      ],
+    },
   ],
 };
 
@@ -380,6 +423,35 @@ const SHOP: Page = {
       callbackPlaceholder: '+38 (___) ___ __ __',
       image: '/img/shop/serum.jpg',
       imageAlt: 'Косметика B_You',
+    },
+    {
+      ...CONTACTS,
+      id: 'contacts-shop',
+      inviteText: 'Завітайте в магазин або залиште номер — передзвонимо.',
+      people: [
+        {
+          id: 'iryna',
+          title: 'Продавець — консультант Ірина',
+          phones: [
+            { display: '093 632 72 24', tel: '+380936327224' },
+            { display: '050 544 37 19', tel: '+380505443719' },
+          ],
+          social: [
+            { id: 'iryna-telegram', type: 'telegram', url: 'https://t.me/+380936327224', icon: '/img/icons/telegram.svg' },
+            { id: 'iryna-viber', type: 'viber', url: 'viber://chat?number=+380936327224', icon: '/img/icons/viber.svg' },
+            { id: 'iryna-instagram', type: 'instagram', url: 'https://www.instagram.com/iriska_livesta/', icon: '/img/icons/instagram.svg' },
+          ],
+        },
+      ],
+      phones: [
+        { display: '093 632 72 24', tel: '+380936327224' },
+        { display: '050 544 37 19', tel: '+380505443719' },
+      ],
+      findTitle: 'Знаходимся м. Чорноморськ, вул. Вишнева, 4',
+      findLines: [
+        'Пн–Сб 09:00–18:00',
+        'Магазин косметики — ліворуч від входу.',
+      ],
     },
   ],
 };
