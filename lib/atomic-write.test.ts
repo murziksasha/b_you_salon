@@ -1,7 +1,7 @@
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { atomicWriteFile, atomicWriteJson } from './atomic-write';
 
 describe('atomicWrite', () => {
@@ -29,5 +29,16 @@ describe('atomicWrite', () => {
     expect(await fs.readFile(target, 'utf-8')).toBe('v2');
     const leftovers = (await fs.readdir(tmpDir)).filter((n) => n.includes('.tmp'));
     expect(leftovers).toHaveLength(0);
+  });
+
+  it('retries rename on EPERM then succeeds', async () => {
+    const target = path.join(tmpDir, 'retry.json');
+    const busy = Object.assign(new Error('busy'), { code: 'EPERM' });
+    const rename = vi.spyOn(fs, 'rename');
+    rename.mockRejectedValueOnce(busy);
+    await atomicWriteJson(target, { retried: true });
+    rename.mockRestore();
+    const raw = await fs.readFile(target, 'utf-8');
+    expect(JSON.parse(raw)).toEqual({ retried: true });
   });
 });

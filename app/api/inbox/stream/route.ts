@@ -1,7 +1,5 @@
 import { NextRequest } from 'next/server';
-import { listLeads } from '@/lib/leads';
-import { listOrders } from '@/lib/orders';
-import { mergeInbox } from '@/lib/inbox';
+import { getInboxStreamPayload, subscribeInboxStream } from '@/lib/inbox-watch';
 import { requireAdminRole } from '@/lib/require-role';
 
 export const dynamic = 'force-dynamic';
@@ -9,7 +7,7 @@ export const runtime = 'nodejs';
 
 /**
  * Server-Sent Events: inbox open counts + latest open item id.
- * Polls JSON stores every 3s; emits only on change.
+ * Shared in-memory snapshot + directory watcher (not per-client disk polling).
  */
 export async function GET(request: NextRequest) {
   const g = await requireAdminRole('inbox');
@@ -17,85 +15,53 @@ export async function GET(request: NextRequest) {
 
   const encoder = new TextEncoder();
   let closed = false;
+  let unsubscribe = () => {};
+  let heartbeat: ReturnType<typeof setInterval> | undefined;
+
+  const cleanup = () => {
+    if (closed) return;
+    closed = true;
+    unsubscribe();
+    if (heartbeat) clearInterval(heartbeat);
+  };
 
   const stream = new ReadableStream({
     start(controller) {
-      let lastSig = '';
-
       const send = (payload: unknown) => {
         if (closed) return;
         try {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
         } catch {
-          closed = true;
+          cleanup();
         }
       };
 
-      const tick = async () => {
-        if (closed) return;
-        try {
-          const [leads, orders] = await Promise.all([listLeads(), listOrders()]);
-          const items = mergeInbox(leads, orders);
-          const open = items.filter((i) => i.open);
-          const latest = open[0];
-          const sig = [
-            open.length,
-            open.filter((i) => i.kind === 'lead').length,
-            open.filter((i) => i.kind === 'order').length,
-            open.filter((i) => i.stale).length,
-            latest?.id || '',
-            latest?.status || '',
-            items[0]?.id || '',
-            items[0]?.status || '',
-          ].join('|');
+      unsubscribe = subscribeInboxStream(payload => {
+        send(payload);
+      });
 
-          if (sig === lastSig) return;
-          lastSig = sig;
+      void getInboxStreamPayload().then(payload => send(payload));
 
-          send({
-            openTotal: open.length,
-            openLeads: open.filter((i) => i.kind === 'lead').length,
-            openOrders: open.filter((i) => i.kind === 'order').length,
-            stale: open.filter((i) => i.stale).length,
-            latestId: latest?.id || null,
-            latestKind: latest?.kind || null,
-            latestPhone: latest?.phone || null,
-            at: new Date().toISOString(),
-          });
-        } catch {
-          /* ignore tick errors */
-        }
-      };
-
-      void tick();
-      const interval = setInterval(() => void tick(), 3000);
-
-      // heartbeat keeps proxies from closing idle streams
-      const heartbeat = setInterval(() => {
+      heartbeat = setInterval(() => {
         if (closed) return;
         try {
           controller.enqueue(encoder.encode(`: ping\n\n`));
         } catch {
-          closed = true;
+          cleanup();
         }
       }, 15000);
 
-      const cleanup = () => {
-        if (closed) return;
-        closed = true;
-        clearInterval(interval);
-        clearInterval(heartbeat);
+      request.signal.addEventListener('abort', () => {
+        cleanup();
         try {
           controller.close();
         } catch {
           /* ignore */
         }
-      };
-
-      request.signal.addEventListener('abort', cleanup);
+      });
     },
     cancel() {
-      closed = true;
+      cleanup();
     },
   });
 

@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { atomicWriteJson } from './atomic-write';
+import { withFileMutex } from './file-mutex';
 import { createId } from './id';
 import {
   isMediaPurpose,
@@ -187,7 +188,15 @@ export async function readMediaIndex(): Promise<MediaIndex> {
   }
 }
 
+function withIndexLock<T>(fn: () => Promise<T>): Promise<T> {
+  return withFileMutex(getIndexPath(), fn);
+}
+
 export async function writeMediaIndex(index: MediaIndex): Promise<void> {
+  return withIndexLock(() => writeMediaIndexUnlocked(index));
+}
+
+async function writeMediaIndexUnlocked(index: MediaIndex): Promise<void> {
   const filePath = getIndexPath();
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await atomicWriteJson(filePath, {
@@ -203,6 +212,7 @@ export async function listMediaFolders(): Promise<MediaFolder[]> {
 }
 
 export async function createMediaFolder(label: string): Promise<MediaFolder> {
+  return withIndexLock(async () => {
   const index = await readMediaIndex();
   const trimmed = label.trim().slice(0, 80);
   if (!trimmed) throw new Error('Empty label');
@@ -222,8 +232,9 @@ export async function createMediaFolder(label: string): Promise<MediaFolder> {
     sortOrder: maxOrder + 1,
   };
   index.folders.push(folder);
-  await writeMediaIndex(index);
+  await writeMediaIndexUnlocked(index);
   return folder;
+  });
 }
 
 export async function patchMediaFolder(
@@ -231,6 +242,7 @@ export async function patchMediaFolder(
   patch: { label?: string; sortOrder?: number },
 ): Promise<MediaFolder | null> {
   if (!isSafeFolderId(id)) return null;
+  return withIndexLock(async () => {
   const index = await readMediaIndex();
   const existing = index.folders.find((f) => f.id === id);
   if (!existing) return null;
@@ -246,11 +258,13 @@ export async function patchMediaFolder(
         : existing.sortOrder,
   };
   index.folders = index.folders.map((f) => (f.id === id ? next : f));
-  await writeMediaIndex(index);
+  await writeMediaIndexUnlocked(index);
   return next;
+  });
 }
 
 export async function reorderMediaFolders(orderedIds: string[]): Promise<MediaFolder[]> {
+  return withIndexLock(async () => {
   const index = await readMediaIndex();
   const byId = new Map(index.folders.map((f) => [f.id, f]));
   const next: MediaFolder[] = [];
@@ -266,13 +280,15 @@ export async function reorderMediaFolders(orderedIds: string[]): Promise<MediaFo
     next.push({ ...f, sortOrder: order++ });
   }
   index.folders = next;
-  await writeMediaIndex(index);
+  await writeMediaIndexUnlocked(index);
   return next;
+  });
 }
 
 /** Delete folder; items move to root (folderId ''). */
 export async function deleteMediaFolder(id: string): Promise<boolean> {
   if (!isSafeFolderId(id)) return false;
+  return withIndexLock(async () => {
   const index = await readMediaIndex();
   if (!index.folders.some((f) => f.id === id)) return false;
   index.folders = index.folders.filter((f) => f.id !== id);
@@ -281,8 +297,9 @@ export async function deleteMediaFolder(id: string): Promise<boolean> {
       ? { ...item, folderId: '', updatedAt: new Date().toISOString() }
       : item,
   );
-  await writeMediaIndex(index);
+  await writeMediaIndexUnlocked(index);
   return true;
+  });
 }
 
 export async function upsertMediaMeta(
@@ -297,6 +314,7 @@ export async function upsertMediaMeta(
     kind?: MediaKind;
   },
 ): Promise<MediaMeta> {
+  return withIndexLock(async () => {
   const index = await readMediaIndex();
   const now = new Date().toISOString();
   const existing = index.items.find((i) => i.name === entry.name);
@@ -339,8 +357,9 @@ export async function upsertMediaMeta(
   } else {
     index.items.unshift(next);
   }
-  await writeMediaIndex(index);
+  await writeMediaIndexUnlocked(index);
   return next;
+  });
 }
 
 export async function patchMediaMeta(
@@ -355,6 +374,7 @@ export async function patchMediaMeta(
     sortOrder?: number;
   },
 ): Promise<MediaMeta | null> {
+  return withIndexLock(async () => {
   const index = await readMediaIndex();
   const existing = index.items.find((i) => i.name === name);
   const folderIds = new Set(index.folders.map((f) => f.id));
@@ -410,8 +430,9 @@ export async function patchMediaMeta(
     updatedAt: new Date().toISOString(),
   };
   index.items = index.items.map((i) => (i.name === name ? next : i));
-  await writeMediaIndex(index);
+  await writeMediaIndexUnlocked(index);
   return next;
+  });
 }
 
 /**
@@ -423,6 +444,7 @@ export async function moveMediaToFolder(
   names: string[],
   folderId: string,
 ): Promise<{ moved: number; missing: string[] }> {
+  return withIndexLock(async () => {
   const index = await readMediaIndex();
   const folderIds = new Set(index.folders.map((f) => f.id));
   const targetId =
@@ -458,8 +480,9 @@ export async function moveMediaToFolder(
     };
   });
 
-  await writeMediaIndex(index);
+  await writeMediaIndexUnlocked(index);
   return { moved: toMove.length, missing };
+  });
 }
 
 /** Set sortOrder 0..n for names within a folder (or root when folderId ''). */
@@ -467,6 +490,7 @@ export async function reorderMediaItems(
   folderId: string,
   orderedNames: string[],
 ): Promise<MediaMeta[]> {
+  return withIndexLock(async () => {
   const index = await readMediaIndex();
   const fid = folderId && isSafeFolderId(folderId) ? folderId : '';
   const nameSet = new Set(orderedNames);
@@ -491,13 +515,16 @@ export async function reorderMediaItems(
 
   const byName = new Map(updated.map((i) => [i.name, i]));
   index.items = index.items.map((i) => byName.get(i.name) || i);
-  await writeMediaIndex(index);
+  await writeMediaIndexUnlocked(index);
   return updated;
+  });
 }
 
 export async function removeMediaMeta(name: string): Promise<void> {
+  return withIndexLock(async () => {
   const index = await readMediaIndex();
   const next = index.items.filter((i) => i.name !== name);
   if (next.length === index.items.length) return;
-  await writeMediaIndex({ version: 2, folders: index.folders, items: next });
+  await writeMediaIndexUnlocked({ version: 2, folders: index.folders, items: next });
+  });
 }

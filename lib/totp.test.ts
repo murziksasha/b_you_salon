@@ -49,6 +49,15 @@ describe('totp', () => {
     expect(verifyTotp(secret, code)).toBe(true);
   });
 
+  it('rejects replayed TOTP code within the same window', () => {
+    const secret = 'JBSWY3DPEHPK3PXR';
+    const step = Math.floor(Date.now() / 1000 / 30);
+    const code = hotp(secret, step);
+    expect(verifyTotp(secret, code)).toBe(true);
+    // Replay attempt with the exact same code
+    expect(verifyTotp(secret, code)).toBe(false);
+  });
+
   it('rejects bad code', () => {
     expect(verifyTotp('JBSWY3DPEHPK3PXP', '000000')).toBe(false);
     expect(verifyTotp('JBSWY3DPEHPK3PXP', 'abc')).toBe(false);

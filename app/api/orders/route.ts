@@ -10,6 +10,7 @@ import { notifyOrder } from '@/lib/notify';
 import { toCsv } from '@/lib/csv';
 import { isWorkflowStatus } from '@/lib/workflow';
 import { requireAdminRole } from '@/lib/require-role';
+import { orderPatchBodySchema, parseOrError } from '@/lib/validation';
 
 export const dynamic = 'force-dynamic';
 
@@ -267,16 +268,11 @@ export async function PATCH(request: NextRequest) {
   if (!g.ok) return g.response;
 
   try {
-    const body = (await request.json()) as {
-      id?: string;
-      handled?: boolean;
-      note?: string;
-      status?: string;
-      callbackAt?: string;
-    };
-    if (!body.id || typeof body.id !== 'string') {
-      return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+    const parsed = parseOrError(orderPatchBodySchema, await request.json());
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
+    const body = parsed.data;
     if (body.status !== undefined && !isWorkflowStatus(body.status)) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
     }
@@ -285,6 +281,8 @@ export async function PATCH(request: NextRequest) {
       note: body.note,
       status: body.status as undefined | import('@/lib/workflow').WorkflowStatus,
       callbackAt: body.callbackAt,
+      outcome: body.outcome as undefined | import('@/lib/workflow').CloseOutcome,
+      assignee: body.assignee,
     });
     if (!updated) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });

@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { atomicWriteJson } from './atomic-write';
+import { withFileMutex } from './file-mutex';
 import { sendTelegramMessage, telegramConfigured } from './notify';
 import { listSiteBackups } from './backup';
 import { listLeads } from './leads';
@@ -33,6 +34,10 @@ async function writeState(s: AlertsState): Promise<void> {
   await atomicWriteJson(statePath(), s);
 }
 
+function withAlertsLock<T>(fn: () => Promise<T>): Promise<T> {
+  return withFileMutex(statePath(), fn);
+}
+
 function hoursSince(iso?: string): number {
   if (!iso) return Infinity;
   const t = Date.parse(iso);
@@ -45,6 +50,7 @@ function hoursSince(iso?: string): number {
  */
 export async function runOpsAlerts(): Promise<{ sent: string[] }> {
   if (!telegramConfigured()) return { sent: [] };
+  return withAlertsLock(async () => {
   const sent: string[] = [];
   const state = await readState();
   const throttleH = 12;
@@ -97,4 +103,5 @@ export async function runOpsAlerts(): Promise<{ sent: string[] }> {
 
   if (sent.length) await writeState(state);
   return { sent };
+  });
 }

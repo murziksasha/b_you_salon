@@ -52,8 +52,8 @@ export async function PUT(request: NextRequest) {
     const clientRev = parsed.data.updatedAt;
     const serverRev = current.updatedAt;
     const force = request.headers.get('x-force-overwrite') === '1';
-    // Optimistic concurrency: if both have a revision and they differ, reject
-    if (!force && clientRev && serverRev && clientRev !== serverRev) {
+    // Optimistic concurrency: reject if client revision is missing or differs from server (unless force)
+    if (!force && serverRev && (!clientRev || clientRev !== serverRev)) {
       return NextResponse.json(
         {
           error: 'Дані змінені іншим сеансом. Оновіть сторінку та повторіть.',
@@ -108,18 +108,12 @@ export async function PATCH(request: NextRequest) {
     };
     const section = body.section as PatchSection;
     if (!PATCH_SECTIONS.includes(section) || body.data === undefined) {
-      return NextResponse.json(
-        { error: `section must be one of: ${PATCH_SECTIONS.join(', ')}` },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: `section must be one of: ${PATCH_SECTIONS.join(', ')}` }, { status: 400 });
     }
 
     const current = await getSiteData();
-    if (
-      body.expectedUpdatedAt &&
-      current.updatedAt &&
-      body.expectedUpdatedAt !== current.updatedAt
-    ) {
+    const force = request.headers.get('x-force-overwrite') === '1';
+    if (!force && current.updatedAt && (!body.expectedUpdatedAt || body.expectedUpdatedAt !== current.updatedAt)) {
       return NextResponse.json(
         {
           error: 'Дані змінені іншим сеансом. Оновіть сторінку та повторіть.',

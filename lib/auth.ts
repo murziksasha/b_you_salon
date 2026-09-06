@@ -8,12 +8,7 @@ import {
   SESSION_MAX_AGE_SECONDS,
   type SessionClaims,
 } from './session';
-import {
-  getAdminUserByUsername,
-  hasMultiUserMode,
-  verifyPasswordHash,
-  type AdminRole,
-} from './admin-users';
+import { getAdminUserByUsername, hasMultiUserMode, verifyPasswordHash, type AdminRole } from './admin-users';
 import { isSessionAllowed } from './admin-sessions';
 
 function safeCompare(a: string, b: string): boolean {
@@ -44,23 +39,18 @@ function cookieSecureEnabled(): boolean {
   return process.env.NODE_ENV === 'production';
 }
 
-export type LoginResult =
-  | { ok: true; claims: SessionClaims }
-  | { ok: false; error: string };
+export type LoginResult = { ok: true; claims: SessionClaims } | { ok: false; error: string };
 
 /**
  * Authenticate: multi-user (username+password against admins.json) OR legacy ADMIN_PASSWORD.
  */
-export async function authenticateLogin(input: {
-  password: string;
-  username?: string;
-}): Promise<LoginResult> {
+export async function authenticateLogin(input: { password: string; username?: string }): Promise<LoginResult> {
   const multi = await hasMultiUserMode();
   const username = (input.username || '').trim();
 
   if (multi && username) {
     const user = await getAdminUserByUsername(username);
-    if (!user || !verifyPasswordHash(input.password, user.passwordHash)) {
+    if (!user || !(await verifyPasswordHash(input.password, user.passwordHash))) {
       return { ok: false, error: 'Invalid credentials' };
     }
     return { ok: true, claims: { username: user.username, role: user.role } };
@@ -129,6 +119,7 @@ export async function getSessionClaims(): Promise<SessionClaims | null> {
   if (!parsed.valid) return null;
   if (parsed.fingerprint && !(await isSessionAllowed(parsed.fingerprint))) return null;
   return parsed.claims || { username: 'admin', role: 'legacy' };
+  return parsed.claims || { username: 'admin', role: 'operator' };
 }
 
 export async function getSessionFingerprint(): Promise<string | null> {

@@ -1,13 +1,12 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth';
+import { requireAdminRole } from '@/lib/require-role';
 import { createId } from '@/lib/id';
 import { optimizeImageUpload } from '@/lib/image-optimize';
 import { isImagePresetId } from '@/lib/image-presets';
 import { upsertMediaMeta, type MediaKind } from '@/lib/media-index';
 import { isMediaPurpose, purposeFromPreset } from '@/lib/media-purpose';
-import { assertAdminIp } from '@/lib/require-admin-ip';
 import { clientKey, rateLimit } from '@/lib/rate-limit';
 import { atomicWriteFile } from '@/lib/atomic-write';
 import { uploadsDir } from '@/lib/uploads-path';
@@ -60,15 +59,8 @@ function detectVideoExt(buffer: Buffer, declaredExt: string): string | null {
 }
 
 export async function POST(request: NextRequest) {
-  const ipGate = await assertAdminIp();
-  if (!ipGate.ok) {
-    return NextResponse.json({ error: ipGate.error }, { status: ipGate.status });
-  }
-
-  const isAuthenticated = await getSession();
-  if (!isAuthenticated) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const g = await requireAdminRole('media');
+  if (!g.ok) return g.response;
 
   const rl = rateLimit(clientKey(request, 'upload'), { limit: 20, windowMs: 60_000 });
   if (!rl.allowed) {
@@ -88,11 +80,8 @@ export async function POST(request: NextRequest) {
     }
 
     const extLower = path.extname(file.name).toLowerCase();
-    const forceVideo =
-      VIDEO_TYPES.has(file.type) ||
-      (!IMAGE_TYPES.has(file.type) && VIDEO_EXT.has(extLower));
-    const isImage =
-      IMAGE_TYPES.has(file.type) || (!forceVideo && IMAGE_EXT.has(extLower));
+    const forceVideo = VIDEO_TYPES.has(file.type) || (!IMAGE_TYPES.has(file.type) && VIDEO_EXT.has(extLower));
+    const isImage = IMAGE_TYPES.has(file.type) || (!forceVideo && IMAGE_EXT.has(extLower));
 
     if (!forceVideo && !isImage) {
       return NextResponse.json({ error: 'Invalid file type' }, { status: 400 });
@@ -104,10 +93,7 @@ export async function POST(request: NextRequest) {
     if (file.size > maxSize) {
       return NextResponse.json(
         {
-          error:
-            mediaKind === 'video'
-              ? 'Video too large (max 80 MB)'
-              : 'File too large (max 5 MB)',
+          error: mediaKind === 'video' ? 'Video too large (max 80 MB)' : 'File too large (max 5 MB)',
         },
         { status: 400 },
       );
@@ -118,25 +104,18 @@ export async function POST(request: NextRequest) {
     const purposeRaw = String(formData.get('purpose') || '').trim();
     const purpose = isMediaPurpose(purposeRaw) ? purposeRaw : purposeFromPreset(preset);
     const folderIdRaw = String(formData.get('folderId') || '').trim();
-    const folderId =
-      folderIdRaw && folderIdRaw !== 'root' && folderIdRaw !== 'all' ? folderIdRaw : '';
+    const folderId = folderIdRaw && folderIdRaw !== 'root' && folderIdRaw !== 'all' ? folderIdRaw : '';
     const tagsRaw = String(formData.get('tags') || '').trim();
     const tags = tagsRaw
       ? tagsRaw
           .split(/[,;]+/)
-          .map((t) => t.trim())
+          .map(t => t.trim())
           .filter(Boolean)
       : [];
     const maxWidthRaw = formData.get('maxWidth');
     const maxHeightRaw = formData.get('maxHeight');
-    const maxWidth =
-      maxWidthRaw != null && String(maxWidthRaw).trim() !== ''
-        ? Number(maxWidthRaw)
-        : undefined;
-    const maxHeight =
-      maxHeightRaw != null && String(maxHeightRaw).trim() !== ''
-        ? Number(maxHeightRaw)
-        : undefined;
+    const maxWidth = maxWidthRaw != null && String(maxWidthRaw).trim() !== '' ? Number(maxWidthRaw) : undefined;
+    const maxHeight = maxHeightRaw != null && String(maxHeightRaw).trim() !== '' ? Number(maxHeightRaw) : undefined;
 
     const rawExt = path.extname(file.name).toLowerCase();
     const declaredExt = rawExt === '.jpeg' ? '.jpg' : rawExt;
@@ -164,8 +143,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         url,
         kind: 'video',
-        contentType:
-          safeExt === '.webm' ? 'video/webm' : safeExt === '.mov' ? 'video/quicktime' : 'video/mp4',
+        contentType: safeExt === '.webm' ? 'video/webm' : safeExt === '.mov' ? 'video/quicktime' : 'video/mp4',
         purpose,
         tags,
         folderId,

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth';
-import { assertAdminIp } from '@/lib/require-admin-ip';
+import { requireAdminRole } from '@/lib/require-role';
 import { clientKey, rateLimit } from '@/lib/rate-limit';
 import {
   createMediaFolder,
@@ -14,15 +13,7 @@ import { listFoldersWithCounts } from '@/lib/media';
 export const dynamic = 'force-dynamic';
 
 async function guard() {
-  const ipGate = await assertAdminIp();
-  if (!ipGate.ok) {
-    return { ok: false as const, response: NextResponse.json({ error: ipGate.error }, { status: ipGate.status }) };
-  }
-  const isAuthenticated = await getSession();
-  if (!isAuthenticated) {
-    return { ok: false as const, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
-  }
-  return { ok: true as const };
+  return requireAdminRole('media');
 }
 
 export async function GET() {
@@ -89,10 +80,7 @@ export async function PATCH(request: NextRequest) {
     }
     const folder = await patchMediaFolder(body.id, {
       label: typeof body.label === 'string' ? body.label : undefined,
-      sortOrder:
-        typeof body.sortOrder === 'number' && Number.isFinite(body.sortOrder)
-          ? body.sortOrder
-          : undefined,
+      sortOrder: typeof body.sortOrder === 'number' && Number.isFinite(body.sortOrder) ? body.sortOrder : undefined,
     });
     if (!folder) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });

@@ -1,20 +1,13 @@
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
-import { getSession } from '@/lib/auth';
-import { assertAdminIp } from '@/lib/require-admin-ip';
+import { requireAdminRole } from '@/lib/require-role';
 
 export const dynamic = 'force-dynamic';
 
 /** Admin-only: send a test email to MAIL_TO. */
 export async function POST() {
-  const ipGate = await assertAdminIp();
-  if (!ipGate.ok) {
-    return NextResponse.json({ error: ipGate.error }, { status: ipGate.status });
-  }
-  const isAuthenticated = await getSession();
-  if (!isAuthenticated) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const gate = await requireAdminRole('settings');
+  if (!gate.ok) return gate.response;
 
   const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
   const smtpUser = process.env.SMTP_USER || '';
@@ -49,9 +42,6 @@ export async function POST() {
     return NextResponse.json({ ok: true, to: mailTo });
   } catch (err) {
     console.error('[smtp-test]', err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'SMTP send failed' },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'SMTP send failed' }, { status: 500 });
   }
 }

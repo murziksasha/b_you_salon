@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { atomicWriteJson } from './atomic-write';
+import { withFileMutex } from './file-mutex';
 import { createId } from './id';
 
 export type ActivityKind =
@@ -53,6 +54,10 @@ async function writeStore(store: ActivityStore): Promise<void> {
   await atomicWriteJson(activityFilePath(), store);
 }
 
+function withActivityLock<T>(fn: () => Promise<T>): Promise<T> {
+  return withFileMutex(activityFilePath(), fn);
+}
+
 export async function listActivity(limit = 50): Promise<ActivityEntry[]> {
   const store = await readStore();
   return store.entries.slice(0, Math.max(1, Math.min(limit, MAX_ENTRIES)));
@@ -64,6 +69,7 @@ export async function appendActivity(input: {
   actor?: string;
   detail?: string;
 }): Promise<ActivityEntry> {
+  return withActivityLock(async () => {
   const store = await readStore();
   const entry: ActivityEntry = {
     id: createId(),
@@ -79,4 +85,5 @@ export async function appendActivity(input: {
   }
   await writeStore(store);
   return entry;
+  });
 }

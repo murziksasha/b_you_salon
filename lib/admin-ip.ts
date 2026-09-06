@@ -11,14 +11,27 @@ export function getAdminIpAllowlist(): string[] {
     .filter(Boolean);
 }
 
+/**
+ * Extract client IP from reverse proxy headers.
+ *
+ * Prefer X-Real-IP (set explicitly by trusted Nginx config).
+ * For X-Forwarded-For, use the RIGHTMOST entry — leftmost hops are client-supplied.
+ *
+ * Nginx must OVERWRITE these headers (not $proxy_add_x_forwarded_for):
+ *   proxy_set_header X-Real-IP $remote_addr;
+ *   proxy_set_header X-Forwarded-For $remote_addr;
+ */
 export function clientIpFromHeaders(headers: Headers): string {
+  // X-Real-IP is authoritative when set by the reverse proxy
+  const real = headers.get('x-real-ip');
+  if (real) return normalizeIp(real.trim());
+  // Fallback: rightmost entry in X-Forwarded-For (added by trusted proxy)
   const forwarded = headers.get('x-forwarded-for');
   if (forwarded) {
-    const first = forwarded.split(',')[0]?.trim();
-    if (first) return normalizeIp(first);
+    const parts = forwarded.split(',').map((s) => s.trim()).filter(Boolean);
+    const last = parts[parts.length - 1];
+    if (last) return normalizeIp(last);
   }
-  const real = headers.get('x-real-ip');
-  if (real) return normalizeIp(real);
   return '';
 }
 

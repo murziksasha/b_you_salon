@@ -22,13 +22,13 @@ describe('isIpAllowed', () => {
 });
 
 describe('clientIpFromHeaders', () => {
-  it('reads first X-Forwarded-For hop', () => {
+  it('reads rightmost (proxy-added) X-Forwarded-For hop to prevent client spoofing', () => {
     const h = new Headers({ 'x-forwarded-for': '10.0.0.5, 10.0.0.1' });
-    expect(clientIpFromHeaders(h)).toBe('10.0.0.5');
+    expect(clientIpFromHeaders(h)).toBe('10.0.0.1');
   });
 
-  it('falls back to X-Real-IP', () => {
-    const h = new Headers({ 'x-real-ip': '::ffff:127.0.0.1' });
+  it('prefers authoritative X-Real-IP over X-Forwarded-For', () => {
+    const h = new Headers({ 'x-real-ip': '::ffff:127.0.0.1', 'x-forwarded-for': '10.0.0.5' });
     expect(clientIpFromHeaders(h)).toBe('127.0.0.1');
   });
 });

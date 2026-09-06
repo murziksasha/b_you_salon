@@ -43,13 +43,17 @@ export function middleware(request: NextRequest) {
   }
 
   const allowlist = getAdminIpAllowlist();
-  // Cron may call /api/backup with Bearer BACKUP_CRON_SECRET from any host — verify in route
-  const backupCronHint =
+  // Cron may call /api/backup with verified BACKUP_CRON_SECRET from any host
+  const cronSecret = process.env.BACKUP_CRON_SECRET;
+  const authHeader = request.headers.get('authorization') || '';
+  const backupSecretHeader = request.headers.get('x-backup-secret') || '';
+  const isAuthorizedCron = Boolean(
+    cronSecret &&
     pathname.startsWith('/api/backup') &&
-    (request.headers.get('authorization')?.startsWith('Bearer ') ||
-      Boolean(request.headers.get('x-backup-secret')));
+    (authHeader === `Bearer ${cronSecret}` || backupSecretHeader === cronSecret),
+  );
 
-  if (allowlist.length > 0 && !backupCronHint) {
+  if (allowlist.length > 0 && !isAuthorizedCron) {
     const ip = clientIpFromHeaders(request.headers);
     if (!isIpAllowed(ip, allowlist)) {
       if (isProtectedApi) {

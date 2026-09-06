@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { atomicWriteJson } from './atomic-write';
+import { withFileMutex } from './file-mutex';
 import { createId } from './id';
 import type { Page, Product, SalonService, SiteData } from './types';
 
@@ -33,42 +34,50 @@ async function ensureDataDir(filePath: string): Promise<void> {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
 }
 
-export async function getSiteData(): Promise<SiteData> {
+export function withSiteDataLock<T>(fn: () => Promise<T>): Promise<T> {
+  return withFileMutex(getDataFilePath(), fn);
+}
+
+async function readSiteDataUnlocked(): Promise<SiteData> {
   const filePath = getDataFilePath();
+  let raw: string;
   try {
-    const raw = await fs.readFile(filePath, 'utf-8');
-    let data = JSON.parse(raw) as SiteData;
-    // Apply due scheduled publishes (best-effort write-back)
-    try {
-      const { applyScheduledPublishes } = await import('./scheduled-publish');
-      const { site: next, published } = applyScheduledPublishes(data);
-      if (published.length) {
-        data = await saveSiteData(next);
-        try {
-          const { appendActivity } = await import('./admin-activity');
-          await appendActivity({
-            kind: 'site_save',
-            message: `Scheduled publish: ${published.length} page(s)`,
-          });
-        } catch {
-          /* ignore */
-        }
-      } else {
-        data = next;
-      }
-    } catch {
-      /* ignore schedule errors */
+    raw = await fs.readFile(filePath, 'utf-8');
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException)?.code;
+    if (code === 'ENOENT') {
+      // First run: file doesn't exist yet — seed with defaults
+      const { defaultSiteData } = await import('./default-site-data');
+      await ensureDataDir(filePath);
+      await atomicWriteJson(filePath, defaultSiteData);
+      return normalizeSiteData(defaultSiteData);
     }
-    return normalizeSiteData(data);
-  } catch {
-    const { defaultSiteData } = await import('./default-site-data');
-    await ensureDataDir(filePath);
-    await atomicWriteJson(filePath, defaultSiteData);
-    return normalizeSiteData(defaultSiteData);
+    // Transient I/O error (EBUSY, EPERM, etc.) — do NOT overwrite with defaults
+    console.error('[site-data] Failed to read site.json:', err);
+    throw new Error(`Failed to read site data: ${code || 'unknown error'}`);
   }
+
+  let data: SiteData;
+  try {
+    data = JSON.parse(raw) as SiteData;
+  } catch (parseErr) {
+    // Corrupted JSON — do NOT overwrite, alert admin
+    console.error('[site-data] site.json is corrupted (invalid JSON):', parseErr);
+    throw new Error('site.json is corrupted and cannot be parsed. Restore from backup.');
+  }
+
+  return normalizeSiteData(data);
+}
+
+export async function getSiteData(): Promise<SiteData> {
+  return withSiteDataLock(() => readSiteDataUnlocked());
 }
 
 export async function saveSiteData(data: SiteData): Promise<SiteData> {
+  return withSiteDataLock(() => saveSiteDataUnlocked(data));
+}
+
+async function saveSiteDataUnlocked(data: SiteData): Promise<SiteData> {
   const filePath = getDataFilePath();
   await ensureDataDir(filePath);
 
@@ -78,7 +87,7 @@ export async function saveSiteData(data: SiteData): Promise<SiteData> {
     if (prevRaw) {
       const prev = JSON.parse(prevRaw) as SiteData;
       const { recordPriceChange } = await import('./price-history');
-      const prevById = new Map((prev.goods || []).map((g) => [g.id, g]));
+      const prevById = new Map((prev.goods || []).map(g => [g.id, g]));
       for (const g of data.goods || []) {
         const old = prevById.get(g.id);
         if (old && old.price !== g.price) {
@@ -115,62 +124,67 @@ export async function saveSiteData(data: SiteData): Promise<SiteData> {
 
 export async function getPages(): Promise<Page[]> {
   const data = await getSiteData();
-  return data.pages.filter((page) => page.visible);
+  return data.pages.filter(page => page.visible);
 }
 
 export async function getPage(slug: string): Promise<Page | undefined> {
   const data = await getSiteData();
-  return data.pages.find((page) => page.slug === slug && page.visible);
+  return data.pages.find(page => page.slug === slug && page.visible);
 }
 
 export async function getProducts(): Promise<Product[]> {
   const data = await getSiteData();
-  return data.goods.filter((product) => product.visible);
+  return data.goods.filter(product => product.visible);
 }
 
 export async function getProduct(id: string): Promise<Product | undefined> {
   const data = await getSiteData();
-  return data.goods.find((product) => product.id === id);
+  return data.goods.find(product => product.id === id);
 }
 
 export async function getServices(): Promise<SalonService[]> {
   const data = await getSiteData();
-  return (data.services || []).filter((service) => service.visible);
+  return (data.services || []).filter(service => service.visible);
 }
 
 export async function getServiceBySlug(slug: string): Promise<SalonService | undefined> {
   const data = await getSiteData();
-  return (data.services || []).find((service) => service.slug === slug && service.visible);
+  return (data.services || []).find(service => service.slug === slug && service.visible);
 }
 
 export async function saveProduct(product: Product): Promise<void> {
-  const data = await getSiteData();
-  const index = data.goods.findIndex((item) => item.id === product.id);
+  return withSiteDataLock(async () => {
+    const data = await readSiteDataUnlocked();
+    const index = data.goods.findIndex(item => item.id === product.id);
 
-  if (index >= 0) {
-    data.goods[index] = product;
-  } else {
-    data.goods.push(product);
-  }
+    if (index >= 0) {
+      data.goods[index] = product;
+    } else {
+      data.goods.push(product);
+    }
 
-  await saveSiteData(data);
+    await saveSiteDataUnlocked(data);
+  });
 }
 
 export async function deleteProduct(id: string): Promise<boolean> {
-  const data = await getSiteData();
-  const initialLength = data.goods.length;
-  data.goods = data.goods.filter((product) => product.id !== id);
+  return withSiteDataLock(async () => {
+    const data = await readSiteDataUnlocked();
+    const initialLength = data.goods.length;
+    data.goods = data.goods.filter(product => product.id !== id);
 
-  if (data.goods.length === initialLength) {
-    return false;
-  }
+    if (data.goods.length === initialLength) {
+      return false;
+    }
 
-  await saveSiteData(data);
-  return true;
+    await saveSiteDataUnlocked(data);
+    return true;
+  });
 }
 
 export async function createPage(page: Omit<Page, 'id'> & { id?: string }): Promise<Page> {
-  const data = await getSiteData();
+  return withSiteDataLock(async () => {
+  const data = await readSiteDataUnlocked();
   const newPage: Page = {
     id: page.id || createId(),
     ...page,
@@ -179,28 +193,31 @@ export async function createPage(page: Omit<Page, 'id'> & { id?: string }): Prom
   // ensure unique slug
   let slug = newPage.slug;
   let suffix = 1;
-  while (data.pages.some((p) => p.slug === slug)) {
+  while (data.pages.some(p => p.slug === slug)) {
     slug = `${page.slug || 'page'}-${suffix++}`;
   }
   newPage.slug = slug;
 
   data.pages.push(newPage);
-  await saveSiteData(data);
+  await saveSiteDataUnlocked(data);
   return newPage;
+  });
 }
 
 export async function deletePage(id: string): Promise<boolean> {
-  const data = await getSiteData();
+  return withSiteDataLock(async () => {
+  const data = await readSiteDataUnlocked();
   // protect home
-  const target = data.pages.find((p) => p.id === id);
+  const target = data.pages.find(p => p.id === id);
   if (!target || target.slug === '') return false;
 
   const before = data.pages.length;
-  data.pages = data.pages.filter((p) => p.id !== id);
+  data.pages = data.pages.filter(p => p.id !== id);
   if (data.pages.length === before) return false;
 
-  await saveSiteData(data);
+  await saveSiteDataUnlocked(data);
   return true;
+  });
 }
 
 export function getDataFilePathForScripts(): string {

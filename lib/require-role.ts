@@ -4,8 +4,7 @@ import { assertAdminIp } from './require-admin-ip';
 import { roleCan, type AdminRole } from './admin-roles';
 
 export type RoleGate =
-  | { ok: true; role: AdminRole | 'legacy'; username: string }
-  | { ok: false; response: NextResponse };
+  { ok: true; role: AdminRole | 'legacy'; username: string } | { ok: false; response: NextResponse };
 
 /**
  * Auth + IP + optional capability check for admin APIs.
@@ -24,7 +23,7 @@ export async function requireAdminRole(action?: string): Promise<RoleGate> {
     return { ok: false, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
   }
   const claims = await getSessionClaims();
-  const role = (claims?.role || 'legacy') as AdminRole | 'legacy';
+  const role = (claims?.role || 'operator') as AdminRole | 'legacy';
   const username = claims?.username || 'admin';
   if (action && !roleCan(role, action)) {
     return {
