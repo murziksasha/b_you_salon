@@ -59,6 +59,22 @@ describe('orders store', () => {
     expect(o.emailed).toBe(true);
   });
 
+  it('stores a shop consult without catalog items', async () => {
+    const { appendOrder, listOrders } = await import('./orders');
+    const o = await appendOrder({
+      phone: '+380501112233',
+      comment: 'хочу сироватку',
+      emailed: false,
+      source: 'consult',
+    });
+    expect(o.source).toBe('consult');
+    expect(o.product.id).toBe('consult');
+    expect(o.product.title).toBe('Консультація по товарах');
+    expect(o.total).toBe(0);
+    expect(o.items?.[0]?.id).toBe('consult');
+    expect((await listOrders())[0].source).toBe('consult');
+  });
+
   it('stores multi-item cart snapshot and fulfillment', async () => {
     const { appendOrder, listOrders } = await import('./orders');
     const o = await appendOrder({

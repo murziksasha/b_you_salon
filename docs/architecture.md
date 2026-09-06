@@ -26,8 +26,8 @@ flowchart LR
 
 Окремі журнали (не в `site.json`):
 
-- `data/leads.json` — заявки на дзвінок (`source: callback`)
-- `data/orders.json` — замовлення з магазину (`source: shop`, снапшот товару)
+- `data/leads.json` — заявки на дзвінок / запис (`source: callback|booking`)
+- `data/orders.json` — замовлення з магазину (`source: shop` + снапшот товарів) або консультація по товарах (`source: consult`)
 
 Секції типізовані union `Section` (`hero`, `advantages`, `malfunctions`, …).  
 Рендер: `SectionRenderer` → компоненти в `components/sections/`.
@@ -87,9 +87,13 @@ Shared helpers: `lib/admin/saveSite.ts`, `lib/admin/uploadImage.ts`, `lib/sectio
 
 ## Contact flow
 
-`CallbackForm` → `POST /api/contact` → honeypot `website` → validate UA phone (`380`+9 або `0`+9) → rate-limit → **append lead** (`data/leads.json`, `emailed: false`) → nodemailer (optional) → mark `emailed: true` on success  
+`CallbackForm` дивиться `intent` + `pagePath` (`lib/form-flow.ts`):
 
-Заявки завжди в журналі адмінки `/admin/leads` навіть без SMTP.  
+- **booking** (`/salon*` або `intent=salon`) → `POST /api/contact` → лід `source: booking`
+- **sales** (`/shop*`, `/cart` або `intent=shop`) → `POST /api/orders` (консультація без товарів) або contact internally `placeShopOrder({ consult: true })`
+- **callback** (інше) → лід `source: callback`
+
+Honeypot `website` → validate UA phone → rate-limit → journal навіть без SMTP.  
 Legacy `mailer/smart.php` лишається в Docker/nginx, але frontend його не викликає.
 
 Маска/placeholder телефону: `+38 (___) ___ __ __` (`lib/phone.ts` → `PHONE_PLACEHOLDER`).
@@ -108,7 +112,7 @@ Legacy `mailer/smart.php` лишається в Docker/nginx, але frontend й
 | Телефон (`tel:`) | body |
 | Час | server `uk-UA` |
 | ID заявки | `lead.id` (рядок журналу) |
-| Джерело | `callback` |
+| Джерело | `booking` або `callback` |
 | Сторінка | `pagePath` + `SITE_URL` якщо задано |
 | Заголовок сторінки | `pageTitle` |
 | Referer / IP / User-Agent / мова | request headers |
@@ -151,9 +155,9 @@ sequenceDiagram
   end
 ```
 
-- Entry: only product page `/shop/[id]` — `OrderForm` («Замовити»)
-- Fields: UA phone (required), comment (optional, max 1000), quantity always **1**
-- Server reloads product; rejects invisible/missing; stores **snapshot** (id, title, price, code, image)
+- Entry: кошик `/cart`, форми магазину (консультація), головна з `intent=shop`
+- Cart: UA phone, fulfillment, comment; server reloads products; rejects `inStock === false`; stores **snapshot**
+- Consult (немає `items`): `source: consult`, товар-плейсхолдер «Консультація по товарах», Telegram **Продаж**
 - Email to `MAIL_TO` only (shop); journal works without SMTP (`emailed: false`)
 - Honeypot field `website` → soft `ok` without persist (same on contact)
 - Admin: `/admin/orders` + `GET/PATCH/DELETE /api/orders` (session + IP allowlist at route)

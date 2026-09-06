@@ -13,6 +13,7 @@ import {
 } from '@/lib/reply-templates';
 import { snoozeHours, snoozeTomorrow, isOverdueCallback } from '@/lib/callback-schedule';
 import { formatTelHref } from '@/lib/phone';
+import { CONSULT_PRODUCT_ID } from '@/lib/shop-consult';
 import {
   CLOSE_OUTCOME_LABELS,
   CLOSE_OUTCOMES,
@@ -573,10 +574,10 @@ export function InboxPanel({
               {selected.productTitle ? (
                 <p>
                   <strong>{selected.productTitle}</strong>
-                  {selected.productPrice != null
+                  {selected.productId !== CONSULT_PRODUCT_ID && selected.productPrice != null
                     ? ` · ${selected.productPrice.toLocaleString('uk-UA')} ₴`
                     : ''}
-                  {selected.productId ? (
+                  {selected.productId && selected.productId !== CONSULT_PRODUCT_ID ? (
                     <>
                       {' · '}
                       <Link href={`/shop/${selected.productId}`} target='_blank'>

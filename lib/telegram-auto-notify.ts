@@ -4,6 +4,7 @@ import { listLeads, type Lead } from './leads';
 import { notifyLead, notifyOrder } from './notify';
 import { listOrders, type Order } from './orders';
 import { isQuietHours } from './quiet-hours';
+import { CONSULT_PRODUCT_TITLE, isConsultOrder } from './shop-consult';
 import { shouldSendTelegramPush } from './telegram-notify-policy';
 import { getTelegramBotSettings } from './telegram-store';
 
@@ -59,14 +60,17 @@ export async function autoNotifyNewOrder(order: Order | null): Promise<boolean> 
     await skipActivity(decision.reason || 'skip', order.phone);
     return false;
   }
+  const consult = isConsultOrder(order);
   return notifyOrder({
     phone: order.phone,
-    productTitle: order.items?.length
-      ? order.items.map((i) => `${i.title} ×${i.qty}`).join(', ')
-      : order.product.title,
-    price: order.total ?? order.product.price,
+    productTitle: consult
+      ? CONSULT_PRODUCT_TITLE
+      : order.items?.length
+        ? order.items.map((i) => `${i.title} ×${i.qty}`).join(', ')
+        : order.product.title,
+    price: consult ? undefined : order.total ?? order.product.price,
     orderId: order.id,
-    fulfillment: order.fulfillment,
+    fulfillment: consult ? undefined : order.fulfillment,
     comment: order.comment,
     createdAt: order.createdAt,
     status: order.status,

@@ -3,6 +3,7 @@ import path from 'path';
 import { atomicWriteJson } from './atomic-write';
 import { withFileMutex } from './file-mutex';
 import { createId } from './id';
+import { CONSULT_PRODUCT } from './shop-consult';
 import {
   handledFromStatus,
   isCloseOutcome,
@@ -44,7 +45,7 @@ export interface Order {
   total?: number;
   fulfillment?: Fulfillment;
   address?: string;
-  source: 'shop';
+  source: 'shop' | 'consult';
   emailed: boolean;
   handled: boolean;
   status?: WorkflowStatus;
@@ -165,17 +166,21 @@ export async function appendOrder(input: {
   address?: string;
   emailed: boolean;
   telegram?: boolean;
+  source?: Order['source'];
 }): Promise<Order> {
   return withOrdersLock(async () => {
   const store = await readStore();
   const comment = (input.comment || '').trim();
   const now = new Date().toISOString();
+  const consult = input.source === 'consult';
   const items: OrderItemSnapshot[] =
     input.items && input.items.length
       ? input.items.map(item => ({ ...item, qty: Math.max(1, Math.floor(item.qty || 1)) }))
       : input.product
         ? [{ ...input.product, qty: 1 }]
-        : [];
+        : consult
+          ? [{ ...CONSULT_PRODUCT, qty: 1 }]
+          : [];
   if (!items.length) {
     throw new Error('Order has no items');
   }
@@ -197,9 +202,9 @@ export async function appendOrder(input: {
     },
     items,
     total,
-    fulfillment: input.fulfillment === 'delivery' ? 'delivery' : 'pickup',
-    address: input.fulfillment === 'delivery' ? (input.address || '').trim() || undefined : undefined,
-    source: 'shop',
+    fulfillment: consult ? 'pickup' : input.fulfillment === 'delivery' ? 'delivery' : 'pickup',
+    address: !consult && input.fulfillment === 'delivery' ? (input.address || '').trim() || undefined : undefined,
+    source: consult ? 'consult' : 'shop',
     emailed: input.emailed,
     handled: false,
     status: 'new',

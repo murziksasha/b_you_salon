@@ -135,14 +135,56 @@ test.describe('public smoke', () => {
     });
     expect([200, 429]).toContain(res.status());
     if (res.status() === 200) {
-      const json = (await res.json()) as { ok?: boolean };
+      const json = (await res.json()) as { ok?: boolean; leadId?: string };
       expect(json.ok).toBe(true);
     }
   });
 
-  test('order rejects missing items', async ({ request }) => {
+  test('home shop intent creates consult order not lead', async ({ request }) => {
+    const res = await request.post('/api/contact', {
+      data: {
+        phone: '+380501114455',
+        pagePath: '/',
+        intent: 'shop',
+        comment: 'e2e shop intent',
+      },
+      headers: { 'Content-Type': 'application/json' },
+    });
+    expect([200, 429]).toContain(res.status());
+    if (res.status() === 200) {
+      const json = (await res.json()) as { ok?: boolean; orderId?: string; consult?: boolean; leadId?: string };
+      expect(json.ok).toBe(true);
+      expect(json.consult).toBe(true);
+      expect(json.orderId).toBeTruthy();
+      expect(json.leadId).toBeUndefined();
+    }
+  });
+
+  test('shop page contact is a consult order', async ({ request }) => {
+    const res = await request.post('/api/orders', {
+      data: { phone: '+380501116677', pagePath: '/shop', comment: 'e2e shop form' },
+      headers: { 'Content-Type': 'application/json' },
+    });
+    expect([200, 429]).toContain(res.status());
+    if (res.status() === 200) {
+      const json = (await res.json()) as { ok?: boolean; consult?: boolean; orderId?: string };
+      expect(json.ok).toBe(true);
+      expect(json.consult).toBe(true);
+      expect(json.orderId).toBeTruthy();
+    }
+  });
+
+  test('order rejects missing items outside shop flow', async ({ request }) => {
     const res = await request.post('/api/orders', {
       data: { phone: '+380501112233', productId: 'nonexistent-product-id' },
+      headers: { 'Content-Type': 'application/json' },
+    });
+    expect([400, 429]).toContain(res.status());
+  });
+
+  test('order without items from home is rejected', async ({ request }) => {
+    const res = await request.post('/api/orders', {
+      data: { phone: '+380501112233', pagePath: '/' },
       headers: { 'Content-Type': 'application/json' },
     });
     expect([400, 429]).toContain(res.status());

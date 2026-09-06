@@ -50,6 +50,16 @@ describe('telegram-format', () => {
     expect(sale).not.toContain('671112233');
     expect(sale).toContain('Шампунь');
     expect(sale).toContain('самовивіз');
+
+    const consult = formatOrderPush({
+      phone: '+380671112233',
+      productTitle: 'Консультація по товарах',
+      createdAt: '2026-09-06T11:32:00.000Z',
+    });
+    expect(consult.startsWith('Продаж')).toBe(true);
+    expect(consult).toContain('Консультація по товарах');
+    expect(consult).not.toContain('Сума:');
+    expect(consult).not.toContain('Самовивіз');
   });
 
   it('clamps list counts and chunks long text', () => {

@@ -60,6 +60,7 @@ export function CartCheckout({
           address: String(fd.get('address') || ''),
           website: String(fd.get('website') || ''),
           items: items.map((i) => ({ id: i.id, qty: i.qty })),
+          pagePath: `${window.location.pathname}${window.location.search}`.slice(0, 300),
         }),
       });
       if (!res.ok) {

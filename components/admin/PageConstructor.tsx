@@ -1269,6 +1269,17 @@ export function PageConstructor({ initialData, pageSlug }: { initialData: SiteDa
                         onChange={(e) => patchSection(index, { mapEmbedUrl: e.target.value })}
                       />
                     </label>
+                    <label className='admin-check'>
+                      <input
+                        type='checkbox'
+                        checked={Boolean(section.intentChooser)}
+                        onChange={(e) => patchSection(index, { intentChooser: e.target.checked })}
+                      />
+                      Вибір запис / товари (головна)
+                    </label>
+                    <p className='admin-hint admin-mb'>
+                      На головній показує «Що вас цікавить?» і відправляє заявку в Заявки або Замовлення.
+                    </p>
 
                     <div className='admin-row admin-row--between admin-mb'>
                       <div className='admin-subhead' style={{ margin: 0 }}>

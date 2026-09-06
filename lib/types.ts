@@ -230,7 +230,7 @@ export interface ContactsSection extends SectionBase {
   /** Right column lines under the title (address/hours notes). */
   findLines?: string[];
   mapEmbedUrl: string;
-  /** Home contacts: show intent select (salon book vs shop consult). Visual only. */
+  /** Home contacts: show intent select (salon book vs shop consult). Routes to leads vs orders. */
   intentChooser?: boolean;
 }
 
