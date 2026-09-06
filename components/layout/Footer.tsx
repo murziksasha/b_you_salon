@@ -1,70 +1,86 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import { BrandMark } from '@/components/brand/BrandMark';
-import type { SiteSettings } from '@/lib/types';
+import type { SiteSettings, SocialLink } from '@/lib/types';
 import { formatTelHref } from '@/lib/phone';
-import { phoneForZone, zoneFromPath } from '@/lib/zone';
+
+const FOOTER_LEAD = 'Два простори — один вхід';
+
+const IRYNA_PHONES = [
+  { display: '093 632 72 24', tel: '+380936327224' },
+  { display: '050 544 37 19', tel: '+380505443719' },
+] as const;
+
+const SOCIAL_LABEL: Record<string, string> = {
+  telegram: 'Telegram',
+  viber: 'Viber',
+  instagram: 'Instagram',
+  youtube: 'YouTube',
+};
+
+function socialLabel(link: SocialLink) {
+  return SOCIAL_LABEL[link.type] || link.type;
+}
 
 export function Footer({ settings }: { settings: SiteSettings }) {
-  const pathname = usePathname() || '/';
-  const zone = zoneFromPath(pathname);
-  const year = new Date().getFullYear();
-  const copyright = (settings.copyright || `© ${year} B_You`).replace(/2017/, String(year));
   const policyUrl = settings.privacyPolicyUrl || '/confident';
-  const shopPhone = phoneForZone(settings, 'shop');
-  const salonPhone = phoneForZone(settings, 'salon');
+
+  const address = settings.address?.trim() || 'м. Чорноморськ, вул. Вишнева, 4';
+  const hours = settings.hours?.trim() || 'Пн–Сб 09:00–18:00';
+  const nataliaPhones = (settings.phones || []).filter((p) => p.display || p.tel);
 
   return (
     <footer className='by-footer'>
       <div className='by-wrap by-footer__grid'>
         <div className='by-footer__col'>
           <BrandMark />
-          <p className='by-footer__lead'>Один простір — два входи.</p>
-          <nav className='by-footer__nav' aria-label='Зони'>
+          <p className='by-footer__lead'>{FOOTER_LEAD}</p>
+          <nav className='by-footer__nav' aria-label='Футер'>
             <Link href='/salon'>Салон</Link>
             <Link href='/shop'>Магазин</Link>
             <Link href='/#contacts'>Контакти</Link>
           </nav>
         </div>
+
         <div className='by-footer__col'>
-          {settings.hours ? <p>{settings.hours}</p> : null}
-          {settings.addressNote ? <p>{settings.addressNote}</p> : null}
-          <p className='by-footer__phones'>
-            {zone === 'shop' ? (
-              <span className='by-footer__manager'>
-                Менеджер{' '}
-                <a href={formatTelHref(shopPhone.tel)}>{shopPhone.display}</a>
-              </span>
-            ) : (
-              <>
-                <a href={formatTelHref(salonPhone.tel)}>{salonPhone.display}</a>
-                {settings.phones
-                  .filter((p) => p.tel !== salonPhone.tel)
-                  .map((p) => (
-                    <a key={p.tel} href={formatTelHref(p.tel)}>
-                      {p.display}
-                    </a>
-                  ))}
-              </>
-            )}
-          </p>
+          <p className='by-footer__address'>{address}</p>
+          <p className='by-footer__hours'>{hours}</p>
+          <div className='by-footer__person'>
+            <p className='by-footer__person-name'>Наталія</p>
+            <p className='by-footer__phones'>
+              {nataliaPhones.map((p) => (
+                <a key={p.tel || p.display} href={formatTelHref(p.tel)}>
+                  {p.display}
+                </a>
+              ))}
+            </p>
+          </div>
         </div>
+
         <div className='by-footer__col'>
           {settings.social?.length ? (
             <p className='by-footer__social'>
               {settings.social.map((link) => (
                 <a key={link.id} href={link.url} target='_blank' rel='noreferrer'>
-                  {link.type}
+                  {socialLabel(link)}
                 </a>
               ))}
             </p>
           ) : null}
-          <p>
+          <p className='by-footer__policy'>
             <Link href={policyUrl}>Політика конфіденційності</Link>
           </p>
-          <p>{copyright}</p>
+          <div className='by-footer__person'>
+            <p className='by-footer__person-name'>Ірина</p>
+            <p className='by-footer__phones'>
+              {IRYNA_PHONES.map((p) => (
+                <a key={p.tel} href={formatTelHref(p.tel)}>
+                  {p.display}
+                </a>
+              ))}
+            </p>
+          </div>
         </div>
       </div>
     </footer>

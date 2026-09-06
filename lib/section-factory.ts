@@ -63,14 +63,14 @@ export function newSection(type: SectionType | string): Section {
         left: {
           label: 'Ліворуч',
           title: 'Магазин косметики',
-          subtitle: 'Догляд, який забираєте з собою',
+          subtitle: 'догляд який дарує насолоду',
           href: '/shop',
           cta: 'У магазин',
         },
         right: {
           label: 'Праворуч',
           title: 'Салон краси',
-          subtitle: 'Манікюр, волосся, брови та вії',
+          subtitle: 'Манікюр, педикюр, стрижки, фарбування',
           href: '/salon',
           cta: 'До салону',
         },

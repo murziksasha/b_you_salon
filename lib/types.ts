@@ -207,14 +207,28 @@ export interface FeedbackSection extends SectionBase {
   moreReviewsButtonText: string;
 }
 
+export interface ContactsPerson {
+  id: string;
+  /** e.g. Майстер — універсал Наталія */
+  title: string;
+  phones: PhoneEntry[];
+  social?: SocialLink[];
+}
+
 export interface ContactsSection extends SectionBase {
   type: 'contacts';
   title: string;
-  inviteText: string;
-  addressHtml: string;
+  inviteText?: string;
+  addressHtml?: string;
+  /** Staff cards (name + phones + social). When set, preferred over flat phones/social. */
+  people?: ContactsPerson[];
   phones: PhoneEntry[];
   email: string;
   social: SocialLink[];
+  /** Right column heading (replaces hardcoded «Як знайти»). */
+  findTitle?: string;
+  /** Right column lines under the title (address/hours notes). */
+  findLines?: string[];
   mapEmbedUrl: string;
 }
 

@@ -94,7 +94,12 @@ export function Header({ settings, menu, site }: HeaderProps) {
         </div>
         <nav className='by-header__nav' aria-label='Головне меню'>
           {nav.map((item) => (
-            <Link key={item.id} href={item.href} className={isActive(pathname, item.href) ? 'is-active' : undefined}>
+            <Link
+              key={item.id}
+              href={item.href}
+              className={isActive(pathname, item.href) ? 'is-active' : undefined}
+              aria-current={isActive(pathname, item.href) ? 'page' : undefined}
+            >
               {item.label}
             </Link>
           ))}
@@ -162,7 +167,12 @@ export function Header({ settings, menu, site }: HeaderProps) {
         </div>
         <nav className='by-drawer__nav' aria-label='Мобільне меню'>
           {nav.map((item) => (
-            <Link key={item.id} href={item.href} className={isActive(pathname, item.href) ? 'is-active' : undefined}>
+            <Link
+              key={item.id}
+              href={item.href}
+              className={isActive(pathname, item.href) ? 'is-active' : undefined}
+              aria-current={isActive(pathname, item.href) ? 'page' : undefined}
+            >
               {item.label}
             </Link>
           ))}
