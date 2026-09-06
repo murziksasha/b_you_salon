@@ -9,7 +9,7 @@ import {
   sanitizePageTitle,
   truncateMeta,
 } from '@/lib/page-path';
-import { notifyLead } from '@/lib/notify';
+import { autoNotifyNewLead } from '@/lib/telegram-auto-notify';
 import { clientKey, rateLimit } from '@/lib/rate-limit';
 import { escapeText } from '@/lib/sanitize';
 import { isValidUaPhone, normalizePhoneCanonical } from '@/lib/phone';
@@ -154,23 +154,9 @@ export async function POST(request: NextRequest) {
       lead = null;
     }
 
-    // Fire-and-await Telegram (non-blocking for failure)
     let telegram = false;
     try {
-      telegram = await notifyLead({
-        phone,
-        leadId: lead?.id,
-        pagePath,
-        utmLine,
-        zone,
-        serviceTitle,
-        comment,
-        source: zone === 'salon' || serviceId ? 'booking' : 'callback',
-        createdAt: lead?.createdAt,
-      });
-      if (lead && telegram) {
-        // re-read not needed; flag only for response/logging
-      }
+      telegram = await autoNotifyNewLead(lead, { deduped });
     } catch {
       telegram = false;
     }

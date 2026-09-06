@@ -1,5 +1,6 @@
 import { handleTelegramContext, type TelegramContext } from './telegram-commands';
 import { answerTelegramCallback, editTelegramMessage, sendTelegramMessage, telegramBotToken } from './notify';
+import { runCatchupIfNeeded, tickTelegramDigest } from './telegram-digest';
 import { getTelegramLastUpdateId, setTelegramLastUpdateId } from './telegram-store';
 
 type TelegramUpdate = {
@@ -101,6 +102,13 @@ export async function runTelegramBot(opts?: { signal?: AbortSignal }): Promise<v
   if (offset) offset += 1;
   console.log('[telegram-bot] polling started');
 
+  try {
+    await runCatchupIfNeeded();
+    await tickTelegramDigest();
+  } catch (err) {
+    console.error('[telegram-bot] startup digest', err);
+  }
+
   while (!opts?.signal?.aborted) {
     try {
       const result = await telegramApi('getUpdates', {
@@ -121,6 +129,9 @@ export async function runTelegramBot(opts?: { signal?: AbortSignal }): Promise<v
           console.error('[telegram-bot] persist offset', err);
         });
       }
+      await tickTelegramDigest().catch((err) => {
+        console.error('[telegram-bot] digest tick', err);
+      });
     } catch (err) {
       console.error('[telegram-bot] getUpdates', err);
       await new Promise((r) => setTimeout(r, 3000));

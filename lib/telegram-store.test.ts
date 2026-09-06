@@ -7,8 +7,10 @@ import {
   consumeTelegramPairing,
   createTelegramPairing,
   generatePairingCode,
+  getTelegramBotSettings,
   listTelegramSubscribers,
   pairingCodesEqual,
+  patchTelegramBotSettings,
   patchTelegramSubscriber,
   revokeTelegramSubscriber,
   subscriberReceives,
@@ -100,5 +102,16 @@ describe('telegram-store', () => {
     expect(collectNotifyChatIds('lead', subs, 'legacy')).toEqual(['a', 'legacy']);
     expect(collectNotifyChatIds('order', subs, 'legacy')).toEqual(['b', 'legacy']);
     expect(collectNotifyChatIds('ops', subs, 'a')).toEqual(['a', 'b']);
+  });
+
+  it('defaults quiet hours and persists settings', async () => {
+    const initial = await getTelegramBotSettings();
+    expect(initial.quietStart).toBe(22);
+    expect(initial.quietEnd).toBe(8);
+    expect(initial.timezone).toBe('Europe/Kyiv');
+    const next = await patchTelegramBotSettings({ quietStart: 23, quietEnd: 7 });
+    expect(next.quietStart).toBe(23);
+    expect(next.quietEnd).toBe(7);
+    expect((await getTelegramBotSettings()).quietEnd).toBe(7);
   });
 });

@@ -39,3 +39,69 @@
 ## Адмінка
 
 Порт операційного контуру proper_service (Inbox, leads, orders, clients, constructor, goods, media, 2FA, digest, revisions). Додано `/admin/services`.
+
+## Адмін Telegram-бот
+
+Адмін-бот B_You — **черга оператора в Telegram**, не клієнтський канал і не заміна адмінки. Username бота не публікується на сайті.
+
+Доступ: лише paired subscribers (`data/telegram-subscribers.json`) після одноразового коду з `/admin/ops`. Стороннім — тиша; `/start` без коду — «Немає доступу.» Ліміт: 20 команд/хв на `userId`. Процес: pm2 `byou-telegram` (long-poll). Пуші лідів/замовлень шле процес Next.js (`notifyLead` / `notifyOrder`).
+
+### Картка пуша
+
+```
+Запис | Заявка | Продаж
+ДД.ММ.РРРР, ГГ:ХХ
++38067***12
+Статус: Нова
+Послуга/Товар: …
+коментар (якщо є)
+```
+
+1. **Маска телефону** у пуші та в списках «Останні записи/продажі»: `+38067***12`. Повний номер лише в `/find`, кнопці «Копіювати номер», файлах на диску.
+2. **Статус** — лейбл workflow. Якщо є `assignee` — рядок `Відповідальний: {імʼя}`.
+3. `tel:` у боті заборонений (не працює в Telegram).
+
+Кнопки:
+
+| Кнопка | Тип | Поведінка |
+|---|---|---|
+| Копіювати номер | `copy_text` | повний канонічний `+380…` |
+| Viber | `url` | https-редірект `{SITE_URL}/r/viber?p=&s=` (HMAC) → `viber://chat?number=%2B380…`. Якщо `SITE_URL` непублічний — кнопки немає, у тексті рядок `Viber: viber://…` |
+| Відкрити в адмінці | `url` | `{SITE_URL}/admin/clients?phone=` лише якщо публічний `SITE_URL` |
+| Взяти в роботу | `callback` | єдиний запис статусу з бота |
+
+### Коли слати пуш
+
+Слати, якщо: є підписники потрібного типу без mute; не тихі години бота; у Inbox **немає іншого відкритого** елемента з тим самим телефоном (окрім щойно створеного). Повтор контакт-dedup (нотатка в існуючий open lead) не пушить.
+
+Не слати, але заявку зберегти. Activity: `Telegram skip: open-phone` / `Telegram skip: quiet`.
+
+Не стосується: ручний Telegram ↗ / bulk з Inbox; ops-алерти (backup/SMTP) — проходять тихі години, якщо не mute.
+
+### Тихі години бота
+
+Глобальні в store: `quietStart` / `quietEnd` / `timezone: Europe/Kyiv`. Типово 22→08. `start === end` вимикає тишу. Редагування: `/admin/ops` і команда `/quiet` (перегляд). Під час тиші лід/продаж не пушить; ops — так.
+
+### Дайджест
+
+Планувальник у процесі бота (не Next.js instrumentation).
+
+1. **Ранковий** (`buildMorningDigest`) щодня о `quietEnd:00` Київ, раз на календарну дату, усім не-mute (`kind: ops`).
+2. **Catch-up** при старті бота, якщо `now - lastAliveAt > 15 хв`: «Поки хост спав / Нових: N / Відкрито зараз: M». Порожній (N=0 і open=0) не слати. Інакше слати навіть у тихі години.
+3. **Вечірній** (`buildEveningDigest`) о 18:00 Київ, раз на добу.
+
+Поки хост спить, нічого не піде. Після пробудження — catch-up, далі розклад. `lastAliveAt` оновлюється не частіше ніж раз на 2 хв.
+
+### «Взяти в роботу»
+
+Свідомий вузький виняток з 2FA/IP-allowlist адмінки:
+
+1. Кнопка лише якщо статус open і (немає assignee або assignee = цей оператор).
+2. Перший тап — підтвердження. Без нього — no-op.
+3. Так → `status: in_progress`, `assignee: firstName || username || linkedBy || telegram`. Audit `actor: tg:…`.
+4. Заборонено з бота: `done`, `spam`, `no_answer`, `called`, `waiting`, outcome, note, delete.
+5. Якщо вже взяв інший — «Вже в роботі: {assignee}».
+
+### Редірект Viber
+
+`GET /r/viber?p={digits}&s={hmac}` — публічний, без сесії (інакше кнопка мертва поза IP-allowlist). HMAC-SHA256 digits ключем `SESSION_SECRET`. 302 на `viber://chat?number=%2B{digits}`. Rate limit 30/хв/IP. Немає HTML з номером.

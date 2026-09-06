@@ -1,14 +1,18 @@
+import { appendActivity } from './admin-activity';
 import type { Lead } from './leads';
 import type { Order } from './orders';
-import { listLeads } from './leads';
-import { listOrders } from './orders';
+import { listLeads, updateLead } from './leads';
+import { listOrders, updateOrder } from './orders';
+import { telegramPushChrome } from './notify';
 import { phoneDigits, phonesMatch } from './phone';
 import { rateLimit } from './rate-limit';
 import {
   consumeTelegramPairing,
+  getTelegramBotSettings,
   getTelegramSubscriber,
   patchTelegramSubscriber,
   type ConsumePairingResult,
+  type TelegramBotSettings,
   type TelegramSubscriber,
 } from './telegram-store';
 import {
@@ -21,7 +25,9 @@ import {
   formatOrderPush,
   formatPhoneMovements,
   type PhoneMovement,
+  type TelegramReplyMarkup,
 } from './telegram-format';
+import { isOpenStatus, normalizeStatus } from './workflow';
 
 export type TelegramContext = {
   userId: string;
@@ -33,12 +39,7 @@ export type TelegramContext = {
   messageId?: number;
 };
 
-export type TelegramReplyMarkup = {
-  keyboard?: Array<Array<{ text: string }>>;
-  inline_keyboard?: Array<Array<{ text: string; callback_data: string }>>;
-  resize_keyboard?: boolean;
-  one_time_keyboard?: boolean;
-};
+export type { TelegramReplyMarkup };
 
 export type TelegramReply = {
   text: string;
@@ -87,21 +88,25 @@ export const ADMIN_REPLY_KEYBOARD: TelegramReplyMarkup = {
 };
 
 export const MENU_TEXT = [
-  'B_You · меню адміністратора',
+  'B_You · черга адміністратора',
   '',
-  'Записи / продажі — останні 10, або 5 / 25 / 50 кнопками, або /leads 15.',
-  'Пошук — усі рухи номера з датою і часом.',
+  'Записи / продажі — останні 10 (статус і хто взяв). 5 / 25 / 50 або /leads 15.',
+  'Пошук — повний номер і всі рухи.',
+  'З бота можна лише «Взяти в роботу». Готово / спам — тільки в адмінці.',
 ].join('\n');
 
 export const HELP_TEXT = [
   'Адмін-бот B_You. Лише для адміністраторів сайту.',
   '',
-  'Кнопка Меню — записи, продажі, пошук, підписка.',
-  'Пуші: новий запис / заявка / продаж — за вашою підпискою.',
+  'Пуш — картка черги: маска номера, статус, кнопки копіювати / Viber / адмінка / взяти.',
+  'Повний номер — у пошуку і кнопці «Копіювати номер». tel: не використовуємо.',
+  'Повтор відкритого номера і нічні заявки не пушать — дивіться ранковий огляд.',
+  'З бота не закриваємо заявки (це обхід 2FA). Лише «Взяти в роботу» з підтвердженням.',
   '',
   '/leads [n] — останні записи (1–50, типово 10)',
   '/orders [n] — останні продажі',
-  '/find 067… — усі рухи номера',
+  '/find 067… — усі рухи номера (повний телефон)',
+  '/quiet — тихі години бота',
   '/menu — це меню',
   '/sub — записи / замовлення / усе',
   '/mute /unmute',
@@ -167,18 +172,34 @@ function subKeyboard(sub: TelegramSubscriber): TelegramReplyMarkup {
         { text: 'Усе', callback_data: 'sub:all' },
         { text: `${mute}Mute`, callback_data: 'sub:mute' },
       ],
+      [{ text: 'Тихі години', callback_data: 'menu:quiet' }],
       [{ text: '« Меню', callback_data: 'menu:home' }],
     ],
   };
 }
 
-function prefsText(sub: TelegramSubscriber): string {
+function prefsText(sub: TelegramSubscriber, settings?: TelegramBotSettings): string {
   const types = [
     sub.bookings !== false ? 'записи/заявки' : '',
     sub.orders !== false ? 'продажі' : '',
   ].filter(Boolean);
   const what = types.length ? types.join(' + ') : 'нічого';
-  return `Підписка: ${what}${sub.mute ? ' · mute' : ''}`;
+  const quiet =
+    settings && settings.quietStart !== settings.quietEnd
+      ? ` · тиша ${String(settings.quietStart).padStart(2, '0')}–${String(settings.quietEnd).padStart(2, '0')} ${settings.timezone}`
+      : '';
+  return `Підписка: ${what}${sub.mute ? ' · mute' : ''}${quiet}`;
+}
+
+function quietHelp(settings: TelegramBotSettings): string {
+  if (settings.quietStart === settings.quietEnd) {
+    return 'Тихі години вимкнені (змінити в Адмінка → Ops).';
+  }
+  return [
+    `Тихі години бота: ${String(settings.quietStart).padStart(2, '0')}:00–${String(settings.quietEnd).padStart(2, '0')}:00 ${settings.timezone}.`,
+    'У цей час нові записи/продажі не пушать — вони потраплять у ранковий огляд.',
+    'Ops-алерти проходять. Змінити години: Адмінка → Ops.',
+  ].join('\n');
 }
 
 function repliesFromText(text: string, replyMarkup?: TelegramReplyMarkup, edit?: boolean): TelegramReply[] {
@@ -220,6 +241,10 @@ function parseSlashCount(text: string, cmd: string): number | null {
   return clampListCount(m[1]);
 }
 
+export type TelegramClaimResult =
+  | { ok: true; kind: 'lead' | 'order'; item: Lead | Order }
+  | { ok: false; reason: 'not_found' | 'taken' | 'closed'; assignee?: string };
+
 export type TelegramCommandDeps = {
   getSubscriber: (userId: string) => Promise<TelegramSubscriber | null>;
   consumePairing: (
@@ -232,7 +257,52 @@ export type TelegramCommandDeps = {
   ) => Promise<TelegramSubscriber | null>;
   listLeads: () => Promise<Lead[]>;
   listOrders: () => Promise<Order[]>;
+  getSettings: () => Promise<TelegramBotSettings>;
+  claimItem: (kind: 'lead' | 'order', id: string, assignee: string) => Promise<TelegramClaimResult>;
 };
+
+export async function defaultClaimItem(
+  kind: 'lead' | 'order',
+  id: string,
+  assignee: string,
+): Promise<TelegramClaimResult> {
+  if (kind === 'lead') {
+    const cur = (await listLeads()).find((l) => l.id === id);
+    if (!cur) return { ok: false, reason: 'not_found' };
+    const st = normalizeStatus(cur.status, cur.handled);
+    if (!isOpenStatus(st)) return { ok: false, reason: 'closed' };
+    if (cur.assignee && cur.assignee !== assignee) return { ok: false, reason: 'taken', assignee: cur.assignee };
+    const item = await updateLead(id, { status: 'in_progress', assignee });
+    if (!item) return { ok: false, reason: 'not_found' };
+    try {
+      await appendActivity({
+        kind: 'lead_status',
+        message: `Заявка ${id.slice(0, 8)} → in_progress`,
+        actor: `tg:${assignee}`,
+      });
+    } catch {
+      /* ignore */
+    }
+    return { ok: true, kind: 'lead', item };
+  }
+  const cur = (await listOrders()).find((o) => o.id === id);
+  if (!cur) return { ok: false, reason: 'not_found' };
+  const st = normalizeStatus(cur.status, cur.handled);
+  if (!isOpenStatus(st)) return { ok: false, reason: 'closed' };
+  if (cur.assignee && cur.assignee !== assignee) return { ok: false, reason: 'taken', assignee: cur.assignee };
+  const item = await updateOrder(id, { status: 'in_progress', assignee });
+  if (!item) return { ok: false, reason: 'not_found' };
+  try {
+    await appendActivity({
+      kind: 'order_status',
+      message: `Замовлення ${id.slice(0, 8)} → in_progress`,
+      actor: `tg:${assignee}`,
+    });
+  } catch {
+    /* ignore */
+  }
+  return { ok: true, kind: 'order', item };
+}
 
 export const defaultTelegramCommandDeps: TelegramCommandDeps = {
   getSubscriber: getTelegramSubscriber,
@@ -240,30 +310,123 @@ export const defaultTelegramCommandDeps: TelegramCommandDeps = {
   patchSubscriber: patchTelegramSubscriber,
   listLeads,
   listOrders,
+  getSettings: getTelegramBotSettings,
+  claimItem: defaultClaimItem,
 };
 
 function findMovements(leads: Lead[], orders: Order[], phone: string): PhoneMovement[] {
   const leadRows: PhoneMovement[] = leads
     .filter((l) => phonesMatch(l.phone, phone))
-    .map((l) => ({
-      kind: l.source === 'booking' ? 'booking' : 'callback',
-      at: l.createdAt,
-      detail: [l.serviceTitle, l.comment].filter(Boolean).join(' · ') || undefined,
-    }));
+    .map((l) => {
+      const status = normalizeStatus(l.status, l.handled);
+      return {
+        kind: (l.source === 'booking' ? 'booking' : 'callback') as PhoneMovement['kind'],
+        at: l.createdAt,
+        detail: [l.serviceTitle, l.comment].filter(Boolean).join(' · ') || undefined,
+        status,
+        handled: l.handled,
+        assignee: l.assignee,
+        id: l.id,
+        inboxKind: 'lead' as const,
+        open: isOpenStatus(status),
+      };
+    });
   const orderRows: PhoneMovement[] = orders
     .filter((o) => phonesMatch(o.phone, phone))
-    .map((o) => ({
-      kind: 'order' as const,
-      at: o.createdAt,
-      detail:
-        [
-          o.items?.length ? o.items.map((i) => `${i.title} ×${i.qty}`).join(', ') : o.product.title,
-          o.comment,
-        ]
-          .filter(Boolean)
-          .join(' · ') || undefined,
-    }));
+    .map((o) => {
+      const status = normalizeStatus(o.status, o.handled);
+      return {
+        kind: 'order' as const,
+        at: o.createdAt,
+        detail:
+          [
+            o.items?.length ? o.items.map((i) => `${i.title} ×${i.qty}`).join(', ') : o.product.title,
+            o.comment,
+          ]
+            .filter(Boolean)
+            .join(' · ') || undefined,
+        status,
+        handled: o.handled,
+        assignee: o.assignee,
+        id: o.id,
+        inboxKind: 'order' as const,
+        open: isOpenStatus(status),
+      };
+    });
   return [...leadRows, ...orderRows].sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+}
+
+function displayName(ctx: TelegramContext, sub: TelegramSubscriber): string {
+  return (ctx.firstName || sub.firstName || ctx.username || sub.username || sub.linkedBy || 'telegram').slice(0, 40);
+}
+
+function parseClaimCallback(data: string): { action: 'ask' | 'yes' | 'no'; kind: 'lead' | 'order'; id: string } | null {
+  const m = data.match(/^claim:(ask|yes|no):([lo]):(.+)$/);
+  if (!m) return null;
+  const id = m[3].trim();
+  if (!id || id.length > 24) return null;
+  return { action: m[1] as 'ask' | 'yes' | 'no', kind: m[2] === 'o' ? 'order' : 'lead', id };
+}
+
+function itemPushReply(kind: 'lead' | 'order', item: Lead | Order, edit?: boolean): TelegramReply {
+  if (kind === 'lead') {
+    const lead = item as Lead;
+    const chrome = telegramPushChrome({
+      phone: lead.phone,
+      kind: 'lead',
+      id: lead.id,
+      status: lead.status,
+      handled: lead.handled,
+      assignee: lead.assignee,
+    });
+    return {
+      text: formatLeadPush({
+        phone: lead.phone,
+        source: lead.source,
+        serviceTitle: lead.serviceTitle,
+        comment: lead.comment,
+        createdAt: lead.createdAt,
+        status: lead.status,
+        handled: lead.handled,
+        assignee: lead.assignee,
+        viberHint: chrome.viberHint,
+      }),
+      replyMarkup: chrome.markup,
+      edit,
+    };
+  }
+  const order = item as Order;
+  const chrome = telegramPushChrome({
+    phone: order.phone,
+    kind: 'order',
+    id: order.id,
+    status: order.status,
+    handled: order.handled,
+    assignee: order.assignee,
+  });
+  return {
+    text: formatOrderPush({
+      phone: order.phone,
+      productTitle: order.items?.length
+        ? order.items.map((i) => `${i.title} ×${i.qty}`).join(', ')
+        : order.product.title,
+      price: order.total ?? order.product.price,
+      fulfillment: order.fulfillment,
+      comment: order.comment,
+      createdAt: order.createdAt,
+      status: order.status,
+      handled: order.handled,
+      assignee: order.assignee,
+      viberHint: chrome.viberHint,
+    }),
+    replyMarkup: chrome.markup,
+    edit,
+  };
+}
+
+async function loadItem(deps: TelegramCommandDeps, kind: 'lead' | 'order', id: string): Promise<Lead | Order | null> {
+  if (kind === 'lead') return (await deps.listLeads()).find((l) => l.id === id) || null;
+  return (await deps.listOrders()).find((o) => o.id === id) || null;
 }
 
 async function listLeadsText(deps: TelegramCommandDeps, n: number): Promise<string> {
@@ -306,7 +469,23 @@ async function searchReplies(
 ): Promise<TelegramReply[]> {
   const [leads, orders] = await Promise.all([deps.listLeads(), deps.listOrders()]);
   const items = findMovements(leads, orders, phone);
-  return repliesFromText(formatPhoneMovements(phone, items), searchNavKeyboard(), edit);
+  const newest = items[0];
+  const chrome = newest
+    ? telegramPushChrome({
+        phone,
+        kind: newest.inboxKind,
+        id: newest.id,
+        status: newest.status,
+        handled: newest.handled,
+        assignee: newest.assignee,
+      })
+    : undefined;
+  const extraNav = searchNavKeyboard().inline_keyboard || [];
+  const action = chrome?.markup?.inline_keyboard || [];
+  const replyMarkup: TelegramReplyMarkup = {
+    inline_keyboard: [...action, ...extraNav],
+  };
+  return repliesFromText(formatPhoneMovements(phone, items), replyMarkup, edit);
 }
 
 function findPrompt(edit?: boolean): TelegramReply {
@@ -385,12 +564,25 @@ export async function handleTelegramContext(
   }
   if (callbackData === 'menu:sub') {
     clearPending(userId);
-    return { replies: [{ text: prefsText(sub), replyMarkup: subKeyboard(sub), edit: true }], callbackAnswer: 'Підписка' };
+    const settings = await deps.getSettings();
+    return {
+      replies: [{ text: prefsText(sub, settings), replyMarkup: subKeyboard(sub), edit: true }],
+      callbackAnswer: 'Підписка',
+    };
+  }
+  if (callbackData === 'menu:quiet') {
+    clearPending(userId);
+    const settings = await deps.getSettings();
+    return {
+      replies: [{ text: quietHelp(settings), replyMarkup: subKeyboard(sub), edit: true }],
+      callbackAnswer: 'Тихі години',
+    };
   }
   if (callbackData === 'menu:help') {
     clearPending(userId);
+    const settings = await deps.getSettings();
     return {
-      replies: [{ text: `${prefsText(sub)}\n\n${HELP_TEXT}`, replyMarkup: mainMenuKeyboard(), edit: true }],
+      replies: [{ text: `${prefsText(sub, settings)}\n\n${HELP_TEXT}`, replyMarkup: mainMenuKeyboard(), edit: true }],
       callbackAnswer: 'Допомога',
     };
   }
@@ -432,10 +624,64 @@ export async function handleTelegramContext(
     } else if (mode === 'mute') {
       next = (await deps.patchSubscriber(userId, { mute: !sub.mute })) || sub;
     }
+    const settings = await deps.getSettings();
     return {
-      replies: [{ text: prefsText(next), replyMarkup: subKeyboard(next), edit: true }],
+      replies: [{ text: prefsText(next, settings), replyMarkup: subKeyboard(next), edit: true }],
       callbackAnswer: 'Збережено',
     };
+  }
+
+  const claimCb = parseClaimCallback(callbackData);
+  if (claimCb) {
+    const assignee = displayName(ctx, sub);
+    const item = await loadItem(deps, claimCb.kind, claimCb.id);
+    if (!item) {
+      return { replies: [{ text: 'Заявку не знайдено.', replyMarkup: mainMenuKeyboard(), edit: true }], callbackAnswer: 'Немає' };
+    }
+    if (claimCb.action === 'ask') {
+      const st = normalizeStatus(item.status, item.handled);
+      if (!isOpenStatus(st)) {
+        return { replies: [itemPushReply(claimCb.kind, item, true)], callbackAnswer: 'Вже закрито' };
+      }
+      if (item.assignee && item.assignee !== assignee) {
+        return {
+          replies: [{ text: `Вже в роботі: ${item.assignee}`, replyMarkup: mainMenuKeyboard(), edit: true }],
+          callbackAnswer: 'Зайнято',
+        };
+      }
+      const k = claimCb.kind === 'order' ? 'o' : 'l';
+      return {
+        replies: [
+          {
+            text: 'Підтвердити: взяти в роботу?\nЦе не закриває заявку — лише ставить вас відповідальним.',
+            replyMarkup: {
+              inline_keyboard: [
+                [
+                  { text: 'Так, взяти', callback_data: `claim:yes:${k}:${claimCb.id}` },
+                  { text: 'Скасувати', callback_data: `claim:no:${k}:${claimCb.id}` },
+                ],
+              ],
+            },
+            edit: true,
+          },
+        ],
+        callbackAnswer: 'Підтвердіть',
+      };
+    }
+    if (claimCb.action === 'no') {
+      return { replies: [itemPushReply(claimCb.kind, item, true)], callbackAnswer: 'Скасовано' };
+    }
+    const result = await deps.claimItem(claimCb.kind, claimCb.id, assignee);
+    if (!result.ok) {
+      if (result.reason === 'taken') {
+        return {
+          replies: [{ text: `Вже в роботі: ${result.assignee}`, replyMarkup: mainMenuKeyboard(), edit: true }],
+          callbackAnswer: 'Зайнято',
+        };
+      }
+      return { replies: [{ text: 'Не вдалося взяти.', replyMarkup: mainMenuKeyboard(), edit: true }], callbackAnswer: 'Помилка' };
+    }
+    return { replies: [itemPushReply(result.kind, result.item, true)], callbackAnswer: 'Взято' };
   }
 
   const waiting = peekPending(userId);
@@ -471,15 +717,23 @@ export async function handleTelegramContext(
 
   if (/^\/mute\b/i.test(text)) {
     const next = (await deps.patchSubscriber(userId, { mute: true })) || sub;
-    return { replies: [{ text: prefsText(next), replyMarkup: mainMenuKeyboard() }] };
+    const settings = await deps.getSettings();
+    return { replies: [{ text: prefsText(next, settings), replyMarkup: mainMenuKeyboard() }] };
   }
   if (/^\/unmute\b/i.test(text)) {
     const next = (await deps.patchSubscriber(userId, { mute: false })) || sub;
-    return { replies: [{ text: prefsText(next), replyMarkup: mainMenuKeyboard() }] };
+    const settings = await deps.getSettings();
+    return { replies: [{ text: prefsText(next, settings), replyMarkup: mainMenuKeyboard() }] };
+  }
+
+  if (/^\/quiet\b/i.test(text) || lower === 'тихі години' || lower === 'тихие часы') {
+    const settings = await deps.getSettings();
+    return { replies: [{ text: quietHelp(settings), replyMarkup: subKeyboard(sub) }] };
   }
 
   if (/^\/sub(?:scribe)?\b/i.test(text) || lower === 'підписка' || lower === 'подписка') {
-    return { replies: [{ text: prefsText(sub), replyMarkup: subKeyboard(sub) }] };
+    const settings = await deps.getSettings();
+    return { replies: [{ text: prefsText(sub, settings), replyMarkup: subKeyboard(sub) }] };
   }
 
   const leadsN = parseSlashCount(text, 'leads') ?? parseSlashCount(text, 'bookings');
@@ -553,6 +807,9 @@ export function previewLead(lead: Lead): string {
     serviceTitle: lead.serviceTitle,
     comment: lead.comment,
     createdAt: lead.createdAt,
+    status: lead.status,
+    handled: lead.handled,
+    assignee: lead.assignee,
   });
 }
 
@@ -566,5 +823,8 @@ export function previewOrder(order: Order): string {
     fulfillment: order.fulfillment,
     comment: order.comment,
     createdAt: order.createdAt,
+    status: order.status,
+    handled: order.handled,
+    assignee: order.assignee,
   });
 }

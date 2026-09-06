@@ -21,12 +21,19 @@ type Subscriber = {
   orders: boolean;
 };
 
+type BotSettings = {
+  quietStart: number;
+  quietEnd: number;
+  timezone: string;
+};
+
 type Status = {
   tokenConfigured: boolean;
   legacyChat: boolean;
   canSend: boolean;
   pairing: Pairing | null;
   subscribers: Subscriber[];
+  settings?: BotSettings;
 };
 
 function prefsLabel(s: Subscriber): string {
@@ -38,6 +45,8 @@ export function TelegramBotPanel() {
   const [status, setStatus] = useState<Status | null>(null);
   const [loadError, setLoadError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [quietStart, setQuietStart] = useState(22);
+  const [quietEnd, setQuietEnd] = useState(8);
 
   const load = useCallback(async () => {
     try {
@@ -48,6 +57,10 @@ export function TelegramBotPanel() {
       }
       const json = (await res.json()) as Status;
       setStatus(json);
+      if (json.settings) {
+        setQuietStart(json.settings.quietStart);
+        setQuietEnd(json.settings.quietEnd);
+      }
       setLoadError('');
     } catch {
       setLoadError('Мережева помилка');
@@ -75,6 +88,29 @@ export function TelegramBotPanel() {
         return;
       }
       showToast('Код привʼязки створено (10 хв)', 'success');
+      await load();
+    } catch {
+      showToast('Мережева помилка', 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveQuiet() {
+    setBusy(true);
+    try {
+      const res = await fetch('/api/telegram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ action: 'quiet', quietStart, quietEnd }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        showToast(json.error || 'Не вдалося зберегти тихі години', 'error');
+        return;
+      }
+      showToast('Тихі години бота збережено', 'success');
       await load();
     } catch {
       showToast('Мережева помилка', 'error');
@@ -122,8 +158,9 @@ export function TelegramBotPanel() {
     <div className='admin-card'>
       <h2 className='admin-h2'>Telegram-бот (адміни)</h2>
       <p className='admin-hint'>
-        Пуші про записи та продажі + команди в боті. Підписатися може лише той, кому ви дали одноразовий код з цієї
-        сторінки. Username бота не публікуйте на сайті (це не клієнтський Telegram у футері).
+        Черга в Telegram: пуші з маскою номера, Viber / копія, статус. Підписатися може лише той, кому ви дали
+        одноразовий код з цієї сторінки. Username бота не публікуйте на сайті. З бота не закривають заявки — лише «Взяти
+        в роботу».
       </p>
       {!status ? (
         <p className='admin-hint'>Завантаження…</p>
@@ -163,6 +200,40 @@ export function TelegramBotPanel() {
           ) : (
             <p className='admin-hint'>Активного коду немає. Згенеруйте, потім /start КОД у боті протягом 10 хвилин.</p>
           )}
+
+          <h3 className='admin-h3'>Тихі години бота</h3>
+          <p className='admin-hint'>
+            За {status.settings?.timezone || 'Europe/Kyiv'}. У цей час нові записи/продажі не пушать — вони потраплять у
+            ранковий огляд о {String(quietEnd).padStart(2, '0')}:00. Ops-алерти проходять. 22 і 8 — як у браузері; однакові
+            години вимикають тишу.
+          </p>
+          <div className='admin-row admin-row--wrap admin-mb'>
+            <label className='admin-field'>
+              Quiet з (год)
+              <input
+                type='number'
+                min={0}
+                max={23}
+                className='admin-field-sm'
+                value={quietStart}
+                onChange={(e) => setQuietStart(Number(e.target.value) || 0)}
+              />
+            </label>
+            <label className='admin-field'>
+              Quiet до (год)
+              <input
+                type='number'
+                min={0}
+                max={23}
+                className='admin-field-sm'
+                value={quietEnd}
+                onChange={(e) => setQuietEnd(Number(e.target.value) || 0)}
+              />
+            </label>
+            <button type='button' className='admin-btn admin-btn--secondary' disabled={busy} onClick={() => void saveQuiet()}>
+              Зберегти тишу
+            </button>
+          </div>
 
           <h3 className='admin-h3'>Підписники</h3>
           {status.subscribers.length === 0 ? (

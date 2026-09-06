@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   formatTelHref,
   isValidUaPhone,
+  maskPhoneDisplay,
   normalizePhoneCanonical,
   phoneDigits,
   phonesMatch,
@@ -40,5 +41,18 @@ describe('phone', () => {
   it('matches equivalent phones', () => {
     expect(phonesMatch('0995385655', '+380995385655')).toBe(true);
     expect(phonesMatch('0991111111', '0992222222')).toBe(false);
+  });
+
+  it('masks UA numbers as +38067***12', () => {
+    expect(maskPhoneDisplay('+380671234512')).toBe('+38067***12');
+    expect(maskPhoneDisplay('0671234512')).toBe('+38067***12');
+    expect(maskPhoneDisplay('+38 (067) 123-45-12')).toBe('+38067***12');
+  });
+
+  it('masks short / non-UA safely', () => {
+    expect(maskPhoneDisplay('')).toBe('***');
+    expect(maskPhoneDisplay('ab')).toBe('ab');
+    expect(maskPhoneDisplay('12345678')).toMatch(/\*/);
+    expect(maskPhoneDisplay('12345678').includes('12')).toBe(true);
   });
 });

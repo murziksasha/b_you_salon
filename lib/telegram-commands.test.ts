@@ -68,6 +68,21 @@ describe('telegram-commands', () => {
       },
       listLeads: async () => leads,
       listOrders: async () => orders,
+      getSettings: async () => ({
+        quietStart: 22,
+        quietEnd: 8,
+        timezone: 'Europe/Kyiv',
+      }),
+      claimItem: async (kind, id, assignee) => {
+        const item = kind === 'lead' ? leads.find((l) => l.id === id) : orders.find((o) => o.id === id);
+        if (!item) return { ok: false, reason: 'not_found' };
+        if (item.assignee && item.assignee !== assignee) {
+          return { ok: false, reason: 'taken', assignee: item.assignee };
+        }
+        item.status = 'in_progress';
+        item.assignee = assignee;
+        return { ok: true, kind, item };
+      },
     };
   });
 
@@ -122,7 +137,7 @@ describe('telegram-commands', () => {
 
   it('opens button menu and lists orders from count pads', async () => {
     const menu = await handleTelegramContext({ userId: '9', chatId: '90', text: 'Меню' }, deps);
-    expect(menu.replies[0]?.text).toMatch(/меню адміністратора/);
+    expect(menu.replies[0]?.text).toMatch(/черга адміністратора/);
     expect(menu.replies[0]?.replyMarkup?.inline_keyboard?.[0]?.map((b) => b.callback_data)).toEqual([
       'menu:leads',
       'menu:orders',
@@ -147,7 +162,8 @@ describe('telegram-commands', () => {
     expect(found.replies[0]?.text).toMatch(/Запис/);
     expect(found.replies[0]?.text).toMatch(/Продаж/);
     expect(found.replies[0]?.text).not.toMatch(/671110000/);
-    expect(found.replies[0]?.replyMarkup?.inline_keyboard?.[0]?.[0]?.callback_data).toBe('menu:find');
+    const findBtn = found.replies[0]?.replyMarkup?.inline_keyboard?.flat().find((b) => b.callback_data === 'menu:find');
+    expect(findBtn?.callback_data).toBe('menu:find');
 
     const typed = await handleTelegramContext({ userId: '9', chatId: '90', text: '+380501112233' }, deps);
     expect(typed.replies[0]?.text).toMatch(/Усі рухи/);
@@ -164,5 +180,35 @@ describe('telegram-commands', () => {
     expect(res.replies[0]?.text).not.toMatch(/записи/);
     expect(sub?.bookings).toBe(false);
     expect(sub?.orders).toBe(true);
+  });
+
+  it('shows quiet hours and confirms claim only', async () => {
+    const quiet = await handleTelegramContext({ userId: '9', chatId: '90', text: '/quiet' }, deps);
+    expect(quiet.replies[0]?.text).toMatch(/22:00–08:00/);
+
+    const ask = await handleTelegramContext(
+      { userId: '9', chatId: '90', firstName: 'Ira', callbackData: 'claim:ask:l:l1' },
+      deps,
+    );
+    expect(ask.replies[0]?.text).toMatch(/Підтвердити/);
+    expect(ask.replies[0]?.replyMarkup?.inline_keyboard?.[0]?.map((b) => b.callback_data)).toEqual([
+      'claim:yes:l:l1',
+      'claim:no:l:l1',
+    ]);
+
+    const yes = await handleTelegramContext(
+      { userId: '9', chatId: '90', firstName: 'Ira', callbackData: 'claim:yes:l:l1' },
+      deps,
+    );
+    expect(yes.callbackAnswer).toBe('Взято');
+    expect(yes.replies[0]?.text).toMatch(/В роботі/);
+    expect(yes.replies[0]?.text).toMatch(/Ira/);
+    expect(leads[0]?.assignee).toBe('Ira');
+
+    const done = await handleTelegramContext(
+      { userId: '9', chatId: '90', callbackData: 'done:l:l1' },
+      deps,
+    );
+    expect(done.replies).toEqual([]);
   });
 });

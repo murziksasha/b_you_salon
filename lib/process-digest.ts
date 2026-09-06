@@ -57,6 +57,23 @@ export function buildEveningDigest(leads: Lead[], orders: Order[]): string {
   ].join('\n');
 }
 
+export function buildCatchupDigest(leads: Lead[], orders: Order[], sinceIso: string): string | null {
+  const since = Date.parse(sinceIso);
+  const sinceOk = Number.isFinite(since);
+  const newLeads = sinceOk ? leads.filter((l) => Date.parse(l.createdAt) > since) : [];
+  const newOrders = sinceOk ? orders.filter((o) => Date.parse(o.createdAt) > since) : [];
+  const n = newLeads.length + newOrders.length;
+  const inbox = mergeInbox(leads, orders);
+  const open = inbox.filter((i) => i.open);
+  if (n === 0 && open.length === 0) return null;
+  return [
+    'Поки хост спав',
+    `Нових: ${n} (записи ${newLeads.length}, продажі ${newOrders.length})`,
+    `Відкрито зараз: ${open.length}`,
+    `Час: ${new Date().toLocaleString('uk-UA')}`,
+  ].join('\n');
+}
+
 export function buildSlaReminder(leads: Lead[], orders: Order[]): string | null {
   const inbox = mergeInbox(leads, orders);
   const open = inbox.filter((i) => i.open);

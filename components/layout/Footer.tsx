@@ -37,6 +37,9 @@ export function Footer({ settings }: { settings: SiteSettings }) {
         <div className='by-footer__col'>
           <BrandMark />
           <p className='by-footer__lead'>{FOOTER_LEAD}</p>
+          <p className='by-footer__policy'>
+            <Link href={policyUrl}>Політика конфіденційності</Link>
+          </p>
           <nav className='by-footer__nav' aria-label='Футер'>
             <Link href='/salon'>Салон</Link>
             <Link href='/shop'>Магазин</Link>
@@ -49,6 +52,7 @@ export function Footer({ settings }: { settings: SiteSettings }) {
           <p className='by-footer__hours'>{hours}</p>
           <div className='by-footer__person'>
             <p className='by-footer__person-name'>Наталія</p>
+            <p className='by-footer__person-role'>майстер-універсал</p>
             <p className='by-footer__phones'>
               {nataliaPhones.map((p) => (
                 <a key={p.tel || p.display} href={formatTelHref(p.tel)}>
@@ -70,7 +74,6 @@ export function Footer({ settings }: { settings: SiteSettings }) {
             </p>
           ) : null}
           <p className='by-footer__policy'>
-            <Link href={policyUrl}>Політика конфіденційності</Link>
             <button
               type='button'
               className='by-footer__cookies'
@@ -82,6 +85,7 @@ export function Footer({ settings }: { settings: SiteSettings }) {
           </p>
           <div className='by-footer__person'>
             <p className='by-footer__person-name'>Ірина</p>
+            <p className='by-footer__person-role'>продавець-консультант</p>
             <p className='by-footer__phones'>
               {IRYNA_PHONES.map((p) => (
                 <a key={p.tel} href={formatTelHref(p.tel)}>

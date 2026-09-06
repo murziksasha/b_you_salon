@@ -4,8 +4,10 @@ import { appendActivity } from '@/lib/admin-activity';
 import { telegramBotToken, telegramCanSend, telegramLegacyChatId } from '@/lib/notify';
 import {
   createTelegramPairing,
+  getTelegramBotSettings,
   getTelegramPairing,
   listTelegramSubscribers,
+  patchTelegramBotSettings,
   revokeTelegramSubscriber,
 } from '@/lib/telegram-store';
 
@@ -15,10 +17,11 @@ export async function GET() {
   const g = await requireAdminRole();
   if (!g.ok) return g.response;
 
-  const [subscribers, pairing, canSend] = await Promise.all([
+  const [subscribers, pairing, canSend, settings] = await Promise.all([
     listTelegramSubscribers(),
     getTelegramPairing(),
     telegramCanSend(),
+    getTelegramBotSettings(),
   ]);
 
   return NextResponse.json({
@@ -27,6 +30,11 @@ export async function GET() {
     canSend,
     pairing,
     subscribers,
+    settings: {
+      quietStart: settings.quietStart,
+      quietEnd: settings.quietEnd,
+      timezone: settings.timezone,
+    },
   });
 }
 
@@ -34,7 +42,7 @@ export async function POST(request: NextRequest) {
   const g = await requireAdminRole();
   if (!g.ok) return g.response;
 
-  let body: { action?: string; userId?: string } = {};
+  let body: { action?: string; userId?: string; quietStart?: number; quietEnd?: number } = {};
   try {
     body = (await request.json()) as { action?: string; userId?: string };
   } catch {
@@ -56,6 +64,23 @@ export async function POST(request: NextRequest) {
       /* ignore */
     }
     return NextResponse.json({ ok: true, pairing });
+  }
+
+  if (body.action === 'quiet') {
+    const settings = await patchTelegramBotSettings({
+      quietStart: body.quietStart,
+      quietEnd: body.quietEnd,
+    });
+    try {
+      await appendActivity({
+        kind: 'settings',
+        message: `Telegram тихі години ${settings.quietStart}–${settings.quietEnd} ${settings.timezone}`,
+        actor: g.username,
+      });
+    } catch {
+      /* ignore */
+    }
+    return NextResponse.json({ ok: true, settings });
   }
 
   if (body.action === 'revoke') {

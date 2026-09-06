@@ -937,6 +937,10 @@ a.by-btn {
   color: var(--by-cream);
   font-weight: 500;
 }
+.by-footer__person-role {
+  color: var(--by-muted);
+  font-size: 1.35rem;
+}
 .by-footer__phones {
   flex-direction: column;
   align-items: flex-start;

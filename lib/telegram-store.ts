@@ -3,6 +3,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { atomicWriteJson } from './atomic-write';
 import { withFileMutex } from './file-mutex';
+import { BOT_TIMEZONE, clampHour } from './quiet-hours';
 
 export type TelegramNotifyKind = 'lead' | 'order' | 'ops';
 
@@ -27,11 +28,25 @@ export type TelegramPairing = {
   createdBy: string;
 };
 
+export const DEFAULT_TELEGRAM_QUIET_START = 22;
+export const DEFAULT_TELEGRAM_QUIET_END = 8;
+export const TELEGRAM_ALIVE_TOUCH_MS = 2 * 60 * 1000;
+
+export type TelegramBotSettings = {
+  quietStart: number;
+  quietEnd: number;
+  timezone: string;
+  lastAliveAt?: string;
+  lastMorningDigestOn?: string;
+  lastEveningDigestOn?: string;
+  lastCatchupAt?: string;
+};
+
 export type TelegramBotStore = {
   subscribers: TelegramSubscriber[];
   pairing?: TelegramPairing | null;
   lastUpdateId?: number;
-};
+} & TelegramBotSettings;
 
 const MAX_SUBSCRIBERS = 20;
 const PAIRING_TTL_MS = 10 * 60 * 1000;
@@ -44,8 +59,29 @@ export function telegramStorePath(): string {
   return path.join(dataRoot(), 'telegram-subscribers.json');
 }
 
+function defaultSettings(): TelegramBotSettings {
+  return {
+    quietStart: DEFAULT_TELEGRAM_QUIET_START,
+    quietEnd: DEFAULT_TELEGRAM_QUIET_END,
+    timezone: BOT_TIMEZONE,
+  };
+}
+
 function emptyStore(): TelegramBotStore {
-  return { subscribers: [] };
+  return { subscribers: [], ...defaultSettings() };
+}
+
+function withSettings(parsed: Partial<TelegramBotStore> | null | undefined): TelegramBotSettings {
+  const d = defaultSettings();
+  return {
+    quietStart: clampHour(parsed?.quietStart, d.quietStart),
+    quietEnd: clampHour(parsed?.quietEnd, d.quietEnd),
+    timezone: (parsed?.timezone || d.timezone).trim() || d.timezone,
+    lastAliveAt: parsed?.lastAliveAt,
+    lastMorningDigestOn: parsed?.lastMorningDigestOn,
+    lastEveningDigestOn: parsed?.lastEveningDigestOn,
+    lastCatchupAt: parsed?.lastCatchupAt,
+  };
 }
 
 async function readStore(): Promise<TelegramBotStore> {
@@ -57,6 +93,7 @@ async function readStore(): Promise<TelegramBotStore> {
       subscribers: parsed.subscribers,
       pairing: parsed.pairing || null,
       lastUpdateId: parsed.lastUpdateId,
+      ...withSettings(parsed),
     };
   } catch (err) {
     const code = (err as NodeJS.ErrnoException)?.code;
@@ -257,4 +294,37 @@ export async function setTelegramLastUpdateId(id: number): Promise<void> {
 export async function hasTelegramSubscribers(): Promise<boolean> {
   const store = await readStore();
   return store.subscribers.length > 0;
+}
+
+export async function getTelegramBotSettings(): Promise<TelegramBotSettings> {
+  const store = await readStore();
+  return withSettings(store);
+}
+
+export async function patchTelegramBotSettings(
+  patch: Partial<Pick<TelegramBotSettings, 'quietStart' | 'quietEnd' | 'lastAliveAt' | 'lastMorningDigestOn' | 'lastEveningDigestOn' | 'lastCatchupAt'>>,
+): Promise<TelegramBotSettings> {
+  return withStoreLock(async () => {
+    const store = await readStore();
+    if (patch.quietStart !== undefined) store.quietStart = clampHour(patch.quietStart, store.quietStart);
+    if (patch.quietEnd !== undefined) store.quietEnd = clampHour(patch.quietEnd, store.quietEnd);
+    if (patch.lastAliveAt !== undefined) store.lastAliveAt = patch.lastAliveAt;
+    if (patch.lastMorningDigestOn !== undefined) store.lastMorningDigestOn = patch.lastMorningDigestOn;
+    if (patch.lastEveningDigestOn !== undefined) store.lastEveningDigestOn = patch.lastEveningDigestOn;
+    if (patch.lastCatchupAt !== undefined) store.lastCatchupAt = patch.lastCatchupAt;
+    await writeStore(store);
+    return withSettings(store);
+  });
+}
+
+/** Persist lastAliveAt at most every TELEGRAM_ALIVE_TOUCH_MS. */
+export async function touchTelegramLastAlive(now = new Date()): Promise<void> {
+  const iso = now.toISOString();
+  return withStoreLock(async () => {
+    const store = await readStore();
+    const prev = store.lastAliveAt ? Date.parse(store.lastAliveAt) : 0;
+    if (Number.isFinite(prev) && now.getTime() - prev < TELEGRAM_ALIVE_TOUCH_MS) return;
+    store.lastAliveAt = iso;
+    await writeStore(store);
+  });
 }

@@ -16,6 +16,9 @@ export async function notifyOneLead(lead: Lead, note?: string): Promise<boolean>
     comment: lead.comment,
     source: lead.source,
     createdAt: lead.createdAt,
+    status: lead.status,
+    handled: lead.handled,
+    assignee: lead.assignee,
   });
   if (ok && note?.trim()) {
     await broadcastTelegram(`📝 Нотатка: ${note.trim().slice(0, 500)}`, 'lead');
@@ -34,6 +37,9 @@ export async function notifyOneOrder(order: Order, note?: string): Promise<boole
     fulfillment: order.fulfillment,
     comment: order.comment,
     createdAt: order.createdAt,
+    status: order.status,
+    handled: order.handled,
+    assignee: order.assignee,
   });
   if (ok && note?.trim()) {
     await broadcastTelegram(`📝 Нотатка: ${note.trim().slice(0, 500)}`, 'order');

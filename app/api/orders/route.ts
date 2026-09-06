@@ -6,7 +6,7 @@ import { clientKey, rateLimit } from '@/lib/rate-limit';
 import { escapeText } from '@/lib/sanitize';
 import { isValidUaPhone, normalizePhoneCanonical } from '@/lib/phone';
 import { getSiteData } from '@/lib/site-data';
-import { notifyOrder } from '@/lib/notify';
+import { autoNotifyNewOrder } from '@/lib/telegram-auto-notify';
 import { toCsv } from '@/lib/csv';
 import { isWorkflowStatus } from '@/lib/workflow';
 import { requireAdminRole } from '@/lib/require-role';
@@ -188,20 +188,9 @@ export async function POST(request: NextRequest) {
     }
 
     let telegram = false;
+    let order = null as Awaited<ReturnType<typeof appendOrder>> | null;
     try {
-      telegram = await notifyOrder({
-        phone,
-        productTitle: titleLine,
-        price: total,
-        fulfillment,
-        comment: comment || undefined,
-      });
-    } catch {
-      telegram = false;
-    }
-
-    try {
-      await appendOrder({
+      order = await appendOrder({
         phone,
         comment: comment || undefined,
         name: name || undefined,
@@ -209,13 +198,19 @@ export async function POST(request: NextRequest) {
         fulfillment,
         address: fulfillment === 'delivery' ? address : undefined,
         emailed,
-        telegram,
+        telegram: false,
       });
     } catch (err) {
       console.error('[orders] failed to persist', err);
-      if (!emailed && !telegram) {
+      if (!emailed) {
         return NextResponse.json({ error: 'Failed to save order' }, { status: 500 });
       }
+    }
+
+    try {
+      telegram = await autoNotifyNewOrder(order);
+    } catch {
+      telegram = false;
     }
 
     return NextResponse.json({ ok: true, emailed, telegram, dev: !smtpUser || !smtpPass });
