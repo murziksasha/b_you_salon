@@ -194,6 +194,7 @@ export async function POST(request: NextRequest) {
         productTitle: titleLine,
         price: total,
         fulfillment,
+        comment: comment || undefined,
       });
     } catch {
       telegram = false;

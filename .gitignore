@@ -31,6 +31,7 @@
 /data/admins.json
 /data/admin-sessions.json
 /data/admin-activity.json
+/data/telegram-subscribers.json
 
 # misc
 .DS_Store

@@ -165,6 +165,8 @@ export async function POST(request: NextRequest) {
         zone,
         serviceTitle,
         comment,
+        source: zone === 'salon' || serviceId ? 'booking' : 'callback',
+        createdAt: lead?.createdAt,
       });
       if (lead && telegram) {
         // re-read not needed; flag only for response/logging

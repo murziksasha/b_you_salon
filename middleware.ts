@@ -36,7 +36,8 @@ export function middleware(request: NextRequest) {
     pathname.startsWith('/api/clients') ||
     pathname.startsWith('/api/prices') ||
     pathname.startsWith('/api/ops-alerts') ||
-    pathname.startsWith('/api/digest');
+    pathname.startsWith('/api/digest') ||
+    pathname.startsWith('/api/telegram');
 
   if (!isAdminUi && !isProtectedApi) {
     return NextResponse.next();
@@ -136,5 +137,7 @@ export const config = {
     '/api/ops-alerts/:path*',
     '/api/digest',
     '/api/digest/:path*',
+    '/api/telegram',
+    '/api/telegram/:path*',
   ],
 };

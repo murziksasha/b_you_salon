@@ -349,6 +349,16 @@ else {
   }
 }
 
+$TgName = "byou-telegram"
+if (Test-Pm2Named -Name $TgName) {
+  Write-Host "==> pm2 restart $TgName..."
+  cmd.exe /c "pm2 restart $TgName --update-env"
+}
+else {
+  Write-Host "==> pm2 start $TgName..."
+  cmd.exe /c "pm2 start ecosystem.config.cjs --only $TgName"
+}
+
 cmd.exe /c "pm2 save"
 cmd.exe /c "pm2 status"
 

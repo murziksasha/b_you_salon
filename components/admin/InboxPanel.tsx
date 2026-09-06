@@ -867,7 +867,7 @@ export function InboxPanel({
                     {tgBusy ? 'Telegram…' : 'Telegram ↗'}
                   </button>
                 ) : tgConfigured === false ? (
-                  <span className='admin-hint' title='TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID'>
+                  <span className='admin-hint' title='TELEGRAM_BOT_TOKEN + підписник або TELEGRAM_CHAT_ID'>
                     TG off
                   </span>
                 ) : null}

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminRole } from '@/lib/require-role';
 import { listLeads } from '@/lib/leads';
 import { listOrders } from '@/lib/orders';
-import { sendTelegramMessage, telegramConfigured } from '@/lib/notify';
+import { broadcastTelegram, telegramCanSend, telegramConfigured } from '@/lib/notify';
 import {
   formatBulkSummaryLine,
   notifyOneLead,
@@ -25,9 +25,9 @@ export async function POST(request: NextRequest) {
   const g = await requireAdminRole('inbox');
   if (!g.ok) return g.response;
 
-  if (!telegramConfigured()) {
+  if (!telegramConfigured() || !(await telegramCanSend())) {
     return NextResponse.json(
-      { error: 'Telegram не налаштовано (TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID)' },
+      { error: 'Telegram не налаштовано (TELEGRAM_BOT_TOKEN + підписник або TELEGRAM_CHAT_ID)' },
       { status: 503 },
     );
   }
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     const note = typeof body.note === 'string' ? body.note.trim() : '';
 
     if (typeof body.text === 'string' && body.text.trim()) {
-      const ok = await sendTelegramMessage(`[Admin] ${body.text.trim()}`);
+      const ok = await broadcastTelegram(`[Admin] ${body.text.trim()}`, 'ops');
       if (!ok) return NextResponse.json({ error: 'Не вдалося надіслати' }, { status: 502 });
       try {
         await appendActivity({
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
       }
 
       if (note) {
-        await sendTelegramMessage(`[Admin bulk] ${note.slice(0, 400)}`);
+        await broadcastTelegram(`[Admin bulk] ${note.slice(0, 400)}`, 'ops');
       }
 
       const [leads, orders] = await Promise.all([listLeads(), listOrders()]);
@@ -158,5 +158,5 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   const g = await requireAdminRole('inbox');
   if (!g.ok) return g.response;
-  return NextResponse.json({ configured: telegramConfigured() });
+  return NextResponse.json({ configured: await telegramCanSend() });
 }
