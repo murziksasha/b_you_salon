@@ -66,7 +66,9 @@ Secret: `SESSION_SECRET` (або fallback `ADMIN_PASSWORD` / dev default).
 - `app/page.tsx` — home (`slug === ''`)
 - `app/[slug]/page.tsx` — CMS pages
 - `app/shop/*` — catalog (`ShopCatalog`: search / sort / category)
-- Тема публічки: `ThemeProvider` + кнопка в `Header` (і в мобільному drawer). `html[data-theme=light|dark]`, ключ `ps-theme`. Адмінка не використовує цей перемикач.
+- Тема публічки: `ThemeProvider` + кнопка в `Header` (і в мобільному drawer). `html[data-theme=light|dark]`, ключ `byou-theme` (legacy `ps-theme` ще читається). Адмінка не використовує цей перемикач.
+- CSP (`lib/csp.ts` + nginx): у **production** `script-src 'self' 'unsafe-inline'` (без `unsafe-eval`). У `next dev` додається `'unsafe-eval'` — інакше webpack/React не гідратяться і клієнтські кнопки (тема, cookie-банер) не працюють.
+- Cookie-банер (`CookieConsentBanner` у `SiteShell`): sticky bottom, `z-index: 110` (над `.sticky-call` 90 і `.pageup` 95). Поки відкритий — `html[data-cookie-banner=open]`; після відповіді — `done` (inline boot у `app/layout.tsx` ховає банер до paint, як тема). Форма POST `/api/cookie-consent` ставить cookie і редіректить (працює і без JS); з JS — `preventDefault` + `localStorage`. Згода: `lib/cookie-consent.ts`, ключ `byou-cookie-consent` у `localStorage` (JSON `{ v, choice, at }`) і cookie `v1.all` / `v1.necessary` (Max-Age 1 рік, `Path=/`, `SameSite=Lax`, без `Secure`/`HttpOnly`). Версія `v` — щоб перепитати після зміни політики. Футер: «Налаштування cookies» диспатчить `byou-cookie-consent-open`. Адмінка банер не монтує.
 - `force-dynamic` — актуальний контент без ISR (file CMS)
 - **Feedback carousel** (`FeedbackSection`): CSS grid stack — усі слайди в одній комірці, розмір viewport = max по контенту (найвищий/найширший скрін); перемикання без layout shift. Зображення з `section.images`, CTA «більше відгуків» з `settings.reviewsUrl`.
 

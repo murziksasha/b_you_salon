@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { BrandMark } from '@/components/brand/BrandMark';
+import { requestCookieConsentOpen } from '@/lib/cookie-consent';
 import type { SiteSettings, SocialLink } from '@/lib/types';
 import { formatTelHref } from '@/lib/phone';
 
@@ -70,6 +71,14 @@ export function Footer({ settings }: { settings: SiteSettings }) {
           ) : null}
           <p className='by-footer__policy'>
             <Link href={policyUrl}>Політика конфіденційності</Link>
+            <button
+              type='button'
+              className='by-footer__cookies'
+              aria-haspopup='dialog'
+              onClick={requestCookieConsentOpen}
+            >
+              Налаштування cookies
+            </button>
           </p>
           <div className='by-footer__person'>
             <p className='by-footer__person-name'>Ірина</p>

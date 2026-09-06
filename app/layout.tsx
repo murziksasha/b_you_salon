@@ -30,6 +30,10 @@ export const viewport: Viewport = {
 const THEME_BOOT =
   "(function(){try{var k='byou-theme';var p=localStorage.getItem(k)||localStorage.getItem('ps-theme')||'dark';var t;if(p==='light')t='light';else if(p==='system')t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';else t='dark';var r=document.documentElement;r.dataset.theme=t;r.style.colorScheme=t;}catch(e){document.documentElement.dataset.theme='dark';}})();";
 
+/** Hide cookie bar before paint when this device already answered. */
+const COOKIE_BOOT =
+  "(function(){try{var k='byou-cookie-consent';var ok=false;var ls=localStorage.getItem(k);if(ls){var j=JSON.parse(ls);if(j&&j.v===1&&(j.choice==='all'||j.choice==='necessary'))ok=true;}if(!ok){var m=document.cookie.match(/(?:^|; )byou-cookie-consent=([^;]*)/);if(m&&/^v1\\.(all|necessary)$/.test(decodeURIComponent(m[1])))ok=true;}document.documentElement.setAttribute('data-cookie-banner',ok?'done':'open');}catch(e){document.documentElement.setAttribute('data-cookie-banner','open');}})();";
+
 export async function generateMetadata(): Promise<Metadata> {
   const data = await getSiteData();
   const title = data.settings.title;
@@ -73,6 +77,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang='uk' suppressHydrationWarning data-theme='dark' className={`${manrope.variable} ${cormorant.variable} ${vibes.variable}`}>
       <body>
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
+        <script dangerouslySetInnerHTML={{ __html: COOKIE_BOOT }} />
         <ThemeProvider>
           {children}
           <PwaRegister />

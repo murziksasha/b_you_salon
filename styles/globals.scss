@@ -74,7 +74,8 @@
     --sticky-call-h: 7.2rem;
   }
 
-  body.nav-open .sticky-call {
+  body.nav-open .sticky-call,
+  body.nav-open .cookie-banner {
     display: none;
   }
 
@@ -151,6 +152,11 @@
     bottom: calc(var(--sticky-call-h, 7.2rem) + 1.2rem + env(safe-area-inset-bottom, 0px));
     z-index: 95;
     right: 1.2rem;
+  }
+
+  html[data-cookie-banner='open'] .pageup {
+    bottom: calc(16rem + env(safe-area-inset-bottom, 0px));
+    z-index: 115;
   }
 }
 

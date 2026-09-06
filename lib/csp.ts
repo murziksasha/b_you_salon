@@ -5,9 +5,15 @@
  * on script-src-elem. Event-handler attributes are blocked separately.
  * javascript: / data: URLs in CMS HTML are also stripped by sanitize-html.
  */
+/** Next.js webpack/dev uses eval(); production bundles do not. */
+const SCRIPT_SRC =
+  process.env.NODE_ENV === 'production'
+    ? "script-src 'self' 'unsafe-inline'"
+    : "script-src 'self' 'unsafe-inline' 'unsafe-eval'";
+
 export const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  SCRIPT_SRC,
   "script-src-attr 'none'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",

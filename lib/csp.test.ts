@@ -13,4 +13,13 @@ describe('CSP', () => {
     const csp = SECURITY_HEADERS.find(h => h.key === 'Content-Security-Policy');
     expect(csp?.value).toBe(CONTENT_SECURITY_POLICY);
   });
+
+  it('allows webpack eval only outside production', () => {
+    if (process.env.NODE_ENV === 'production') {
+      expect(CONTENT_SECURITY_POLICY).not.toContain('unsafe-eval');
+    } else {
+      expect(CONTENT_SECURITY_POLICY).toContain('unsafe-eval');
+    }
+    expect(CONTENT_SECURITY_POLICY).toContain("script-src 'self' 'unsafe-inline'");
+  });
 });

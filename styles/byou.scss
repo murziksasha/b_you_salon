@@ -941,6 +941,88 @@ a.by-btn {
 .by-footer .by-mark {
   margin-bottom: 0.4rem;
 }
+.by-footer__policy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+.by-footer__cookies {
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.by-footer__cookies:hover {
+  color: var(--by-gold);
+}
+
+html[data-cookie-banner='done'] .cookie-banner {
+  display: none;
+}
+
+.cookie-banner {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 110;
+  background: var(--by-sticky-bg);
+  border-top: 1px solid var(--by-line);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--by-shadow);
+  padding: 1.4rem 1.6rem calc(1.4rem + env(safe-area-inset-bottom, 0px));
+}
+.cookie-banner__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.2rem 1.6rem;
+}
+.cookie-banner__copy {
+  flex: 1 1 28rem;
+}
+.cookie-banner__title {
+  font-family: var(--by-serif);
+  font-size: 1.8rem;
+  font-weight: 600;
+  margin: 0 0 0.4rem;
+  color: var(--by-text);
+}
+.cookie-banner__text {
+  margin: 0;
+  color: var(--by-muted);
+  font-size: 1.4rem;
+  line-height: 1.45;
+}
+.cookie-banner__text a {
+  color: var(--by-gold);
+  text-decoration: none;
+}
+.cookie-banner__text a:hover {
+  text-decoration: underline;
+}
+.cookie-banner__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  align-items: center;
+}
+.cookie-banner .by-btn {
+  min-height: 4.4rem;
+  padding: 1rem 1.6rem;
+  font-size: 1.3rem;
+}
+body.nav-open .cookie-banner {
+  display: none;
+}
+html[data-cookie-banner='open'] .pageup {
+  bottom: calc(14rem + env(safe-area-inset-bottom, 0px));
+  z-index: 115;
+}
 
 .sticky-call {
   position: fixed;

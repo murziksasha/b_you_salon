@@ -2,6 +2,7 @@ import type { MenuItem, SiteData, SiteSettings } from '@/lib/types';
 import { LocalBusinessJsonLd } from '@/components/seo/LocalBusinessJsonLd';
 import { CartProvider } from '@/components/cart/CartProvider';
 import { requestSiteUrl } from '@/lib/request-site-url';
+import { CookieConsentBanner } from './CookieConsentBanner';
 import { Footer } from './Footer';
 import { Header } from './Header';
 import { PageUp } from './PageUp';
@@ -32,6 +33,7 @@ export async function SiteShell({ settings, menu, site, children }: SiteShellPro
         <PageUp />
         <Footer settings={settings} />
         <StickyCallBar settings={settings} />
+        <CookieConsentBanner privacyUrl={settings.privacyPolicyUrl || '/confident'} />
       </ZoneRoot>
     </CartProvider>
   );
