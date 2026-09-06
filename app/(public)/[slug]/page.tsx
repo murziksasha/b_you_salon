@@ -64,7 +64,7 @@ export default async function SlugPage({ params }: PageProps) {
     return (
       <PageFrame titleSize={page.titleSize} textScale={page.textScale}>
         {crumbs}
-        <article className='content-page wrapper'>
+        <article className='content-page by-wrap'>
           <h1 className='content-page__title _title'>{page.title}</h1>
           <div
             className='content-page__body'

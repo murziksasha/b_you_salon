@@ -198,10 +198,14 @@
   }
 }
 
-/* Content HTML pages */
+/* Content HTML pages (privacy etc.) — keep side gutters on narrow viewports.
+   Avoid padding-y-only shorthand: it wipes .wrapper horizontal padding. */
 .content-page {
-  padding: 3rem 0 5rem;
+  box-sizing: border-box;
+  width: min(72rem, calc(100% - 3.2rem));
   max-width: 72rem;
+  margin-inline: auto;
+  padding: 3rem 1.6rem 5rem;
 
   &__title {
     margin-bottom: 2rem;
@@ -210,6 +214,7 @@
   &__body {
     font-size: 1.6rem;
     line-height: 1.55;
+    overflow-wrap: anywhere;
 
     p {
       margin: 0 0 1.2rem;
@@ -220,6 +225,14 @@
     }
   }
 }
+
+@media (max-width: 767px) {
+  .content-page {
+    width: min(72rem, calc(100% - 2.4rem));
+    padding: 2.4rem 1.2rem 4rem;
+  }
+}
+
  
 .ps-hide-mobile{display:contents}  
 @media (max-width:767px){.ps-hide-mobile{display:none !important}}  
