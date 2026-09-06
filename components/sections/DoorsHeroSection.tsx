@@ -4,12 +4,32 @@ import { PublicImage } from '@/components/ui/PublicImage';
 export function DoorsHeroSection({ section }: { section: DoorsHeroSectionType }) {
   const leftSrc = section.left.image || section.image;
   const rightSrc = section.right.image || section.image;
+  const contacts = section.brandContacts;
   return (
     <section className='doors' aria-label='Оберіть напрям'>
       <div className='doors__brand'>
         {section.kicker ? <p className='doors__kicker'>{section.kicker}</p> : null}
-        {section.title ? <h1 className='doors__title'>{section.title}</h1> : null}
-        {section.subtitle ? <p className='doors__sub'>{section.subtitle}</p> : null}
+        {contacts ? (
+          <div className='doors__contacts'>
+            <a className='doors__contact' href={`tel:${contacts.left.phoneTel}`}>
+              <span className='doors__contact-label'>{contacts.left.label}</span>
+              <span className='doors__contact-phone'>{contacts.left.phoneDisplay}</span>
+            </a>
+            <span className='doors__contacts-split' aria-hidden />
+            <a className='doors__contact' href={`tel:${contacts.right.phoneTel}`}>
+              <span className='doors__contact-label'>{contacts.right.label}</span>
+              <span className='doors__contact-phone'>{contacts.right.phoneDisplay}</span>
+            </a>
+          </div>
+        ) : (
+          <>
+            {section.title ? <h1 className='doors__title'>{section.title}</h1> : null}
+            {section.subtitle ? <p className='doors__sub'>{section.subtitle}</p> : null}
+          </>
+        )}
+        {contacts && !section.title ? (
+          <h1 className='doors__sr-only'>B_You — студія краси та магазин косметики</h1>
+        ) : null}
       </div>
       <div className='doors__split' aria-hidden />
       <a className='doors__half doors__half--left' href={section.left.href}>

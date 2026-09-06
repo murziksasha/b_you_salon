@@ -285,8 +285,18 @@ const HOME: Page = {
       image: '/img/hero/interior.jpg',
       imageAlt: 'Інтер’єр студії B_You',
       kicker: 'Be you!',
-      title: 'B_You',
-      subtitle: 'студія краси · салон праворуч · магазин косметики ліворуч',
+      brandContacts: {
+        left: {
+          label: 'МАГАЗИН КОСМЕТИКИ',
+          phoneDisplay: '093 632 72 24',
+          phoneTel: '+380936327224',
+        },
+        right: {
+          label: 'СТУДІЯ КРАСИ',
+          phoneDisplay: '097 703 62 83',
+          phoneTel: '+380977036283',
+        },
+      },
       left: {
         label: 'Ліворуч',
         title: 'Магазин косметики',

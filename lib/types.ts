@@ -121,6 +121,12 @@ export interface DoorHalf {
   image?: string;
 }
 
+export interface DoorsBrandContact {
+  label: string;
+  phoneDisplay: string;
+  phoneTel: string;
+}
+
 export interface DoorsHeroSection extends SectionBase {
   type: 'doors-hero';
   image: string;
@@ -128,6 +134,11 @@ export interface DoorsHeroSection extends SectionBase {
   kicker?: string;
   title?: string;
   subtitle?: string;
+  /** Two contact columns under the kicker (replaces title/subtitle on home). */
+  brandContacts?: {
+    left: DoorsBrandContact;
+    right: DoorsBrandContact;
+  };
   left: DoorHalf;
   right: DoorHalf;
 }
