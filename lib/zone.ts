@@ -2,7 +2,7 @@ import type { MenuItem, PhoneEntry, Section, SiteData, SiteSettings, ZoneId } fr
 
 export function zoneFromPath(pathname: string): ZoneId {
   const path = (pathname || '/').split('?')[0];
-  if (path === '/cart' || path === '/shop' || path.startsWith('/shop/')) return 'shop';
+  if (path === '/cart' || path === '/shop' || path.startsWith('/shop/') || path === '/store' || path.startsWith('/store/')) return 'shop';
   if (path === '/salon' || path.startsWith('/salon/')) return 'salon';
   return 'home';
 }

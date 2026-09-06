@@ -66,6 +66,15 @@ Secret: `SESSION_SECRET` (або fallback `ADMIN_PASSWORD` / dev default).
 - `app/page.tsx` — home (`slug === ''`)
 - `app/[slug]/page.tsx` — CMS pages
 - `app/shop/*` — catalog (`ShopCatalog`: search / sort / category)
+- **Шапка сайту (`Header.tsx`)**:
+  - Зона визначається з шляху (`zoneFromPath`): `salon`, `shop` або `home`.
+  - Золоті CTA-кнопки (pill `by-header__book`):
+    - Салон (`zone === 'salon'`): кнопка «Записатись» із плавним скролом до `#callback`.
+    - Магазин і кошик (`/shop`, `/cart`): кнопка «Консультація» (на `/shop` плавний скрол до `#contacts`, на `/cart` перехід на `/shop#contacts`).
+    - Якорі `#callback` та `#contacts` мають `scroll-margin-top: calc(6.4rem + 2.4rem)` проти перекриття липким хедером.
+  - Кошик: показується виключно у зоні `shop` (`/shop`, `/store`, `/cart`); на головному екрані та в салоні прихований навіть за наявності товарів у кошику (`count > 0`).
+  - Телефон зони (`phoneForZone`): у магазині та кошику — номер магазину/консультанта, в інших зонах — головний телефон.
+  - Мобільний drawer дублює відповідні CTA («Записатись» або «Консультація») і автоматично закривається при кліку.
 - Тема публічки: `ThemeProvider` + кнопка в `Header` (і в мобільному drawer). `html[data-theme=light|dark]`, ключ `byou-theme` (legacy `ps-theme` ще читається). Адмінка не використовує цей перемикач.
 - CSP (`lib/csp.ts` + nginx): у **production** `script-src 'self' 'unsafe-inline'` (без `unsafe-eval`). У `next dev` додається `'unsafe-eval'` — інакше webpack/React не гідратяться і клієнтські кнопки (тема, cookie-банер) не працюють.
 - Cookie-банер (`CookieConsentBanner` у `SiteShell`): sticky bottom, `z-index: 110` (над `.sticky-call` 90 і `.pageup` 95). Поки відкритий — `html[data-cookie-banner=open]`; після відповіді — `done` (inline boot у `app/layout.tsx` ховає банер до paint, як тема). Форма POST `/api/cookie-consent` ставить cookie і редіректить (працює і без JS); з JS — `preventDefault` + `localStorage`. Згода: `lib/cookie-consent.ts`, ключ `byou-cookie-consent` у `localStorage` (JSON `{ v, choice, at }`) і cookie `v1.all` / `v1.necessary` (Max-Age 1 рік, `Path=/`, `SameSite=Lax`, без `Secure`/`HttpOnly`). Версія `v` — щоб перепитати після зміни політики. Футер: «Налаштування cookies» диспатчить `byou-cookie-consent-open`. Адмінка банер не монтує.

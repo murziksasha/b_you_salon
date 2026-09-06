@@ -20,6 +20,20 @@ const nextConfig: NextConfig = {
     // `import` is the Dart Sass 1.80+ deprecation that webpack cannot serialize into its cache.
     silenceDeprecations: ['legacy-js-api', 'import'],
   },
+  async redirects() {
+    return [
+      {
+        source: '/store',
+        destination: '/shop',
+        permanent: true,
+      },
+      {
+        source: '/store/:path*',
+        destination: '/shop/:path*',
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {

@@ -15,7 +15,10 @@ export async function generateMetadata() {
   const data = await getSiteData();
   const page = data.pages.find((p) => p.slug === 'shop' && p.visible);
   const title = page?.title || 'Магазин косметики';
-  const description = page?.description || data.settings.description || 'Каталог косметики B_You';
+  const description =
+    page?.description?.replace(/\r?\n+/g, ' ') ||
+    data.settings.description ||
+    'Каталог косметики B_You';
   return buildPublicMetadata(
     {
       title,
@@ -53,14 +56,25 @@ export default async function ShopPage({ searchParams }: PageProps) {
       />
       <section className='shop-page by-section'>
         <div className='by-wrap'>
-          <header className='shop-page__intro'>
-            <p className='by-kicker'>Ліворуч від входу</p>
-            <h1 className='shop-page__title by-section__title'>{shopPage?.title || 'Магазин косметики'}</h1>
-            <p className='shop-page__subtitle by-section__sub'>
-              {shopPage?.description ||
-                'Додайте товари в кошик. Відтінок або об’єм вкажіть у коментарі до замовлення.'}
-            </p>
-          </header>
+          {(() => {
+            const rawDesc =
+              shopPage?.description ||
+              'Твоя краса заслуговує на найкраще! Обирай свій ідеальний догляд, дозволь собі розкіш бути щасливою і насолоджуйся результатом!\nСамовивіз у м. Чорноморськ, Вишнева 4 або доставка за домовленністю';
+            const [slogan, ...rest] = rawDesc.split('\n');
+            const delivery = rest.join('\n').trim();
+            return (
+              <header className='shop-page__intro shop-page__intro--hero'>
+                <h1 className='shop-page__title by-section__title'>{shopPage?.title || 'Магазин косметики'}</h1>
+                {slogan ? <p className='shop-page__slogan'>{slogan.trim()}</p> : null}
+                {delivery ? (
+                  <p className='shop-page__delivery'>
+                    <span className='shop-page__delivery-icon' aria-hidden='true'>✨</span>
+                    <span>{delivery}</span>
+                  </p>
+                ) : null}
+              </header>
+            );
+          })()}
           <ShopCatalog
             products={products}
             initialQuery={initialQuery}

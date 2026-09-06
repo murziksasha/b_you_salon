@@ -1644,8 +1644,9 @@ body:not(:has(.admin-body)) ._callback .by-form {
   margin-inline: auto;
   max-width: 44rem;
 }
-/* Keep #callback title visible under sticky .header */
-#callback {
+/* Keep #callback & #contacts title visible under sticky .header */
+#callback,
+#contacts {
   scroll-margin-top: calc(6.4rem + 2.4rem);
 }
 
@@ -1740,6 +1741,24 @@ body:not(:has(.admin-body)) .services-nav__item_active {
   background: var(--by-gold);
   color: var(--by-ink);
   border-color: var(--by-gold);
+}
+
+.svc-filter {
+  margin: 0 0 2rem;
+}
+.svc-filter__btn {
+  appearance: none;
+  background: transparent;
+  color: var(--by-cream);
+  font: inherit;
+  font-size: 1.3rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  line-height: 1.2;
+}
+.svc-filter__btn.services-nav__item_active {
+  color: var(--by-ink);
 }
 body:not(:has(.admin-body)) .shop-chip.is-active {
   background: var(--by-gold);

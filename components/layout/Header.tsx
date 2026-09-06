@@ -60,11 +60,14 @@ export function Header({ settings, menu, site }: HeaderProps) {
   const phone = phoneForZone(settings, zone);
   const telHref = formatTelHref(phone.tel);
   const { count } = useCart();
-  const showCart = zone === 'shop' || count > 0;
+  const showCart = zone === 'shop';
   const drawerId = useId();
   const drawerRef = useRef<HTMLDivElement>(null);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const bookHref = zone === 'salon' ? `${pathname.split('?')[0]}#callback` : null;
+  const currentCleanPath = pathname.split('?')[0].replace(/\/$/, '') || '/';
+  const isShopOrCart = currentCleanPath === '/shop' || currentCleanPath === '/cart' || currentCleanPath === '/store';
+  const consultHref = isShopOrCart ? '/shop#contacts' : null;
   const zoneLabel = zone === 'shop' ? 'Магазин' : zone === 'salon' ? 'Салон' : null;
   const closeMenu = () => setOpen(false);
 
@@ -120,14 +123,15 @@ export function Header({ settings, menu, site }: HeaderProps) {
     };
   }, [open]);
 
-  /** Same-page smooth scroll to #callback; returns true if handled. */
-  function trySmoothToCallback(event: MouseEvent<HTMLAnchorElement>, href: string): boolean {
+  /** Same-page smooth scroll to hash (#callback, #contacts); returns true if handled. */
+  function trySmoothScroll(event: MouseEvent<HTMLAnchorElement>, href: string): boolean {
     const itemHash = hrefHash(href);
-    if (itemHash !== '#callback') return false;
+    if (!itemHash) return false;
     const targetPath = stripPath(href);
     const currentPath = pathname.split('?')[0] || '/';
     if (currentPath !== targetPath) return false;
-    const el = document.getElementById('callback');
+    const targetId = itemHash.slice(1);
+    const el = document.getElementById(targetId) || (targetId === 'contacts' ? document.querySelector('.by-footer') : null);
     if (!el) return false;
     event.preventDefault();
     const headerEl = document.querySelector('.header');
@@ -143,6 +147,10 @@ export function Header({ settings, menu, site }: HeaderProps) {
     }
     closeMenu();
     return true;
+  }
+
+  function trySmoothToCallback(event: MouseEvent<HTMLAnchorElement>, href: string): boolean {
+    return trySmoothScroll(event, href);
   }
 
   return (
@@ -192,6 +200,17 @@ export function Header({ settings, menu, site }: HeaderProps) {
               }}
             >
               Записатись
+            </Link>
+          ) : null}
+          {consultHref ? (
+            <Link
+              href={consultHref}
+              className='by-header__book'
+              onClick={(e) => {
+                trySmoothScroll(e, consultHref);
+              }}
+            >
+              Консультація
             </Link>
           ) : null}
           <a className='by-header__phone' href={telHref}>
@@ -280,6 +299,18 @@ export function Header({ settings, menu, site }: HeaderProps) {
             tabIndex={open ? undefined : -1}
           >
             Записатись
+          </Link>
+        ) : null}
+        {consultHref ? (
+          <Link
+            href={consultHref}
+            className='by-btn by-drawer__cta'
+            onClick={(e) => {
+              if (!trySmoothScroll(e, consultHref)) closeMenu();
+            }}
+            tabIndex={open ? undefined : -1}
+          >
+            Консультація
           </Link>
         ) : null}
         {showCart ? (
