@@ -8,7 +8,7 @@ export const OG_LOCALE = 'uk_UA';
 export const DEFAULT_SEO_KEYWORDS = [
   'салон краси',
   'манікюр',
-  'педікюр',
+  'педикюр',
   'зачіски',
   'косметика',
   'B_You',

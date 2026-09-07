@@ -29,7 +29,7 @@ const SOCIAL = [
 const SETTINGS: SiteSettings = {
   title: 'B_You — студія краси',
   description:
-    'Студія краси B_You: салон праворуч — манікюр, педікюр, зачіски; магазин косметики ліворуч. Запис і самовивіз. Be you!',
+    'Студія краси B_You: салон праворуч — манікюр, педикюр, зачіски; магазин косметики ліворуч. Запис і самовивіз. Be you!',
   logo: '/img/icons/logo.jpg',
   favicon: '/img/icons/logo.jpg',
   ogImage: '/img/og-cover.jpg',
@@ -99,7 +99,7 @@ export function zoneDoorToSalon(): Section {
     visible: true,
     side: 'right',
     title: 'Салон краси',
-    subtitle: 'Праворуч — манікюр, волосся, брови та вії',
+    subtitle: 'Час для вашої краси: манікюр, педикюр, волосся та фарбування.',
     href: '/salon',
     cta: 'До салону',
     image: '/img/hero/interior.jpg',
@@ -174,10 +174,10 @@ export const SALON_SERVICES: SalonService[] = [
   },
   {
     id: 'svc-pedicure',
-    title: 'Педікюр',
+    title: 'Педикюр',
     slug: 'pedicure',
     category: 'Нігті',
-    description: 'Естетичний і апаратний педікюр. Комфортний догляд і акуратне покриття.',
+    description: 'Естетичний і апаратний педикюр. Комфортний догляд і акуратне покриття.',
     priceFrom: 700,
     priceNote: 'від',
     durationMin: 75,
@@ -351,7 +351,7 @@ const SALON: Page = {
   id: 'page-salon',
   slug: 'salon',
   title: 'Салон краси',
-  description: 'Манікюр, педікюр, жіночі та чоловічі зачіски, фарбування, брови та вії.',
+  description: 'Манікюр, педикюр, жіночі та чоловічі зачіски, фарбування, брови та вії.',
   visible: true,
   zone: 'salon',
   sections: [
