@@ -5,7 +5,7 @@ export type ProductSort = 'manual' | 'price-asc' | 'price-desc' | 'title-asc' | 
 export type VisibilityFilter = 'all' | 'visible' | 'hidden';
 
 export const PRODUCT_SORT_OPTIONS: { value: ProductSort; label: string }[] = [
-  { value: 'manual', label: 'За порядком каталогу' },
+  { value: 'manual', label: 'За порядком' },
   { value: 'price-asc', label: 'Ціна: від дешевих' },
   { value: 'price-desc', label: 'Ціна: від дорогих' },
   { value: 'title-asc', label: 'Назва: А → Я' },

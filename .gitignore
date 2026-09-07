@@ -27,6 +27,12 @@
 /data/admin-totp.json
 /data/media-index.json
 
+# sensitive credential & session data
+/data/admins.json
+/data/admin-sessions.json
+/data/admin-activity.json
+/data/telegram-subscribers.json
+
 # misc
 .DS_Store
 *.pem

@@ -176,6 +176,8 @@ curl -X POST -H "Authorization: Bearer $BACKUP_CRON_SECRET" http://localhost/api
 3. PHP mailer можна вимкнути з compose, якщо не використовується
 4. Після зміни `SESSION_SECRET` усі сесії інвалідуються
 5. Health endpoint: `GET /api/health` (без секретів)
+6. Nginx **перезаписує** `X-Real-IP` / `X-Forwarded-For` значенням `$remote_addr` (не `$proxy_add_x_forwarded_for`) — інакше клієнт може підробити IP allowlist
+7. CMS HTML проходить через `sanitize-html`; відповіді мають Content-Security-Policy (`lib/csp.ts` + `docker/nginx.conf`)
 
 ---
 

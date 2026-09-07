@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import nodemailer from 'nodemailer';
-import { appendOrder, deleteOrder, listOrders, updateOrder } from '@/lib/orders';
-import { clampQty, cartTotal, MAX_LINES } from '@/lib/cart';
+import { deleteOrder, listOrders, updateOrder } from '@/lib/orders';
+import { clampQty, MAX_LINES } from '@/lib/cart';
 import { clientKey, rateLimit } from '@/lib/rate-limit';
-import { escapeText } from '@/lib/sanitize';
 import { isValidUaPhone, normalizePhoneCanonical } from '@/lib/phone';
 import { getSiteData } from '@/lib/site-data';
-import { notifyOrder } from '@/lib/notify';
+import { resolveFormFlow } from '@/lib/form-flow';
+import { sanitizePagePath } from '@/lib/page-path';
+import { placeShopOrder } from '@/lib/place-shop-order';
 import { toCsv } from '@/lib/csv';
 import { isWorkflowStatus } from '@/lib/workflow';
 import { requireAdminRole } from '@/lib/require-role';
+import { orderPatchBodySchema, parseOrError } from '@/lib/validation';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,6 +39,8 @@ export async function POST(request: NextRequest) {
     let name = '';
     let fulfillment: 'pickup' | 'delivery' = 'pickup';
     let address = '';
+    let pagePathRaw: unknown;
+    let intentRaw: unknown;
     let rawItems: Array<{ id?: string; qty?: number }> = [];
 
     const contentType = request.headers.get('content-type') || '';
@@ -50,6 +53,8 @@ export async function POST(request: NextRequest) {
       name = typeof body.name === 'string' ? body.name : '';
       fulfillment = body.fulfillment === 'delivery' ? 'delivery' : 'pickup';
       address = typeof body.address === 'string' ? body.address : '';
+      pagePathRaw = body.pagePath;
+      intentRaw = body.intent;
       if (Array.isArray(body.items)) rawItems = body.items as Array<{ id?: string; qty?: number }>;
     } else {
       const formData = await request.formData();
@@ -60,6 +65,8 @@ export async function POST(request: NextRequest) {
       name = String(formData.get('name') || '');
       fulfillment = String(formData.get('fulfillment') || '') === 'delivery' ? 'delivery' : 'pickup';
       address = String(formData.get('address') || '');
+      pagePathRaw = formData.get('pagePath');
+      intentRaw = formData.get('intent');
     }
 
     // Honeypot: bots that fill hidden field get soft success without store/mail
@@ -86,12 +93,15 @@ export async function POST(request: NextRequest) {
     if (!rawItems.length && productId) {
       rawItems = [{ id: productId, qty: 1 }];
     }
-    if (!rawItems.length) {
+
+    const pagePath = sanitizePagePath(pagePathRaw);
+    const flow = resolveFormFlow({ pagePath, intent: intentRaw });
+    const allowConsult = !rawItems.length && flow === 'sales';
+
+    if (!rawItems.length && !allowConsult) {
       return NextResponse.json({ error: 'Missing items' }, { status: 400 });
     }
 
-    const site = await getSiteData();
-    const goods = site.goods || [];
     const snapshots: Array<{
       id: string;
       title: string;
@@ -100,123 +110,53 @@ export async function POST(request: NextRequest) {
       code?: string;
       image?: string;
     }> = [];
-    for (const row of rawItems.slice(0, MAX_LINES)) {
-      const id = typeof row.id === 'string' ? row.id.trim() : '';
-      if (!id) continue;
-      const product = goods.find((g) => g.id === id);
-      if (!product || !product.visible || product.inStock === false) {
+    if (!allowConsult) {
+      const site = await getSiteData();
+      const goods = site.goods || [];
+      for (const row of rawItems.slice(0, MAX_LINES)) {
+        const id = typeof row.id === 'string' ? row.id.trim() : '';
+        if (!id) continue;
+        const product = goods.find((g) => g.id === id);
+        if (!product || !product.visible || product.inStock === false) {
+          return NextResponse.json({ error: 'Product not available' }, { status: 400 });
+        }
+        snapshots.push({
+          id: product.id,
+          title: product.title,
+          price: product.price,
+          qty: clampQty(Number(row.qty)),
+          code: product.code,
+          image: product.image,
+        });
+      }
+      if (!snapshots.length) {
         return NextResponse.json({ error: 'Product not available' }, { status: 400 });
       }
-      snapshots.push({
-        id: product.id,
-        title: product.title,
-        price: product.price,
-        qty: clampQty(Number(row.qty)),
-        code: product.code,
-        image: product.image,
-      });
-    }
-    if (!snapshots.length) {
-      return NextResponse.json({ error: 'Product not available' }, { status: 400 });
     }
 
-    const total = cartTotal(snapshots);
-    const titleLine = snapshots.map((i) => `${i.title} ×${i.qty}`).join(', ');
+    const placed = await placeShopOrder({
+      phone,
+      comment: comment || undefined,
+      name: name || undefined,
+      items: snapshots,
+      fulfillment,
+      address: fulfillment === 'delivery' ? address : undefined,
+      consult: allowConsult,
+      pagePath: pagePath || undefined,
+    });
 
-    const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
-    const smtpUser = process.env.SMTP_USER || '';
-    const smtpPass = process.env.SMTP_PASS || '';
-    const smtpPort = parseInt(process.env.SMTP_PORT || '465', 10);
-    const mailTo = process.env.MAIL_TO || '';
-    const mailFrom = process.env.MAIL_FROM || smtpUser || 'no-reply@example.com';
-    const siteUrl = (process.env.SITE_URL || '').replace(/\/$/, '');
-
-    const safePhone = escapeText(phone);
-    const safeTitle = escapeText(titleLine);
-    const safeComment = comment ? escapeText(comment) : '—';
-    const priceStr = total.toLocaleString('uk-UA');
-    const when = new Date().toLocaleString('uk-UA');
-    const productPath = '/cart';
-    const productLink = siteUrl ? `${siteUrl}${productPath}` : productPath;
-
-    let emailed = false;
-
-    if (!smtpUser || !smtpPass) {
-      console.log('[ORDER] submission (no SMTP):', phone, titleLine);
-    } else {
-      try {
-        const transporter = nodemailer.createTransport({
-          host: smtpHost,
-          port: smtpPort,
-          secure: smtpPort === 465,
-          auth: { user: smtpUser, pass: smtpPass },
-        });
-
-        await transporter.sendMail({
-          from: `"B_You" <${mailFrom}>`,
-          to: mailTo,
-          subject: `Замовлення B_You · ${priceStr} ₴`,
-          html: `
-        <p>Нове <strong>замовлення</strong> з магазину B_You.</p>
-        <p><strong>Телефон:</strong> ${safePhone}</p>
-        <p><strong>Імʼя:</strong> ${name ? escapeText(name) : '—'}</p>
-        <p><strong>Отримання:</strong> ${fulfillment === 'delivery' ? 'доставка' : 'самовивіз'}</p>
-        <p><strong>Адреса:</strong> ${address ? escapeText(address) : '—'}</p>
-        <p><strong>Товари:</strong> ${safeTitle}</p>
-        <p><strong>Сума:</strong> ${escapeText(priceStr)} ₴</p>
-        <p><strong>Коментар:</strong> ${safeComment}</p>
-        <p><strong>Час:</strong> ${escapeText(when)}</p>
-        <p><strong>Сторінка:</strong> <a href="${escapeText(productLink)}">${escapeText(productLink)}</a></p>
-      `,
-          text: [
-            'Нове замовлення з магазину B_You.',
-            `Телефон: ${phone}`,
-            `Імʼя: ${name || '—'}`,
-            `Отримання: ${fulfillment === 'delivery' ? 'доставка' : 'самовивіз'}`,
-            `Адреса: ${address || '—'}`,
-            `Товари: ${titleLine}`,
-            `Сума: ${priceStr} ₴`,
-            `Коментар: ${comment || '—'}`,
-            `Час: ${when}`,
-          ].join('\n'),
-        });
-        emailed = true;
-      } catch (err) {
-        console.error('Order mail error:', err);
-      }
+    if (!placed.order && !placed.emailed) {
+      return NextResponse.json({ error: 'Failed to save order' }, { status: 500 });
     }
 
-    let telegram = false;
-    try {
-      telegram = await notifyOrder({
-        phone,
-        productTitle: titleLine,
-        price: total,
-        fulfillment,
-      });
-    } catch {
-      telegram = false;
-    }
-
-    try {
-      await appendOrder({
-        phone,
-        comment: comment || undefined,
-        name: name || undefined,
-        items: snapshots,
-        fulfillment,
-        address: fulfillment === 'delivery' ? address : undefined,
-        emailed,
-        telegram,
-      });
-    } catch (err) {
-      console.error('[orders] failed to persist', err);
-      if (!emailed && !telegram) {
-        return NextResponse.json({ error: 'Failed to save order' }, { status: 500 });
-      }
-    }
-
-    return NextResponse.json({ ok: true, emailed, telegram, dev: !smtpUser || !smtpPass });
+    return NextResponse.json({
+      ok: true,
+      emailed: placed.emailed,
+      telegram: placed.telegram,
+      orderId: placed.order?.id,
+      consult: allowConsult,
+      dev: placed.dev,
+    });
   } catch (err) {
     console.error('Order error:', err);
     return NextResponse.json({ error: 'Failed to place order' }, { status: 500 });
@@ -267,16 +207,11 @@ export async function PATCH(request: NextRequest) {
   if (!g.ok) return g.response;
 
   try {
-    const body = (await request.json()) as {
-      id?: string;
-      handled?: boolean;
-      note?: string;
-      status?: string;
-      callbackAt?: string;
-    };
-    if (!body.id || typeof body.id !== 'string') {
-      return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+    const parsed = parseOrError(orderPatchBodySchema, await request.json());
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
+    const body = parsed.data;
     if (body.status !== undefined && !isWorkflowStatus(body.status)) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
     }
@@ -285,6 +220,8 @@ export async function PATCH(request: NextRequest) {
       note: body.note,
       status: body.status as undefined | import('@/lib/workflow').WorkflowStatus,
       callbackAt: body.callbackAt,
+      outcome: body.outcome as undefined | import('@/lib/workflow').CloseOutcome,
+      assignee: body.assignee,
     });
     if (!updated) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });

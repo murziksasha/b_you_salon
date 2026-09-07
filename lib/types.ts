@@ -121,6 +121,12 @@ export interface DoorHalf {
   image?: string;
 }
 
+export interface DoorsBrandContact {
+  label: string;
+  phoneDisplay: string;
+  phoneTel: string;
+}
+
 export interface DoorsHeroSection extends SectionBase {
   type: 'doors-hero';
   image: string;
@@ -128,6 +134,11 @@ export interface DoorsHeroSection extends SectionBase {
   kicker?: string;
   title?: string;
   subtitle?: string;
+  /** Two contact columns under the kicker (replaces title/subtitle on home). */
+  brandContacts?: {
+    left: DoorsBrandContact;
+    right: DoorsBrandContact;
+  };
   left: DoorHalf;
   right: DoorHalf;
 }
@@ -196,15 +207,31 @@ export interface FeedbackSection extends SectionBase {
   moreReviewsButtonText: string;
 }
 
+export interface ContactsPerson {
+  id: string;
+  /** e.g. Майстер — універсал Наталія */
+  title: string;
+  phones: PhoneEntry[];
+  social?: SocialLink[];
+}
+
 export interface ContactsSection extends SectionBase {
   type: 'contacts';
   title: string;
-  inviteText: string;
-  addressHtml: string;
+  inviteText?: string;
+  addressHtml?: string;
+  /** Staff cards (name + phones + social). When set, preferred over flat phones/social. */
+  people?: ContactsPerson[];
   phones: PhoneEntry[];
   email: string;
   social: SocialLink[];
+  /** Right column heading (replaces hardcoded «Як знайти»). */
+  findTitle?: string;
+  /** Right column lines under the title (address/hours notes). */
+  findLines?: string[];
   mapEmbedUrl: string;
+  /** Home contacts: show intent select (salon book vs shop consult). Routes to leads vs orders. */
+  intentChooser?: boolean;
 }
 
 export interface CallbackSection extends SectionBase {

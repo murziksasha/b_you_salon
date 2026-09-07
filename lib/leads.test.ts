@@ -48,4 +48,16 @@ describe('leads store', () => {
     expect(await deleteLead(a.id)).toBe(true);
     expect(await listLeads()).toHaveLength(0);
   });
+
+  it('keeps both leads when two appends run concurrently', async () => {
+    const { appendLead, listLeads } = await import('./leads');
+    await Promise.all([
+      appendLead({ phone: '+380501111111', emailed: false }),
+      appendLead({ phone: '+380502222222', emailed: false }),
+    ]);
+    const list = await listLeads();
+    expect(list).toHaveLength(2);
+    const phones = list.map(l => l.phone).sort();
+    expect(phones).toEqual(['+380501111111', '+380502222222']);
+  });
 });

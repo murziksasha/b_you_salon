@@ -1,27 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth';
-import { assertAdminIp } from '@/lib/require-admin-ip';
+import { requireAdminRole } from '@/lib/require-role';
 import { clientKey, rateLimit } from '@/lib/rate-limit';
 import { deleteUpload, isSafeUploadName } from '@/lib/media';
-import {
-  formatUsageTooltip,
-  getUsageForUploadName,
-  type MediaRef,
-} from '@/lib/media-usage';
+import { formatUsageTooltip, getUsageForUploadName, type MediaRef } from '@/lib/media-usage';
 import { getSiteData } from '@/lib/site-data';
 
 export const dynamic = 'force-dynamic';
 
 async function guard() {
-  const ipGate = await assertAdminIp();
-  if (!ipGate.ok) {
-    return { ok: false as const, response: NextResponse.json({ error: ipGate.error }, { status: ipGate.status }) };
-  }
-  const isAuthenticated = await getSession();
-  if (!isAuthenticated) {
-    return { ok: false as const, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
-  }
-  return { ok: true as const };
+  return requireAdminRole('media');
 }
 
 /**
@@ -48,9 +35,7 @@ export async function POST(request: NextRequest) {
     }
 
     const names = [
-      ...new Set(
-        body.names.filter((n): n is string => typeof n === 'string' && isSafeUploadName(n)),
-      ),
+      ...new Set(body.names.filter((n): n is string => typeof n === 'string' && isSafeUploadName(n))),
     ].slice(0, 40);
 
     const site = await getSiteData();

@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession, getSessionClaims, verifyPassword } from '@/lib/auth';
 import { assertAdminIp } from '@/lib/require-admin-ip';
-import {
-  createAdminUser,
-  deleteAdminUser,
-  listAdminUsers,
-  updateAdminUser,
-  type AdminRole,
-} from '@/lib/admin-users';
+import { createAdminUser, deleteAdminUser, listAdminUsers, updateAdminUser, type AdminRole } from '@/lib/admin-users';
 import { appendActivity } from '@/lib/admin-activity';
 
 export const dynamic = 'force-dynamic';
@@ -89,6 +83,9 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Потрібен пароль власника' }, { status: 403 });
     }
     if (!body.id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+    if (body.password !== undefined && body.password.length < 8) {
+      return NextResponse.json({ error: 'Password must be ≥8 chars' }, { status: 400 });
+    }
     const ok = await updateAdminUser(body.id, {
       role: body.role,
       disabled: body.disabled,

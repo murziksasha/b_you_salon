@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { atomicWriteJson } from './atomic-write';
+import { withFileMutex } from './file-mutex';
 import { createId } from './id';
 
 export type SessionRecord = {
@@ -15,7 +16,8 @@ export type SessionRecord = {
   ip?: string;
 };
 
-type SessionsStore = { sessions: SessionRecord[] };
+type SessionsStore = { sessions: SessionRecord[]; revoked?: string[] };
+type RevokedStore = SessionsStore;
 
 const MAX_SESSIONS = 50;
 
@@ -42,6 +44,10 @@ async function writeStore(store: SessionsStore): Promise<void> {
   await atomicWriteJson(sessionsFilePath(), store);
 }
 
+function withSessionsLock<T>(fn: () => Promise<T>): Promise<T> {
+  return withFileMutex(sessionsFilePath(), fn);
+}
+
 export async function registerSession(input: {
   fingerprint: string;
   username: string;
@@ -49,10 +55,11 @@ export async function registerSession(input: {
   userAgent?: string;
   ip?: string;
 }): Promise<SessionRecord> {
+  return withSessionsLock(async () => {
   const store = await readStore();
   const now = new Date().toISOString();
   // Replace existing same fingerprint
-  store.sessions = store.sessions.filter((s) => s.fingerprint !== input.fingerprint);
+  store.sessions = store.sessions.filter(s => s.fingerprint !== input.fingerprint);
   const rec: SessionRecord = {
     id: createId(),
     fingerprint: input.fingerprint,
@@ -69,14 +76,17 @@ export async function registerSession(input: {
   }
   await writeStore(store);
   return rec;
+  });
 }
 
 export async function touchSession(fingerprint: string): Promise<void> {
+  return withSessionsLock(async () => {
   const store = await readStore();
-  const idx = store.sessions.findIndex((s) => s.fingerprint === fingerprint);
+  const idx = store.sessions.findIndex(s => s.fingerprint === fingerprint);
   if (idx < 0) return;
   store.sessions[idx] = { ...store.sessions[idx], lastSeenAt: new Date().toISOString() };
   await writeStore(store);
+  });
 }
 
 export async function listSessions(): Promise<SessionRecord[]> {
@@ -85,42 +95,72 @@ export async function listSessions(): Promise<SessionRecord[]> {
 }
 
 export async function revokeSession(id: string): Promise<boolean> {
-  const store = await readStore();
-  const before = store.sessions.length;
-  store.sessions = store.sessions.filter((s) => s.id !== id);
-  if (store.sessions.length === before) return false;
-  await writeStore(store);
+  return withSessionsLock(async () => {
+  const store = (await readStore()) as RevokedStore;
+  const target = store.sessions.find(s => s.id === id);
+  if (!target) return false;
+  // Add fingerprint to revocation list so isSessionAllowed() blocks it
+  const revoked = new Set(store.revoked || []);
+  revoked.add(target.fingerprint);
+  store.revoked = Array.from(revoked).slice(-200);
+  store.sessions = store.sessions.filter(s => s.id !== id);
+  await writeStore(store as SessionsStore);
   return true;
+  });
 }
 
 export async function revokeAllSessions(exceptFingerprint?: string): Promise<number> {
-  const store = await readStore();
-  const kept = exceptFingerprint
-    ? store.sessions.filter((s) => s.fingerprint === exceptFingerprint)
-    : [];
-  const removed = store.sessions.length - kept.length;
-  store.sessions = kept;
-  await writeStore(store);
+  return withSessionsLock(async () => {
+  const store = (await readStore()) as RevokedStore;
+  const revoked = new Set(store.revoked || []);
+  const toRemove = exceptFingerprint ? store.sessions.filter(s => s.fingerprint !== exceptFingerprint) : store.sessions;
+  // Add all removed fingerprints to the revocation list
+  for (const s of toRemove) {
+    revoked.add(s.fingerprint);
+  }
+  store.revoked = Array.from(revoked).slice(-200);
+  store.sessions = exceptFingerprint ? store.sessions.filter(s => s.fingerprint === exceptFingerprint) : [];
+  const removed = toRemove.length;
+  await writeStore(store as SessionsStore);
   return removed;
+  });
+}
+
+/** Revoke all sessions belonging to a specific username. */
+export async function revokeSessionsByUsername(username: string): Promise<number> {
+  return withSessionsLock(async () => {
+  const store = (await readStore()) as RevokedStore;
+  const revoked = new Set(store.revoked || []);
+  const toRemove = store.sessions.filter(s => s.username.toLowerCase() === username.toLowerCase());
+  for (const s of toRemove) {
+    revoked.add(s.fingerprint);
+  }
+  store.revoked = Array.from(revoked).slice(-200);
+  store.sessions = store.sessions.filter(s => s.username.toLowerCase() !== username.toLowerCase());
+  await writeStore(store as SessionsStore);
+  return toRemove.length;
+  });
 }
 
 export async function isFingerprintRevoked(fingerprint: string): Promise<boolean> {
-  // If we have session tracking and this fingerprint is absent after being registered elsewhere,
-  // we only revoke explicitly — so "revoked" means we keep a denylist of revoked fps.
-  // Simpler: revoked if sessions store exists with entries and fingerprint not in list AND
-  // multi-session tracking is active. For simplicity: maintain revoked set in same file.
-  return false;
+  try {
+    const raw = await fs.readFile(sessionsFilePath(), 'utf-8');
+    const parsed = JSON.parse(raw) as RevokedStore;
+    return parsed.revoked?.includes(fingerprint) ?? false;
+  } catch {
+    return false;
+  }
 }
 
-type RevokedStore = SessionsStore & { revoked?: string[] };
-
 export async function markFingerprintRevoked(fingerprint: string): Promise<void> {
+  return withSessionsLock(async () => {
   const store = (await readStore()) as RevokedStore;
   const revoked = new Set(store.revoked || []);
   revoked.add(fingerprint);
   store.revoked = Array.from(revoked).slice(-200);
-  store.sessions = store.sessions.filter((s) => s.fingerprint !== fingerprint);
+  store.sessions = store.sessions.filter(s => s.fingerprint !== fingerprint);
   await writeStore(store as SessionsStore);
+  });
 }
 
 export async function isSessionAllowed(fingerprint: string): Promise<boolean> {

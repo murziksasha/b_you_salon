@@ -26,10 +26,33 @@ describe('sanitizeHtml', () => {
     expect(html).not.toContain('javascript');
   });
 
+  it('blocks entity-encoded javascript: and vbscript: urls', () => {
+    expect(sanitizeHtml('<a href="&#106;avascript:alert(1)">x</a>')).not.toContain('javascript');
+    expect(sanitizeHtml('<a href="java&#x09;script:alert(1)">x</a>')).not.toContain('javascript');
+    expect(sanitizeHtml('<a href="vbscript:msgbox(1)">x</a>')).not.toContain('vbscript');
+    expect(sanitizeHtml('<a href="data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==">x</a>')).not.toContain(
+      'data:',
+    );
+  });
+
   it('handles empty input', () => {
     expect(sanitizeHtml('')).toBe('');
     expect(sanitizeHtml(null)).toBe('');
     expect(sanitizeHtml(undefined)).toBe('');
+  });
+
+  it('strips img onerror and nested svg/script', () => {
+    const html = sanitizeHtml('<img src=x onerror="alert(1)"><svg><script>alert(1)</script></svg>ok');
+    expect(html).not.toMatch(/onerror/i);
+    expect(html).not.toMatch(/<script/i);
+    expect(html).not.toMatch(/<svg/i);
+    expect(html).toContain('ok');
+  });
+
+  it('adds noopener on target=_blank and upgrades protocol-relative href', () => {
+    const html = sanitizeHtml('<a href="//example.com" target="_blank">x</a>');
+    expect(html).toContain('https://example.com');
+    expect(html).toContain('rel="noopener noreferrer"');
   });
 });
 

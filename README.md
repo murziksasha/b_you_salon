@@ -29,6 +29,8 @@ npm run dev
 | `/cart` | Кошик → заявка менеджеру |
 | `/admin` | Конструктор, заявки, замовлення, Inbox |
 
+Публічний сайт: унизу sticky-банер cookie; вибір зберігається на пристрої (`byou-cookie-consent`). Адмінка без банера.
+
 ## Docker
 
 Прод-стек: контейнер Next.js (`byou-app`) + nginx (`byou-nginx`).

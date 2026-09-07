@@ -20,6 +20,7 @@
 .shop-page__subtitle {
   margin-bottom: 24px;
   color: var(--by-muted, #b8a99a);
+  white-space: pre-line;
 }
 
 .shop-catalog {
@@ -28,6 +29,50 @@
 
 .shop-page__intro {
   margin-bottom: 2.4rem;
+
+  &--hero {
+    text-align: center;
+    max-width: 780px;
+    margin-left: auto;
+    margin-right: auto;
+    margin-bottom: 2.8rem;
+  }
+}
+
+.shop-page__title {
+  color: var(--by-cream, #f5ede4);
+  margin-bottom: 0.75rem;
+}
+
+.shop-page__slogan {
+  margin: 0 auto 0.85rem;
+  max-width: 720px;
+  font-family: var(--by-sans);
+  font-size: 1.7rem;
+  line-height: 1.5;
+  color: var(--by-muted);
+  font-weight: 400;
+}
+
+.shop-page__delivery {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0 auto;
+  font-family: var(--by-sans);
+  font-size: clamp(1.2rem, 2vw, 1.4rem);
+  line-height: 1.5;
+  font-weight: 500;
+  color: var(--by-gold, #c4a574);
+  letter-spacing: 0.015em;
+
+  &-icon {
+    font-size: 1.4rem;
+    line-height: 1;
+    color: var(--by-gold, #c4a574);
+  }
 }
 
 .shop-toolbar {

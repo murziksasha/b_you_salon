@@ -86,6 +86,7 @@ if (-not (Test-Pm2PriorState)) {
 }
 else {
   $delCode = Invoke-Pm2Timed -Pm2Args "delete $AppName" -TimeoutSec 20
+  [void](Invoke-Pm2Timed -Pm2Args "delete byou-telegram" -TimeoutSec 15)
   [void](Invoke-Pm2Timed -Pm2Args "delete $LegacyAppName" -TimeoutSec 15)
   if ($delCode -eq 124) {
     Write-Host "    delete hung - pm2 kill and continue"

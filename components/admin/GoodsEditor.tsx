@@ -57,7 +57,7 @@ function reorderReason(opts: {
   if (opts.query.trim()) return 'Очистіть пошук, щоб змінювати порядок каталогу';
   if (opts.visibility !== 'all') return 'Оберіть фільтр «Усі», щоб змінювати порядок';
   if (opts.categoryFilter.trim()) return 'Скиньте фільтр категорії, щоб змінювати порядок';
-  if (opts.viewSort !== 'manual') return 'Оберіть сортування «За порядком каталогу»';
+  if (opts.viewSort !== 'manual') return 'Оберіть сортування «За порядком»';
   return null;
 }
 

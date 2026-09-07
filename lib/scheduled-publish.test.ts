@@ -1,4 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { promises as fs } from 'fs';
+import os from 'os';
+import path from 'path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { applyScheduledPublishes } from './scheduled-publish';
 import type { SiteData } from './types';
 
@@ -51,5 +54,48 @@ describe('scheduled-publish', () => {
     ]);
     const { published } = applyScheduledPublishes(data);
     expect(published).toEqual([]);
+  });
+});
+
+describe('scheduled-publish runner (not inside getSiteData)', () => {
+  let tmpDir: string;
+  let prev: string | undefined;
+
+  beforeEach(async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ps-sched-'));
+    prev = process.env.DATA_DIR;
+    process.env.DATA_DIR = tmpDir;
+  });
+
+  afterEach(async () => {
+    if (prev === undefined) delete process.env.DATA_DIR;
+    else process.env.DATA_DIR = prev;
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it('getSiteData does not write due publishes; runner does', async () => {
+    const { getSiteData, saveSiteData } = await import('./site-data');
+    const data = await getSiteData();
+    const past = new Date(Date.now() - 60_000).toISOString();
+    const page = data.pages.find(p => p.slug !== '') || data.pages[0];
+    page.draft = { title: 'Published by runner', updatedAt: past };
+    page.publishAt = past;
+    page.visible = false;
+    await saveSiteData(data);
+
+    const before = await getSiteData();
+    const target = before.pages.find(p => p.id === page.id);
+    expect(target?.title).not.toBe('Published by runner');
+    expect(target?.publishAt).toBe(past);
+
+    const { runDueScheduledPublishes } = await import('./scheduled-publish-runner');
+    const published = await runDueScheduledPublishes();
+    expect(published).toContain(page.id);
+
+    const after = await getSiteData();
+    const live = after.pages.find(p => p.id === page.id);
+    expect(live?.title).toBe('Published by runner');
+    expect(live?.publishAt).toBeUndefined();
+    expect(live?.visible).toBe(true);
   });
 });

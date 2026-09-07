@@ -37,13 +37,13 @@ const SETTINGS: SiteSettings = {
   headerPhone: PHONE_1,
   shopPhone: SHOP_PHONE,
   social: SOCIAL,
-  hours: 'Пн–Сб 10:00–20:00, Нд — за записом',
+  hours: 'Пн–Сб 09:00–18:00',
   address: 'Адресу уточнюйте за телефоном',
   addressNote: 'Салон — праворуч, магазин косметики — ліворуч',
   officeHours: 'Пн–Сб 10:00–20:00',
   email: '',
   mapEmbedUrl: '',
-  copyright: '© B_You',
+  copyright: '© Byou',
   privacyPolicyUrl: '/confident',
   privacyPolicyText: '',
   reviewsUrl: '',
@@ -141,17 +141,17 @@ const FEEDBACK: Section = {
   quotes: [
     {
       name: 'Олена',
-      text: 'Тиха атмосфера і акуратний манікюр. Зручно, що косметику можна взяти одразу біля входу.',
+      text: 'Майстер — професіонал, як результат — акуратний гарний манікюр. Також зручно, що косметику можна купити одразу: магазин поруч, через стіну.',
       service: 'Манікюр',
     },
     {
       name: 'Андрій',
-      text: 'Зробив стрижку в обід — без очікування. Передзвонили за кілька хвилин після заявки.',
+      text: 'Зробили стрижку, все чітко та вчасно, по запису — все пунктуально (не очікував), обслуговування на висоті, прийду ще.',
       service: 'Чоловічі зачіски',
     },
     {
       name: 'Марина',
-      text: 'Фарбування вийшло м’яке, як просили. Салон і магазин в одному місці — дуже зручно.',
+      text: 'Фарбування вийшло саме так, як я очікувала, без нарікань. Перед процедурою проконсультували, прояснили моменти наперед — все на вищому рівні.',
       service: 'Фарбування',
     },
   ],
@@ -230,7 +230,7 @@ export const SALON_SERVICES: SalonService[] = [
     priceNote: 'від',
     durationMin: 40,
     image: '/img/services/brows.jpg',
-    visible: true,
+    visible: false,
   },
 ];
 
@@ -285,19 +285,29 @@ const HOME: Page = {
       image: '/img/hero/interior.jpg',
       imageAlt: 'Інтер’єр студії B_You',
       kicker: 'Be you!',
-      title: 'B_You',
-      subtitle: 'студія краси · салон праворуч · магазин косметики ліворуч',
+      brandContacts: {
+        left: {
+          label: 'МАГАЗИН КОСМЕТИКИ',
+          phoneDisplay: '093 632 72 24',
+          phoneTel: '+380936327224',
+        },
+        right: {
+          label: 'СТУДІЯ КРАСИ',
+          phoneDisplay: '097 703 62 83',
+          phoneTel: '+380977036283',
+        },
+      },
       left: {
         label: 'Ліворуч',
         title: 'Магазин косметики',
-        subtitle: 'Догляд, який забираєте з собою',
+        subtitle: 'догляд який дарує насолоду',
         href: '/shop',
         cta: 'У магазин',
       },
       right: {
         label: 'Праворуч',
         title: 'Салон краси',
-        subtitle: 'Манікюр, педікюр, зачіски',
+        subtitle: 'Манікюр, педикюр, стрижки, фарбування',
         href: '/salon',
         cta: 'До салону',
       },
@@ -305,7 +315,34 @@ const HOME: Page = {
     {
       ...CONTACTS,
       id: 'contacts-home',
-      inviteText: 'Один простір — два входи.',
+      inviteText: 'один вхід, два простори зліва',
+      intentChooser: true,
+      people: [
+        {
+          id: 'natalia',
+          title: 'Майстер — універсал Наталія',
+          phones: [PHONE_1, PHONE_2],
+          social: SOCIAL.filter((s) => s.type === 'telegram' || s.type === 'viber'),
+        },
+        {
+          id: 'iryna',
+          title: 'Продавець — консультант Ірина',
+          phones: [
+            { display: '093 632 72 24', tel: '+380936327224' },
+            { display: '050 544 37 19', tel: '+380505443719' },
+          ],
+          social: [
+            { id: 'iryna-telegram', type: 'telegram', url: 'https://t.me/+380936327224', icon: '/img/icons/telegram.svg' },
+            { id: 'iryna-viber', type: 'viber', url: 'viber://chat?number=+380936327224', icon: '/img/icons/viber.svg' },
+            { id: 'iryna-instagram', type: 'instagram', url: 'https://www.instagram.com/iriska_livesta/', icon: '/img/icons/instagram.svg' },
+          ],
+        },
+      ],
+      findTitle: 'Знаходимся м. Чорноморськ, вул. Вишнева, 4',
+      findLines: [
+        'Пн–Сб 09:00–18:00',
+        'У неділю та в інший зручний час — запис за домовленістю.',
+      ],
     },
   ],
 };
@@ -324,7 +361,7 @@ const SALON: Page = {
       visible: true,
       titleHtml: 'Салон краси',
       aboutLines: [
-        'Праворуч від входу — студія, де роблять манікюр, волосся і брови.',
+        'Час для себе та вашої краси: манікюр, волосся і фарбування у зручний для вас момент.',
         'Залиште номер — узгодимо послугу і час дзвінком.',
       ],
       callbackTitle: 'Записатись',
@@ -340,11 +377,27 @@ const SALON: Page = {
       title: 'Послуги',
       subtitle: 'Оберіть напрям — розкажемо деталі по телефону',
     },
-    ADVANTAGES,
+
     FEEDBACK,
     callback('cb-salon', 'Записатись або проконсультуватись'),
     zoneDoorToShop(),
-    { ...CONTACTS, id: 'contacts-salon' },
+    {
+      ...CONTACTS,
+      id: 'contacts-salon',
+      people: [
+        {
+          id: 'natalia',
+          title: 'Майстер — універсал Наталія',
+          phones: [PHONE_1, PHONE_2],
+          social: SOCIAL.filter((s) => s.type === 'telegram' || s.type === 'viber'),
+        },
+      ],
+      findTitle: 'Знаходимся м. Чорноморськ, вул. Вишнева, 4',
+      findLines: [
+        'Пн–Сб 09:00–18:00',
+        'У неділю та в інший зручний час — запис за домовленістю.',
+      ],
+    },
   ],
 };
 
@@ -352,7 +405,8 @@ const SHOP: Page = {
   id: 'page-shop',
   slug: 'shop',
   title: 'Магазин косметики',
-  description: 'Догляд для обличчя, волосся, тіла та нігтів. Самовивіз у B_You або доставка за домовленістю.',
+  description:
+    'Твоя краса заслуговує на найкраще! Обирай свій ідеальний догляд, дозволь собі розкіш бути щасливою і насолоджуйся результатом!\nСамовивіз у м. Чорноморськ, Вишнева 4 або доставка за домовленністю',
   visible: true,
   zone: 'shop',
   sections: [
@@ -370,6 +424,35 @@ const SHOP: Page = {
       callbackPlaceholder: '+38 (___) ___ __ __',
       image: '/img/shop/serum.jpg',
       imageAlt: 'Косметика B_You',
+    },
+    {
+      ...CONTACTS,
+      id: 'contacts-shop',
+      inviteText: 'Завітайте в магазин або залиште номер — передзвонимо.',
+      people: [
+        {
+          id: 'iryna',
+          title: 'Продавець — консультант Ірина',
+          phones: [
+            { display: '093 632 72 24', tel: '+380936327224' },
+            { display: '050 544 37 19', tel: '+380505443719' },
+          ],
+          social: [
+            { id: 'iryna-telegram', type: 'telegram', url: 'https://t.me/+380936327224', icon: '/img/icons/telegram.svg' },
+            { id: 'iryna-viber', type: 'viber', url: 'viber://chat?number=+380936327224', icon: '/img/icons/viber.svg' },
+            { id: 'iryna-instagram', type: 'instagram', url: 'https://www.instagram.com/iriska_livesta/', icon: '/img/icons/instagram.svg' },
+          ],
+        },
+      ],
+      phones: [
+        { display: '093 632 72 24', tel: '+380936327224' },
+        { display: '050 544 37 19', tel: '+380505443719' },
+      ],
+      findTitle: 'Знаходимся м. Чорноморськ, вул. Вишнева, 4',
+      findLines: [
+        'Пн–Сб 09:00–18:00',
+        'Магазин косметики — ліворуч від входу.',
+      ],
     },
   ],
 };
@@ -396,7 +479,14 @@ const PRIVACY: Page = {
   <p>Зв’язок щодо запису в салон або замовлення з магазину, облік заявок, покращення роботи сайту, запобігання зловживанням.</p>
   <h2>3. Зберігання</h2>
   <p>Заявки зберігаються локально в журналі студії. Доступ мають лише уповноважені оператори.</p>
-  <h2>4. Контакти</h2>
+  <h2>4. Cookie та збереження на пристрої</h2>
+  <p>На публічному сайті показуємо банер із запитом згоди. Відповідь зберігається лише на цьому пристрої (localStorage <code>byou-cookie-consent</code> та cookie з тим самим ім’ям, строк 1 рік, SameSite=Lax). Адмінка банер не показує.</p>
+  <ul>
+    <li><strong>Необхідні:</strong> запис самої згоди; тема оформлення (<code>byou-theme</code>); кошик магазину (<code>byou-cart</code>); cookie сесії адміністратора (лише /admin).</li>
+    <li><strong>Усі:</strong> ті самі необхідні засоби. Рекламних і аналітичних пікселів зараз немає; якщо з’являться — їх увімкнемо лише після «Прийняти».</li>
+  </ul>
+  <p>Змінити вибір можна в підвалі сайту («Налаштування cookies»).</p>
+  <h2>5. Контакти</h2>
   <p>З питань персональних даних телефонуйте: 063 128 45 51.</p>
 </div>`,
 };

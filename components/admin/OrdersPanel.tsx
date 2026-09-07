@@ -12,6 +12,7 @@ import {
   statusBadgeClass,
   type WorkflowStatus,
 } from '@/lib/workflow';
+import { CONSULT_PRODUCT_TITLE, isConsultOrder } from '@/lib/shop-consult';
 import { showToast } from './AdminToast';
 import { useAdminCounts } from './AdminCountsContext';
 import { JournalToolbar } from './JournalToolbar';
@@ -198,6 +199,7 @@ export function OrdersPanel() {
           const noteVal = noteDraft[order.id] ?? order.note ?? '';
           const busy = busyId === order.id;
           const status = normalizeStatus(order.status, order.handled);
+          const consult = isConsultOrder(order);
           return (
             <li key={order.id} className={`admin-lead-item${order.handled ? ' is-handled' : ''}`}>
               <div className='admin-lead-main'>
@@ -210,18 +212,22 @@ export function OrdersPanel() {
                 <span className='admin-lead-meta'>{formatWhen(order.createdAt)}</span>
                 <span className='admin-lead-meta'>
                   <strong>
-                    {(order.items && order.items.length
-                      ? order.items.map((i) => `${i.title} ×${i.qty}`).join(', ')
-                      : order.product.title)}
+                    {consult
+                      ? CONSULT_PRODUCT_TITLE
+                      : order.items && order.items.length
+                        ? order.items.map((i) => `${i.title} ×${i.qty}`).join(', ')
+                        : order.product.title}
                   </strong>
-                  {' · '}
-                  {(order.total ?? order.product.price).toLocaleString('uk-UA')} ₴
-                  {order.fulfillment === 'delivery' ? ' · доставка' : ' · самовивіз'}
+                  {consult
+                    ? null
+                    : ` · ${(order.total ?? order.product.price).toLocaleString('uk-UA')} ₴${
+                        order.fulfillment === 'delivery' ? ' · доставка' : ' · самовивіз'
+                      }`}
                 </span>
                 {order.address ? <span className='admin-lead-meta'>Адреса: {order.address}</span> : null}
                 {order.comment ? <span className='admin-lead-meta'>Коментар: {order.comment}</span> : null}
                 <span className='admin-lead-meta'>
-                  {order.emailed ? 'email ✓' : 'без email'} · {order.source}
+                  {order.emailed ? 'email ✓' : 'без email'} · {consult ? 'консультація' : order.source}
                   {order.handledAt ? ` · оброблено ${formatWhen(order.handledAt)}` : ''}
                 </span>
                 {order.audit && order.audit.length > 0 ? (
@@ -229,6 +235,7 @@ export function OrdersPanel() {
                     Історія: {order.audit.slice(-3).map((a) => a.action).join(' → ')}
                   </span>
                 ) : null}
+                {consult ? null : (
                 <div className='admin-row admin-row--wrap' style={{ marginTop: 4 }}>
                   <a
                     className='admin-lead-meta'
@@ -242,6 +249,7 @@ export function OrdersPanel() {
                     Редагувати товар
                   </Link>
                 </div>
+                )}
                 <label className='admin-field' style={{ marginTop: 6 }}>
                   Статус
                   <select

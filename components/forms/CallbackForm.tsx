@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useId, useState } from 'react';
+import { resolveFormFlow } from '@/lib/form-flow';
 import { isValidUaPhone, PHONE_PLACEHOLDER } from '@/lib/phone';
 import { sanitizeHtml } from '@/lib/sanitize';
 import type { SalonService } from '@/lib/types';
@@ -29,6 +30,8 @@ interface CallbackFormProps {
   className?: string;
   services?: SalonService[];
   activeServiceId?: string;
+  /** Home contacts: dropdown salon book vs shop consult. */
+  intentChooser?: boolean;
 }
 
 export function CallbackForm({
@@ -38,6 +41,7 @@ export function CallbackForm({
   className = 'by-form',
   services = [],
   activeServiceId,
+  intentChooser = false,
 }: CallbackFormProps) {
   const [status, setStatus] = useState('');
   const [isError, setIsError] = useState(false);
@@ -64,10 +68,25 @@ export function CallbackForm({
     try {
       const pagePath = `${window.location.pathname}${window.location.search}`.slice(0, 300);
       const pageTitle = (document.title || '').slice(0, 120);
+      const intent = String(formData.get('intent') || '');
       formData.set('pagePath', pagePath);
       formData.set('pageTitle', pageTitle);
 
-      const response = await fetch('/api/contact', { method: 'POST', body: formData });
+      const flow = resolveFormFlow({ pagePath, intent });
+      const response =
+        flow === 'sales'
+          ? await fetch('/api/orders', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                phone,
+                comment: String(formData.get('comment') || ''),
+                website: String(formData.get('website') || ''),
+                pagePath,
+                intent,
+              }),
+            })
+          : await fetch('/api/contact', { method: 'POST', body: formData });
       if (!response.ok) {
         if (response.status === 429) {
           const retry = response.headers.get('Retry-After');
@@ -99,6 +118,18 @@ export function CallbackForm({
 
   return (
     <form className={className} onSubmit={handleSubmit} noValidate>
+      {intentChooser ? (
+        <label>
+          <span className='visually-hidden'>Що вас цікавить</span>
+          <select name='intent' defaultValue='' required>
+            <option value='' disabled>
+              Що вас цікавить?
+            </option>
+            <option value='salon'>Записатись / консультація салону</option>
+            <option value='shop'>Консультація по товарах</option>
+          </select>
+        </label>
+      ) : null}
       {services.length ? (
         <label>
           <span className='visually-hidden'>Послуга</span>

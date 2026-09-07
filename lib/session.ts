@@ -5,10 +5,20 @@ const SESSION_MAX_AGE_MS = 60 * 60 * 24 * 7 * 1000; // 7 days
 /**
  * Read secret at call time (not module load) so Docker runtime env is used.
  * Prefer SESSION_SECRET; fall back to ADMIN_PASSWORD for local convenience.
+ * In production, refuse to start without a proper secret to prevent session forgery.
  */
 function getSecret(): string {
   const secret = process.env['SESSION_SECRET'] || process.env['ADMIN_PASSWORD'];
   if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'FATAL: SESSION_SECRET (or ADMIN_PASSWORD) must be set in production. ' +
+          'Without it, session tokens can be forged by anyone.',
+      );
+    }
+    console.warn(
+      '[session] WARNING: No SESSION_SECRET set. Using insecure dev fallback. ' + 'Do NOT use this in production.',
+    );
     return 'dev-insecure-session-secret-change-me';
   }
   return secret;
@@ -16,7 +26,7 @@ function getSecret(): string {
 
 function toHex(bytes: Uint8Array): string {
   return Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, '0'))
+    .map(b => b.toString(16).padStart(2, '0'))
     .join('');
 }
 
@@ -31,13 +41,10 @@ function fromHex(hex: string): Uint8Array | null {
 
 async function getHmacKey(): Promise<CryptoKey> {
   const enc = new TextEncoder();
-  return crypto.subtle.importKey(
-    'raw',
-    enc.encode(getSecret()),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign', 'verify'],
-  );
+  return crypto.subtle.importKey('raw', enc.encode(getSecret()), { name: 'HMAC', hash: 'SHA-256' }, false, [
+    'sign',
+    'verify',
+  ]);
 }
 
 async function sign(payload: string): Promise<string> {
@@ -65,7 +72,7 @@ export type SessionClaims = {
 
 function encodeClaims(claims?: SessionClaims): string {
   if (!claims) return '';
-  const raw = `${claims.username}|${claims.role}`;
+  const raw = JSON.stringify({ u: claims.username, r: claims.role });
   return toHex(new TextEncoder().encode(raw));
 }
 
@@ -75,9 +82,19 @@ function decodeClaims(hex: string): SessionClaims | null {
   if (!bytes) return null;
   try {
     const raw = new TextDecoder().decode(bytes);
-    const [username, role] = raw.split('|');
+    // Support both new JSON format and legacy pipe-delimited format
+    if (raw.startsWith('{')) {
+      const parsed = JSON.parse(raw) as { u?: string; r?: string };
+      if (!parsed.u) return null;
+      return { username: parsed.u, role: parsed.r || 'operator' };
+    }
+    // Legacy pipe-delimited fallback (read-only, will be re-encoded as JSON on next login)
+    const pipeIdx = raw.indexOf('|');
+    if (pipeIdx < 0) return null;
+    const username = raw.slice(0, pipeIdx);
+    const role = raw.slice(pipeIdx + 1);
     if (!username) return null;
-    return { username, role: role || 'owner' };
+    return { username, role: role || 'operator' };
   } catch {
     return null;
   }
@@ -127,8 +144,7 @@ export async function parseSession(session: string | undefined): Promise<ParsedS
 
   if (!token || !expiry || !signature) return { valid: false };
 
-  const payload =
-    parts.length === 4 ? `${token}.${expiry}.${claimsHex}` : `${token}.${expiry}`;
+  const payload = parts.length === 4 ? `${token}.${expiry}.${claimsHex}` : `${token}.${expiry}`;
   const ok = await verifySignature(payload, signature);
   if (!ok) return { valid: false };
 
@@ -138,7 +154,7 @@ export async function parseSession(session: string | undefined): Promise<ParsedS
   return {
     valid: true,
     token,
-    claims: claimsHex ? decodeClaims(claimsHex) : { username: 'admin', role: 'legacy' },
+    claims: claimsHex ? decodeClaims(claimsHex) : { username: 'admin', role: 'operator' },
     fingerprint: token.slice(0, 16),
   };
 }

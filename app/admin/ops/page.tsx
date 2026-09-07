@@ -1,5 +1,6 @@
 import { AdminShell } from '@/components/admin/AdminShell';
 import { EmergencyOpsPanel } from '@/components/admin/EmergencyOpsPanel';
+import { TelegramBotPanel } from '@/components/admin/TelegramBotPanel';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +11,7 @@ export default function AdminOpsPage() {
       <p className='admin-hint admin-mb-lg'>
         Аварійні кроки, коли форми/сайт/листи «лежать». Секрети — лише через env / ротацію.
       </p>
+      <TelegramBotPanel />
       <EmergencyOpsPanel />
     </AdminShell>
   );

@@ -35,6 +35,22 @@ export function normalizePhoneCanonical(value: string): string {
   return normalizePhoneDisplay(value);
 }
 
+/**
+ * Mask for Telegram pushes / lists: +38067***12
+ * Non-UA: keep edges, replace the middle 4 characters with asterisks.
+ */
+export function maskPhoneDisplay(phone: string): string {
+  const raw = String(phone || '').trim();
+  const canonical = normalizePhoneCanonical(raw);
+  const digits = phoneDigits(canonical);
+  if (digits.length === 12 && digits.startsWith('380')) {
+    return `+380${digits.slice(3, 5)}***${digits.slice(-2)}`;
+  }
+  if (raw.length < 6) return raw || '***';
+  const startLen = Math.max(1, Math.ceil((raw.length - 4) / 2));
+  return `${raw.slice(0, startLen)}****${raw.slice(-2)}`;
+}
+
 /** True if two phones refer to the same UA number. */
 export function phonesMatch(a: string, b: string): boolean {
   const da = phoneDigits(a);

@@ -74,8 +74,8 @@ export function HealthPanel() {
           {health.smtp ? '✓' : '!'} SMTP {health.smtp ? 'налаштовано' : '— заявки лише в журналі'}
         </li>
         <li className={health.telegram ? 'is-ok' : 'is-info'}>
-          {health.telegram ? '✓' : '·'} Telegram notify{' '}
-          {health.telegram ? 'увімкнено' : '— TELEGRAM_BOT_TOKEN / CHAT_ID'}
+          {health.telegram ? '✓' : '·'} Telegram bot{' '}
+          {health.telegram ? 'токен задано' : '— TELEGRAM_BOT_TOKEN'}
         </li>
         <li className={health.totp ? 'is-ok' : 'is-info'}>
           {health.totp ? '✓' : '·'} 2FA TOTP {health.totp ? 'увімкнено' : 'вимкнено'}

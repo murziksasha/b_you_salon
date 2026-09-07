@@ -13,6 +13,7 @@ import { TotpSetupPanel } from './TotpSetupPanel';
 import { UsersPanel } from './UsersPanel';
 import { StickySaveBar } from './StickySaveBar';
 import { NotifyPrefsPanel } from './NotifyPrefsPanel';
+import { TelegramBotPanel } from './TelegramBotPanel';
 
 const SOCIAL_PRESETS: Array<{ type: string; icon: string; label: string }> = [
   { type: 'viber', icon: '/img/icons/viber.svg', label: 'Viber' },
@@ -331,6 +332,8 @@ export function SettingsEditor({ initialData }: { initialData: SiteData }) {
       </div>
 
       <TotpSetupPanel />
+
+      <TelegramBotPanel />
 
       <NotifyPrefsPanel />
 
