@@ -1,7 +1,7 @@
 {
   "settings": {
     "title": "B_You — студія краси",
-    "description": "Студія краси B_You: салон праворуч — манікюр, педікюр, зачіски; магазин косметики ліворуч. Запис і самовивіз. Be you!",
+    "description": "Студія краси B_You: салон праворуч — манікюр, педикюр, зачіски; магазин косметики ліворуч. Запис і самовивіз. Be you!",
     "logo": "/img/icons/logo.jpg",
     "favicon": "/img/icons/logo.jpg",
     "ogImage": "/img/og-cover.jpg",
@@ -118,7 +118,7 @@
     },
     {
       "id": "nav-pedicure",
-      "label": "Педікюр",
+      "label": "Педикюр",
       "href": "/salon/pedicure",
       "slug": "pedicure",
       "visible": true
@@ -163,7 +163,7 @@
       "id": "home",
       "slug": "",
       "title": "B_You — Be you!",
-      "description": "Студія краси B_You: салон праворуч — манікюр, педікюр, зачіски; магазин косметики ліворуч. Запис і самовивіз. Be you!",
+      "description": "Студія краси B_You: салон праворуч — манікюр, педикюр, зачіски; магазин косметики ліворуч. Запис і самовивіз. Be you!",
       "visible": true,
       "zone": "home",
       "sections": [
@@ -311,7 +311,7 @@
       "id": "page-salon",
       "slug": "salon",
       "title": "Салон краси",
-      "description": "Манікюр, педікюр, жіночі та чоловічі зачіски, фарбування, брови та вії.",
+      "description": "Манікюр, педикюр, жіночі та чоловічі зачіски, фарбування, брови та вії.",
       "visible": true,
       "zone": "salon",
       "sections": [
@@ -536,8 +536,8 @@
     {
       "id": "page-pedicure",
       "slug": "pedicure",
-      "title": "Педікюр",
-      "description": "Естетичний і апаратний педікюр. Комфортний догляд і акуратне покриття.",
+      "title": "Педикюр",
+      "description": "Естетичний і апаратний педикюр. Комфортний догляд і акуратне покриття.",
       "visible": true,
       "zone": "salon",
       "sections": [
@@ -545,15 +545,15 @@
           "id": "hero-pedicure",
           "type": "hero",
           "visible": true,
-          "titleHtml": "Педікюр",
+          "titleHtml": "Педикюр",
           "aboutLines": [
-            "Естетичний і апаратний педікюр. Комфортний догляд і акуратне покриття."
+            "Естетичний і апаратний педикюр. Комфортний догляд і акуратне покриття."
           ],
           "callbackTitle": "Записатись на послугу",
           "callbackButtonText": "Записатись",
           "callbackPlaceholder": "+38 (___) ___ __ __",
           "image": "/img/services/pedicure.jpg",
-          "imageAlt": "Педікюр",
+          "imageAlt": "Педикюр",
           "activeServiceSlug": "pedicure"
         },
         {
@@ -1051,10 +1051,10 @@
     },
     {
       "id": "svc-pedicure",
-      "title": "Педікюр",
+      "title": "Педикюр",
       "slug": "pedicure",
       "category": "Нігті",
-      "description": "Естетичний і апаратний педікюр. Комфортний догляд і акуратне покриття.",
+      "description": "Естетичний і апаратний педикюр. Комфортний догляд і акуратне покриття.",
       "priceFrom": 700,
       "priceNote": "від",
       "durationMin": 75,
