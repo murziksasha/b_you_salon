@@ -518,12 +518,14 @@ npm run update
 
 1. Копия `data/*.json` → `data/backups/pre-update-<время>/` (живой CMS не теряется без следа).
 2. `git fetch` + checkout ветки **`dev`** (или `DEPLOY_BRANCH` / `-Branch`) + `git pull --ff-only`. Отказ, если дерево грязное или нужен merge.
-3. `npm ci`, только если изменились `package.json` / lockfile (или нет `node_modules`).
-4. **Всегда** `npm run build` (иначе `.next` останется старым).
+3. `npm ci`, если изменились `package.json` / lockfile, нет `node_modules`, или нет бинарника Next.js (`node_modules/next`, `next.cmd`). Если сборка падает с `'next' is not recognized` — скрипт сам делает `npm ci` и повторяет build.
+4. **Всегда** `next build` через `node node_modules/next/dist/bin/next` (иначе `.next` останется старым). Не зависит от сломанного `next.cmd` в Git Bash.
 5. `pm2 restart byou` (имя процесса одно: **`byou`**). Если Windows залочил `.next`, скрипт коротко стопает pm2 и собирает снова.
 6. Проверка `http://127.0.0.1:<PORT>/api/health`.
 
 Флаги: `npm run update -- -SkipPull` (только build+restart), `-SkipBackup`, `-SkipHealth`.
+
+Если на хосте ещё старый скрипт и `'next' is not recognized`: один раз `npm ci`, затем `npm run update`. После pull этого фикса достаточно снова `npm run update`.
 
 Почему не `git pull` + `pm2 restart`: авто-сборка в `pm2:setup` / `start:prod` срабатывает **только если нет** `.next\BUILD_ID`. Без `npm run build` будет крутиться **старый** код.
 

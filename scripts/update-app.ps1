@@ -33,7 +33,8 @@ function Test-HasCommand {
 function Update-SessionPath {
   $machine = [Environment]::GetEnvironmentVariable("Path", "Machine")
   $user = [Environment]::GetEnvironmentVariable("Path", "User")
-  $env:Path = "C:\Program Files\nodejs;$env:APPDATA\npm;" + $machine + ";" + $user
+  $localBin = Join-Path $Root "node_modules\.bin"
+  $env:Path = "$localBin;C:\Program Files\nodejs;$env:APPDATA\npm;" + $machine + ";" + $user
 }
 
 function Read-DotEnvValue {
@@ -122,6 +123,53 @@ function Test-LockishBuildError {
   return ($Text -match "EBUSY|EPERM|EACCES|EAGAIN|being used by another process|resource busy or locked|locked")
 }
 
+function Test-MissingNextBuildError {
+  param([string]$Text)
+  if (-not $Text) { return $false }
+  $mentionsNext = $Text -match "next"
+  if (-not $mentionsNext) { return $false }
+  return (
+    $Text -match "is not recognized" -or
+    $Text -match "Cannot find module" -or
+    $Text -match "ENOENT"
+  )
+}
+
+function Get-NextJsBin {
+  return (Join-Path $Root "node_modules\next\dist\bin\next")
+}
+
+function Get-NextCmdShim {
+  return (Join-Path $Root "node_modules\.bin\next.cmd")
+}
+
+# Folder node_modules is not enough: a leftover/partial tree still skips npm ci
+# and `npm run build` then dies with "'next' is not recognized".
+function Test-DepsReady {
+  if (-not (Test-Path (Join-Path $Root "node_modules"))) { return $false }
+  if (-not (Test-Path (Get-NextJsBin))) { return $false }
+  if (-not (Test-Path (Get-NextCmdShim))) { return $false }
+  $tsxCli = Join-Path $Root "node_modules\tsx\dist\cli.mjs"
+  if (-not (Test-Path $tsxCli)) { return $false }
+  return $true
+}
+
+function Invoke-NpmInstall {
+  $lockPath = Join-Path $Root "package-lock.json"
+  if (Test-Path $lockPath) {
+    Write-Host "==> npm ci"
+    cmd.exe /c "npm ci"
+  }
+  else {
+    Write-Host "==> npm install (no package-lock.json)"
+    cmd.exe /c "npm install"
+  }
+  if ($LASTEXITCODE -ne 0) {
+    Write-Error "npm install/ci failed (exit $LASTEXITCODE). PM2 was not restarted."
+    exit $LASTEXITCODE
+  }
+}
+
 function Backup-CmsJson {
   $dataDir = Join-Path $Root "data"
   if (-not (Test-Path $dataDir)) {
@@ -159,11 +207,25 @@ function Invoke-AppBuild {
     New-Item -ItemType Directory -Force -Path $logDir | Out-Null
   }
   $buildLog = Join-Path $logDir "update-build.log"
-  Write-Host "==> npm run build"
-  Write-Host "    log: $buildLog"
-  # cmd so LASTEXITCODE is npm's (a PowerShell pipeline would report Tee-Object's 0).
-  # Relative log path: repo root can contain spaces (cmd quoting).
-  cmd.exe /c "npm run build > logs\update-build.log 2>&1"
+  $nextJs = Get-NextJsBin
+  $binDir = Join-Path $Root "node_modules\.bin"
+  if (Test-Path $binDir) {
+    $env:Path = "$binDir;$env:Path"
+  }
+  # Prefer the package binary: Git Bash/cmd shims (`next.cmd`) are often missing
+  # even when node_modules/next is present. Fall back to npm run build.
+  if (Test-Path $nextJs) {
+    Write-Host "==> node node_modules/next/dist/bin/next build"
+    Write-Host "    log: $buildLog"
+    cmd.exe /c "node node_modules\next\dist\bin\next build > logs\update-build.log 2>&1"
+  }
+  else {
+    Write-Host "==> npm run build"
+    Write-Host "    log: $buildLog"
+    # cmd so LASTEXITCODE is npm's (a PowerShell pipeline would report Tee-Object's 0).
+    # Relative log path: repo root can contain spaces (cmd quoting).
+    cmd.exe /c "npm run build > logs\update-build.log 2>&1"
+  }
   $code = $LASTEXITCODE
   $text = ""
   if (Test-Path $buildLog) {
@@ -279,8 +341,13 @@ else {
 }
 
 $needInstall = $false
-if (-not (Test-Path (Join-Path $Root "node_modules"))) {
-  Write-Host "node_modules missing"
+if (-not (Test-DepsReady)) {
+  if (-not (Test-Path (Join-Path $Root "node_modules"))) {
+    Write-Host "node_modules missing"
+  }
+  else {
+    Write-Host "node_modules incomplete (Next.js or tsx binary missing)"
+  }
   $needInstall = $true
 }
 else {
@@ -293,19 +360,7 @@ else {
 }
 
 if ($needInstall) {
-  $lockPath = Join-Path $Root "package-lock.json"
-  if (Test-Path $lockPath) {
-    Write-Host "==> npm ci"
-    npm ci
-  }
-  else {
-    Write-Host "==> npm install (no package-lock.json)"
-    npm install
-  }
-  if ($LASTEXITCODE -ne 0) {
-    Write-Error "npm install/ci failed (exit $LASTEXITCODE). PM2 was not restarted."
-    exit $LASTEXITCODE
-  }
+  Invoke-NpmInstall
 }
 else {
   Write-Host "==> Dependencies unchanged, skipping npm ci"
@@ -322,8 +377,16 @@ if ($build.Code -ne 0 -and (Test-LockishBuildError $build.Log)) {
   $build = Invoke-AppBuild
 }
 
+if ($build.Code -ne 0 -and (Test-MissingNextBuildError $build.Log)) {
+  Write-Host "Build could not find Next.js. Stopping pm2 $AppName, running npm ci, retrying..."
+  cmd.exe /c "pm2 stop $AppName >nul 2>&1" | Out-Null
+  $stoppedForLock = $true
+  Invoke-NpmInstall
+  $build = Invoke-AppBuild
+}
+
 if ($build.Code -ne 0) {
-  Write-Error "npm run build failed (exit $($build.Code)). Not restarting pm2 - .next may be incomplete. See logs/update-build.log"
+  Write-Error "next build failed (exit $($build.Code)). Not restarting pm2 - .next may be incomplete. See logs/update-build.log"
   exit $build.Code
 }
 

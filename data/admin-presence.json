@@ -1,0 +1,10 @@
+{
+  "peers": [
+    {
+      "fingerprint": "d81514033dcf6483",
+      "username": "admin",
+      "path": "/admin",
+      "lastSeenAt": "2026-09-02T20:41:20.637Z"
+    }
+  ]
+}
