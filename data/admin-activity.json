@@ -1,6 +1,20 @@
 {
   "entries": [
     {
+      "id": "70f810ec54d5",
+      "at": "2026-09-14T20:44:51.480Z",
+      "kind": "site_save",
+      "message": "Збережено site.json",
+      "actor": "admin"
+    },
+    {
+      "id": "c16f3e2a17a3",
+      "at": "2026-09-14T20:36:18.259Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
       "id": "12e801e8e013",
       "at": "2026-08-31T20:20:30.008Z",
       "kind": "login",

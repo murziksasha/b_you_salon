@@ -1,6 +1,16 @@
 {
   "sessions": [
     {
+      "id": "3b9d683fdf7b",
+      "fingerprint": "c8b4a824a2863865",
+      "username": "admin",
+      "role": "legacy",
+      "createdAt": "2026-09-14T20:36:18.246Z",
+      "lastSeenAt": "2026-09-14T20:36:18.246Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+      "ip": "::1"
+    },
+    {
       "id": "6a1d726c9657",
       "fingerprint": "5e8dbb8201d2f497",
       "username": "admin",
