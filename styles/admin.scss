@@ -621,6 +621,18 @@ body:has(.admin-body) {
   line-height: 1.45;
 }
 
+.admin-perm-groups {
+  display: grid;
+  gap: 8px 16px;
+  margin: 8px 0 16px;
+}
+
+.admin-perm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 2px 12px;
+}
+
 .admin-check {
   display: inline-flex !important;
   align-items: center;

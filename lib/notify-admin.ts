@@ -27,14 +27,21 @@ export async function notifyOneLead(lead: Lead, note?: string): Promise<boolean>
 }
 
 export async function notifyOneOrder(order: Order, note?: string): Promise<boolean> {
+  const consult = order.source === 'consult';
   const ok = await notifyOrder({
     phone: order.phone,
-    productTitle: order.items?.length
-      ? order.items.map((i) => `${i.title} ×${i.qty}`).join(', ')
-      : order.product.title,
-    price: order.total ?? order.product.price,
+    productTitle: order.product.title,
+    items: consult
+      ? undefined
+      : order.items?.length
+        ? order.items.map((i) => ({ title: i.title, qty: i.qty, price: i.price }))
+        : [{ title: order.product.title, qty: order.quantity || 1, price: order.product.price }],
+    consult,
+    name: order.name,
+    address: order.address,
+    price: consult ? undefined : order.total ?? order.product.price,
     orderId: order.id,
-    fulfillment: order.fulfillment,
+    fulfillment: consult ? undefined : order.fulfillment,
     comment: order.comment,
     createdAt: order.createdAt,
     status: order.status,

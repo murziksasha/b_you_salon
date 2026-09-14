@@ -4,6 +4,8 @@ import { getSiteData, saveSiteData } from '@/lib/site-data';
 import type { SiteData } from '@/lib/types';
 import { parseSiteData } from '@/lib/validation';
 import { requireAdminRole } from '@/lib/require-role';
+import { roleCan, siteSectionCapability } from '@/lib/admin-roles';
+import { siteWriteDeniedCapability } from '@/lib/admin-site-auth';
 
 const PATCH_SECTIONS = [
   'goods',
@@ -28,7 +30,7 @@ export async function GET() {
 }
 
 export async function PUT(request: NextRequest) {
-  const g = await requireAdminRole('content');
+  const g = await requireAdminRole();
   if (!g.ok) return g.response;
 
   const rl = rateLimit(clientKey(request, 'site-write'), { limit: 30, windowMs: 60_000 });
@@ -49,6 +51,12 @@ export async function PUT(request: NextRequest) {
     }
 
     const current = await getSiteData();
+    const currentParsed = parseSiteData(current);
+    const baseline = currentParsed.success ? currentParsed.data : current;
+    const denied = siteWriteDeniedCapability(g.role, g.grants, baseline, parsed.data);
+    if (denied) {
+      return NextResponse.json({ error: 'Forbidden', needRole: denied }, { status: 403 });
+    }
     const clientRev = parsed.data.updatedAt;
     const serverRev = current.updatedAt;
     const force = request.headers.get('x-force-overwrite') === '1';
@@ -88,7 +96,7 @@ export async function PUT(request: NextRequest) {
  * Body: { section: 'goods'|'settings'|..., data: ..., expectedUpdatedAt?: string }
  */
 export async function PATCH(request: NextRequest) {
-  const g = await requireAdminRole('content');
+  const g = await requireAdminRole();
   if (!g.ok) return g.response;
 
   const rl = rateLimit(clientKey(request, 'site-write'), { limit: 30, windowMs: 60_000 });
@@ -109,6 +117,10 @@ export async function PATCH(request: NextRequest) {
     const section = body.section as PatchSection;
     if (!PATCH_SECTIONS.includes(section) || body.data === undefined) {
       return NextResponse.json({ error: `section must be one of: ${PATCH_SECTIONS.join(', ')}` }, { status: 400 });
+    }
+    const need = siteSectionCapability(section);
+    if (need && !roleCan(g.role, need, g.grants)) {
+      return NextResponse.json({ error: 'Forbidden', needRole: need }, { status: 403 });
     }
 
     const current = await getSiteData();

@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 /** Client profile by phone: all leads/orders + aggregates. */
 export async function GET(request: NextRequest) {
-  const g = await requireAdminRole('inbox');
+  const g = await requireAdminRole('clients');
   if (!g.ok) return g.response;
 
   const phone = (request.nextUrl.searchParams.get('phone') || '').trim();

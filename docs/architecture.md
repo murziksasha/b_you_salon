@@ -183,7 +183,7 @@ Leads (callback) and orders (shop) are **separate** files and admin sections.
 ### Notifications
 
 - Email: nodemailer → `MAIL_TO` (contact + orders)
-- Telegram: `TELEGRAM_BOT_TOKEN` + paired subscribers (`data/telegram-subscribers.json`) and optional `TELEGRAM_CHAT_ID` (`lib/notify.ts`). Pushes include masked phone + inline keyboard (copy / Viber https-redirect `/r/viber` / admin / claim). Skip if quiet hours or the phone already has another open inbox item. Digest + catch-up run in pm2 `byou-telegram` (`lib/telegram-digest.ts`).
+- Telegram: `TELEGRAM_BOT_TOKEN` + paired subscribers (`data/telegram-subscribers.json`) and optional `TELEGRAM_CHAT_ID` (`lib/notify.ts`). Pushes include masked phone + inline keyboard (copy / Viber https-redirect `/r/viber` / admin / claim). Skip if quiet hours or the phone already has another open inbox item. Updates: `POST /api/telegram/webhook` (secret header) when `TELEGRAM_WEBHOOK_SECRET` + public https `SITE_URL`; otherwise pm2 `byou-telegram` long-poll. Digest + catch-up run in Next.js (`lib/telegram-digest-runner.ts`).
 - Admin SMTP test: `POST /api/smtp-test` (session)
 
 ### Partial site API

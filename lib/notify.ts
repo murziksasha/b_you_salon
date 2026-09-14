@@ -211,6 +211,7 @@ export async function notifyLead(payload: {
     formatLeadPush({
       phone: payload.phone,
       source: payload.source,
+      zone: payload.zone,
       serviceTitle: payload.serviceTitle,
       comment: payload.comment,
       createdAt: payload.createdAt,
@@ -226,7 +227,11 @@ export async function notifyLead(payload: {
 
 export async function notifyOrder(payload: {
   phone: string;
-  productTitle: string;
+  productTitle?: string;
+  items?: Array<{ title: string; qty: number; price?: number }>;
+  consult?: boolean;
+  name?: string;
+  address?: string;
   price?: number;
   orderId?: string;
   fulfillment?: string;
@@ -248,6 +253,10 @@ export async function notifyOrder(payload: {
     formatOrderPush({
       phone: payload.phone,
       productTitle: payload.productTitle,
+      items: payload.items,
+      consult: payload.consult,
+      name: payload.name,
+      address: payload.address,
       price: payload.price,
       fulfillment: payload.fulfillment,
       comment: payload.comment,

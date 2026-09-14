@@ -1,12 +1,24 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  ADMIN_CAPABILITY_GROUPS,
+  ADMIN_CAPABILITY_LABELS,
+  GRANTABLE_CAPABILITIES,
+  presetGrants,
+  roleFromPreset,
+  type AdminCapability,
+  type AdminPreset,
+  type AdminRole,
+} from '@/lib/admin-roles';
 import { showToast } from './AdminToast';
+import { useAdminRole } from './AdminRoleContext';
 
 type UserRow = {
   id: string;
   username: string;
-  role: string;
+  role: AdminRole;
+  grants?: AdminCapability[];
   createdAt: string;
   disabled?: boolean;
 };
@@ -21,7 +33,61 @@ type SessionRow = {
   ip?: string;
 };
 
+function grantsForPreset(preset: AdminPreset): AdminCapability[] {
+  if (preset === 'owner') return [...GRANTABLE_CAPABILITIES];
+  return presetGrants(preset);
+}
+
+function inferPreset(user: UserRow): AdminPreset {
+  if (user.role === 'owner') return 'owner';
+  const grants = user.grants ?? presetGrants(user.role);
+  const op = presetGrants('operator');
+  const ed = presetGrants('editor');
+  const same = (a: AdminCapability[], b: AdminCapability[]) =>
+    a.length === b.length && a.every((x) => b.includes(x));
+  if (user.role === 'operator' && same(grants, op)) return 'operator';
+  if (same(grants, ed)) return 'editor';
+  return user.role === 'operator' ? 'operator' : 'editor';
+}
+
+function GrantBoxes({
+  preset,
+  grants,
+  disabled,
+  onToggle,
+}: {
+  preset: AdminPreset;
+  grants: AdminCapability[];
+  disabled?: boolean;
+  onToggle: (key: AdminCapability, on: boolean) => void;
+}) {
+  const locked = preset === 'owner' || disabled;
+  return (
+    <div className='admin-perm-groups'>
+      {ADMIN_CAPABILITY_GROUPS.map((group) => (
+        <div key={group.id} className='admin-perm-group'>
+          <p className='admin-hint'>{group.label}</p>
+          <div className='admin-perm-grid'>
+            {group.keys.map((key) => (
+              <label key={key} className='admin-check'>
+                <input
+                  type='checkbox'
+                  checked={preset === 'owner' || grants.includes(key)}
+                  disabled={locked}
+                  onChange={(e) => onToggle(key, e.target.checked)}
+                />
+                {ADMIN_CAPABILITY_LABELS[key]}
+              </label>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function UsersPanel() {
+  const { can } = useAdminRole();
   const [users, setUsers] = useState<UserRow[]>([]);
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [currentFp, setCurrentFp] = useState<string | null>(null);
@@ -29,13 +95,19 @@ export function UsersPanel() {
   const [forbidden, setForbidden] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'operator' | 'editor' | 'owner'>('operator');
+  const [preset, setPreset] = useState<AdminPreset>('operator');
+  const [grants, setGrants] = useState<AdminCapability[]>(() => grantsForPreset('operator'));
   const [ownerPassword, setOwnerPassword] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editPreset, setEditPreset] = useState<AdminPreset>('operator');
+  const [editGrants, setEditGrants] = useState<AdminCapability[]>([]);
+  const [editPassword, setEditPassword] = useState('');
+  const [editDisabled, setEditDisabled] = useState(false);
 
   const load = useCallback(async () => {
     try {
       const [uRes, sRes] = await Promise.all([fetch('/api/users'), fetch('/api/sessions')]);
-      if (uRes.status === 403 || sRes.status === 403) {
+      if (uRes.status === 403) {
         setForbidden(true);
         return;
       }
@@ -62,10 +134,15 @@ export function UsersPanel() {
     void load();
   }, [load]);
 
-  if (forbidden) {
+  const enabledOwners = useMemo(
+    () => users.filter((u) => u.role === 'owner' && !u.disabled).length,
+    [users],
+  );
+
+  if (!can('users') || forbidden) {
     return (
       <div className='admin-card'>
-        <p className='admin-hint'>Керування користувачами доступне лише власнику (owner).</p>
+        <p className='admin-hint'>Керування користувачами доступне лише супер-адміну.</p>
       </div>
     );
   }
@@ -74,7 +151,13 @@ export function UsersPanel() {
     const res = await fetch('/api/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password, role, ownerPassword }),
+      body: JSON.stringify({
+        username,
+        password,
+        role: roleFromPreset(preset),
+        grants: preset === 'owner' ? undefined : grants,
+        ownerPassword,
+      }),
     });
     const json = (await res.json().catch(() => ({}))) as { error?: string };
     if (!res.ok) {
@@ -84,6 +167,39 @@ export function UsersPanel() {
     showToast('Користувача створено', 'success');
     setUsername('');
     setPassword('');
+    await load();
+  }
+
+  function startEdit(u: UserRow) {
+    setEditingId(u.id);
+    const p = inferPreset(u);
+    setEditPreset(p);
+    setEditGrants(u.role === 'owner' ? [...GRANTABLE_CAPABILITIES] : [...(u.grants ?? presetGrants(u.role))]);
+    setEditPassword('');
+    setEditDisabled(Boolean(u.disabled));
+  }
+
+  async function saveEdit() {
+    if (!editingId) return;
+    const res = await fetch('/api/users', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: editingId,
+        role: roleFromPreset(editPreset),
+        grants: editPreset === 'owner' ? undefined : editGrants,
+        disabled: editDisabled,
+        password: editPassword || undefined,
+        ownerPassword,
+      }),
+    });
+    const json = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) {
+      showToast(json.error || 'Помилка збереження', 'error');
+      return;
+    }
+    showToast('Збережено', 'success');
+    setEditingId(null);
     await load();
   }
 
@@ -100,6 +216,7 @@ export function UsersPanel() {
       return;
     }
     showToast('Видалено', 'success');
+    if (editingId === id) setEditingId(null);
     await load();
   }
 
@@ -119,13 +236,23 @@ export function UsersPanel() {
     await load();
   }
 
+  function applyPreset(next: AdminPreset, target: 'create' | 'edit') {
+    if (target === 'create') {
+      setPreset(next);
+      setGrants(grantsForPreset(next));
+    } else {
+      setEditPreset(next);
+      setEditGrants(grantsForPreset(next));
+    }
+  }
+
   return (
     <div className='admin-card'>
-      <h2 className='admin-h2'>Користувачі та ролі</h2>
+      <h2 className='admin-h2'>Користувачі та права</h2>
       <p className='admin-hint'>
-        Опційно: multi-user через <code>data/admins.json</code>. Legacy вхід лише з{' '}
-        <code>ADMIN_PASSWORD</code> лишається owner. Ролі: operator (inbox), editor (контент), owner
-        (усе + backup/2FA).
+        Супер-адмін має повний доступ. Інших можна створити з шаблоном (оператор / редактор / повний) і потім
+        увімкнути окремі розділи. «Повний доступ» — усе, крім керування користувачами, відновлення бекапу та
+        безпеки власника. Останнього супер-адміна зняти не можна ({enabledOwners} зараз).
       </p>
 
       <label className='admin-field admin-mb'>
@@ -151,21 +278,77 @@ export function UsersPanel() {
               <div className='admin-lead-main'>
                 <strong>{u.username}</strong>
                 <span className='admin-lead-meta'>
-                  {u.role}
+                  {u.role === 'owner' ? 'супер-адмін' : u.role}
                   {u.disabled ? ' · disabled' : ''}
+                  {u.role !== 'owner' && u.grants?.length ? ` · ${u.grants.length} прав` : ''}
                 </span>
               </div>
-              <button
-                type='button'
-                className='admin-btn admin-btn--danger admin-btn--sm'
-                onClick={() => void removeUser(u.id)}
-              >
-                Видалити
-              </button>
+              <div className='admin-row'>
+                <button
+                  type='button'
+                  className='admin-btn admin-btn--secondary admin-btn--sm'
+                  onClick={() => startEdit(u)}
+                >
+                  Права
+                </button>
+                <button
+                  type='button'
+                  className='admin-btn admin-btn--danger admin-btn--sm'
+                  onClick={() => void removeUser(u.id)}
+                >
+                  Видалити
+                </button>
+              </div>
             </li>
           ))}
         </ul>
       )}
+
+      {editingId ? (
+        <>
+          <h3 className='admin-h3'>Редагувати</h3>
+          <div className='admin-row admin-row--wrap admin-mb'>
+            <select
+              className='admin-select'
+              value={editPreset}
+              onChange={(e) => applyPreset(e.target.value as AdminPreset, 'edit')}
+            >
+              <option value='operator'>Оператор</option>
+              <option value='editor'>Редактор</option>
+              <option value='full'>Повний доступ</option>
+              <option value='owner'>Супер-адмін</option>
+            </select>
+            <label className='admin-check'>
+              <input
+                type='checkbox'
+                checked={editDisabled}
+                onChange={(e) => setEditDisabled(e.target.checked)}
+              />
+              Вимкнено
+            </label>
+            <input
+              className='admin-field-sm'
+              type='password'
+              placeholder='новий пароль (опційно)'
+              value={editPassword}
+              onChange={(e) => setEditPassword(e.target.value)}
+            />
+            <button type='button' className='admin-btn' onClick={() => void saveEdit()}>
+              Зберегти
+            </button>
+            <button type='button' className='admin-btn admin-btn--secondary' onClick={() => setEditingId(null)}>
+              Скасувати
+            </button>
+          </div>
+          <GrantBoxes
+            preset={editPreset}
+            grants={editGrants}
+            onToggle={(key, on) =>
+              setEditGrants((prev) => (on ? [...prev, key] : prev.filter((g) => g !== key)))
+            }
+          />
+        </>
+      ) : null}
 
       <h3 className='admin-h3'>Новий користувач</h3>
       <div className='admin-row admin-row--wrap admin-mb'>
@@ -184,17 +367,23 @@ export function UsersPanel() {
         />
         <select
           className='admin-select'
-          value={role}
-          onChange={(e) => setRole(e.target.value as typeof role)}
+          value={preset}
+          onChange={(e) => applyPreset(e.target.value as AdminPreset, 'create')}
         >
-          <option value='operator'>operator</option>
-          <option value='editor'>editor</option>
-          <option value='owner'>owner</option>
+          <option value='operator'>Оператор</option>
+          <option value='editor'>Редактор</option>
+          <option value='full'>Повний доступ</option>
+          <option value='owner'>Супер-адмін</option>
         </select>
         <button type='button' className='admin-btn' onClick={() => void createUser()}>
           Створити
         </button>
       </div>
+      <GrantBoxes
+        preset={preset}
+        grants={grants}
+        onToggle={(key, on) => setGrants((prev) => (on ? [...prev, key] : prev.filter((g) => g !== key)))}
+      />
 
       <h3 className='admin-h3'>Сесії</h3>
       <div className='admin-row admin-mb'>

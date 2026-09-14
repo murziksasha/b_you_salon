@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { showToast } from './AdminToast';
+import { useAdminRole } from './AdminRoleContext';
 
 type Pairing = {
   code: string;
@@ -27,6 +28,15 @@ type BotSettings = {
   timezone: string;
 };
 
+type WebhookStatus = {
+  secretConfigured: boolean;
+  expectedUrl: string | null;
+  mode: 'webhook' | 'polling';
+  telegramUrl: string;
+  lastError: string;
+  pending: number;
+};
+
 type Status = {
   tokenConfigured: boolean;
   legacyChat: boolean;
@@ -34,6 +44,7 @@ type Status = {
   pairing: Pairing | null;
   subscribers: Subscriber[];
   settings?: BotSettings;
+  webhook?: WebhookStatus;
 };
 
 function prefsLabel(s: Subscriber): string {
@@ -42,6 +53,7 @@ function prefsLabel(s: Subscriber): string {
 }
 
 export function TelegramBotPanel() {
+  const { can } = useAdminRole();
   const [status, setStatus] = useState<Status | null>(null);
   const [loadError, setLoadError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -119,6 +131,29 @@ export function TelegramBotPanel() {
     }
   }
 
+  async function webhook(on: boolean) {
+    setBusy(true);
+    try {
+      const res = await fetch('/api/telegram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ action: on ? 'webhook_on' : 'webhook_off' }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        showToast(json.error || 'Не вдалося змінити webhook', 'error');
+        return;
+      }
+      showToast(on ? 'Webhook увімкнено' : 'Webhook вимкнено (polling)', 'success');
+      await load();
+    } catch {
+      showToast('Мережева помилка', 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function revoke(userId: string) {
     if (!window.confirm('Відключити цього адміністратора від бота?')) return;
     setBusy(true);
@@ -141,6 +176,8 @@ export function TelegramBotPanel() {
       setBusy(false);
     }
   }
+
+  if (!can('telegram')) return null;
 
   if (loadError && !status) {
     return (
@@ -177,9 +214,22 @@ export function TelegramBotPanel() {
                 ? `${status.subscribers.length} підписник(и)${status.legacyChat ? ' + TELEGRAM_CHAT_ID' : ''}`
                 : 'немає підписників і немає TELEGRAM_CHAT_ID'}
             </li>
-            <li className='is-info'>
-              Процес: <code>pm2 start ecosystem.config.cjs</code> (додаток <code>byou-telegram</code>, polling)
+            <li className={status.webhook?.mode === 'webhook' ? 'is-ok' : 'is-info'}>
+              {status.webhook?.mode === 'webhook' ? '✓' : '·'} Режим:{' '}
+              {status.webhook?.mode === 'webhook' ? 'webhook' : 'long-poll (pm2 byou-telegram)'}
             </li>
+            <li className={status.webhook?.secretConfigured ? 'is-ok' : 'is-warn'}>
+              {status.webhook?.secretConfigured ? '✓' : '!'} TELEGRAM_WEBHOOK_SECRET{' '}
+              {status.webhook?.secretConfigured ? 'задано' : 'немає — webhook не запуститься'}
+            </li>
+            {status.webhook?.expectedUrl ? (
+              <li className='is-info'>URL: {status.webhook.expectedUrl}</li>
+            ) : (
+              <li className='is-info'>Публічний https SITE_URL потрібен для webhook</li>
+            )}
+            {status.webhook?.lastError ? (
+              <li className='is-warn'>Telegram: {status.webhook.lastError}</li>
+            ) : null}
           </ul>
 
           <div className='admin-row admin-row--wrap admin-mb'>
@@ -188,6 +238,22 @@ export function TelegramBotPanel() {
             </button>
             <button type='button' className='admin-btn admin-btn--secondary' disabled={busy} onClick={() => void load()}>
               Оновити
+            </button>
+            <button
+              type='button'
+              className='admin-btn admin-btn--secondary'
+              disabled={busy || !status.tokenConfigured || !status.webhook?.secretConfigured || !status.webhook?.expectedUrl}
+              onClick={() => void webhook(true)}
+            >
+              Увімкнути webhook
+            </button>
+            <button
+              type='button'
+              className='admin-btn admin-btn--secondary'
+              disabled={busy || !status.tokenConfigured}
+              onClick={() => void webhook(false)}
+            >
+              Повернути polling
             </button>
           </div>
 

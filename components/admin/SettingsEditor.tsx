@@ -14,6 +14,7 @@ import { UsersPanel } from './UsersPanel';
 import { StickySaveBar } from './StickySaveBar';
 import { NotifyPrefsPanel } from './NotifyPrefsPanel';
 import { TelegramBotPanel } from './TelegramBotPanel';
+import { useAdminRole } from './AdminRoleContext';
 
 const SOCIAL_PRESETS: Array<{ type: string; icon: string; label: string }> = [
   { type: 'viber', icon: '/img/icons/viber.svg', label: 'Viber' },
@@ -32,6 +33,7 @@ function emptySocial(type = 'telegram'): SocialLink {
 }
 
 export function SettingsEditor({ initialData }: { initialData: SiteData }) {
+  const { can } = useAdminRole();
   const [data, setData] = useState(initialData);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -87,6 +89,8 @@ export function SettingsEditor({ initialData }: { initialData: SiteData }) {
 
   return (
     <div className='admin-form'>
+      {can('settings') ? (
+      <>
       <div className='admin-toolbar'>
         <button type='button' className='admin-btn' onClick={() => void save()} disabled={saving}>
           {saving ? 'Збереження…' : 'Зберегти'}
@@ -330,15 +334,18 @@ export function SettingsEditor({ initialData }: { initialData: SiteData }) {
           />
         </label>
       </div>
+      </>
+      ) : null}
 
       <TotpSetupPanel />
 
-      <TelegramBotPanel />
+      {can('telegram') ? <TelegramBotPanel /> : null}
 
-      <NotifyPrefsPanel />
+      {can('inbox') || can('telegram') ? <NotifyPrefsPanel /> : null}
 
-      <UsersPanel />
+      {can('users') ? <UsersPanel /> : null}
 
+      {can('ops') ? (
       <div className='admin-card'>
         <h2 className='admin-h2'>Ops alerts</h2>
         <p className='admin-hint'>Перевірка backup &gt;48г та SMTP → Telegram (throttle 12 год).</p>
@@ -365,10 +372,13 @@ export function SettingsEditor({ initialData }: { initialData: SiteData }) {
           Запустити ops alerts
         </button>
       </div>
+      ) : null}
 
-      <BackupPanel />
+      {can('backup') ? <BackupPanel /> : null}
 
-      <StickySaveBar dirty={dirty} saving={saving} onSave={() => void save()} />
+      {can('settings') ? (
+        <StickySaveBar dirty={dirty} saving={saving} onSave={() => void save()} />
+      ) : null}
     </div>
   );
 }
