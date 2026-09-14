@@ -231,6 +231,12 @@
               "type": "viber",
               "url": "viber://chat?number=+380631284551",
               "icon": "/img/icons/viber.svg"
+            },
+            {
+              "id": "natalia-facebook",
+              "type": "facebook",
+              "url": "https://www.facebook.com/share/g/1DJFTnp45u/",
+              "icon": "/img/icons/facebook.svg"
             }
           ],
           "mapEmbedUrl": "",
@@ -260,6 +266,12 @@
                   "type": "viber",
                   "url": "viber://chat?number=+380631284551",
                   "icon": "/img/icons/viber.svg"
+                },
+                {
+                  "id": "natalia-facebook",
+                  "type": "facebook",
+                  "url": "https://www.facebook.com/share/g/1DJFTnp45u/",
+                  "icon": "/img/icons/facebook.svg"
                 }
               ]
             },
@@ -438,6 +450,12 @@
               "type": "viber",
               "url": "viber://chat?number=+380631284551",
               "icon": "/img/icons/viber.svg"
+            },
+            {
+              "id": "natalia-facebook",
+              "type": "facebook",
+              "url": "https://www.facebook.com/share/g/1DJFTnp45u/",
+              "icon": "/img/icons/facebook.svg"
             }
           ],
           "mapEmbedUrl": "",
@@ -467,6 +485,12 @@
                   "type": "viber",
                   "url": "viber://chat?number=+380631284551",
                   "icon": "/img/icons/viber.svg"
+                },
+                {
+                  "id": "natalia-facebook",
+                  "type": "facebook",
+                  "url": "https://www.facebook.com/share/g/1DJFTnp45u/",
+                  "icon": "/img/icons/facebook.svg"
                 }
               ]
             }

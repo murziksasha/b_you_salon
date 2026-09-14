@@ -20,6 +20,7 @@ const SOCIAL_PRESETS: Array<{ type: string; icon: string; label: string }> = [
   { type: 'viber', icon: '/img/icons/viber.svg', label: 'Viber' },
   { type: 'telegram', icon: '/img/icons/telegram.svg', label: 'Telegram' },
   { type: 'instagram', icon: '/img/icons/instagram.svg', label: 'Instagram' },
+  { type: 'facebook', icon: '/img/icons/facebook.svg', label: 'Facebook' },
   { type: 'youtube', icon: '/img/icons/youtube.svg', label: 'YouTube' },
 ];
 
