@@ -207,6 +207,7 @@ Leads (callback) and orders (shop) are **separate** files and admin sections.
 ## Admin shell
 
 - Viewport-locked layout (`admin-shell` 100dvh, `overflow: hidden`): only `admin-main` scrolls; sidebar stays visible.
+- Services editor (`/admin/services`): **Редагувати** / **+ Послуга** jumps `admin-main` to `#service-edit-form` (form sits above the list; hash via `replaceState`). Same idea as goods (`#goods-edit-form`).
 - Desktop collapse to icons: `AdminShell` + `localStorage` key `admin-nav-collapsed`; labels hidden via `.admin-shell--nav-collapsed`.
 
 ## Media
