@@ -391,7 +391,7 @@ export function UsersPanel() {
           Вийти скрізь (інші)
         </button>
       </div>
-      <ul className='admin-leads-list'>
+      <ul className='admin-leads-list admin-sessions-list'>
         {sessions.map((s) => (
           <li key={s.id} className='admin-lead-item'>
             <div className='admin-lead-main'>

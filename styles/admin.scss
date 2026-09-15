@@ -1899,6 +1899,12 @@ body:has(.admin-body) {
   margin: 0;
   padding: 0;
 }
+/* Sessions panel: show ~10 rows, scroll the rest inside the list */
+.admin-sessions-list {
+  max-height: calc(10 * (32px + 1.2em + 4px + 0.95em));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 
 .admin-lead-item {
   display: flex;
@@ -2519,6 +2525,7 @@ body:has(.admin-body) {
   margin-bottom: 16px;
 }
 .admin-activity {
+  --admin-activity-row: calc(0.92rem * 1.4 + 16px + 1px);
   list-style: none;
   margin: 0;
   padding: 0;
@@ -2528,8 +2535,25 @@ body:has(.admin-body) {
     padding: 8px 0;
     border-bottom: 1px solid #eef2f5;
     font-size: 0.92rem;
+    line-height: 1.4;
   }
   &__time { color: #789; white-space: nowrap; min-width: 9rem; }
+  &--scroll {
+    max-height: calc(10 * var(--admin-activity-row));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    li {
+      align-items: center;
+      min-height: var(--admin-activity-row);
+      box-sizing: border-box;
+    }
+    li > span:last-child {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
 }
 .admin-badge--warn { background: #fecaca; color: #7f1d1d; }
 
