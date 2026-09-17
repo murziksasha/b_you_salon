@@ -78,7 +78,7 @@
 
 Не слати, але заявку зберегти. Activity: `Telegram skip: open-phone` / `Telegram skip: quiet`.
 
-Не стосується: ручний Telegram ↗ / bulk з Inbox; ops-алерти (backup/SMTP) — проходять тихі години, якщо не mute.
+Не стосується: ручний «Надіслати операторам у Telegram» / bulk з Inbox; ops-алерти (backup/SMTP) — проходять тихі години, якщо не mute.
 
 ### Тихі години бота
 

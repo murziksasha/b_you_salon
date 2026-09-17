@@ -25,7 +25,7 @@ export async function GET() {
     listLeads(),
     listOrders(),
     getSiteData(),
-    listActivity(25),
+    listActivity(50),
   ]);
   const inbox = mergeInbox(leads, orders);
   const open = inbox.filter((i) => i.open);

@@ -27,6 +27,37 @@ export function snoozeTomorrow(hour = 10, minute = 0, now = new Date()): string 
   return d.toISOString();
 }
 
+function pad2(n: number): string {
+  return String(n).padStart(2, '0');
+}
+
+/** ISO → `YYYY-MM-DDTHH:mm` in local time for `<input type="datetime-local">`. */
+export function toDatetimeLocalValue(iso?: string | null): string {
+  const t = parseCallbackAt(iso);
+  if (t == null) return '';
+  const d = new Date(t);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
+/** `datetime-local` value → ISO, or null if empty/invalid. */
+export function fromDatetimeLocalValue(local?: string | null): string | null {
+  const v = (local || '').trim();
+  if (!v) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(v);
+  if (!m) return null;
+  const d = new Date(
+    Number(m[1]),
+    Number(m[2]) - 1,
+    Number(m[3]),
+    Number(m[4]),
+    Number(m[5]),
+    0,
+    0,
+  );
+  if (!Number.isFinite(d.getTime())) return null;
+  return d.toISOString();
+}
+
 export type DaySlot = {
   hour: number;
   label: string;

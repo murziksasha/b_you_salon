@@ -1,6 +1,321 @@
 {
   "entries": [
     {
+      "id": "6b73d176d801",
+      "at": "2026-09-16T09:15:08.783Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "f2b105ec1a14",
+      "at": "2026-09-16T09:15:06.031Z",
+      "kind": "lead_status",
+      "message": "Заявка f18bf3ae → waiting",
+      "actor": "admin"
+    },
+    {
+      "id": "0a7cd2f16060",
+      "at": "2026-09-16T09:15:05.382Z",
+      "kind": "lead_status",
+      "message": "Заявка f18bf3ae → done",
+      "actor": "admin"
+    },
+    {
+      "id": "d14610be1fee",
+      "at": "2026-09-16T09:15:04.955Z",
+      "kind": "lead_status",
+      "message": "Заявка f18bf3ae → no_answer",
+      "actor": "admin"
+    },
+    {
+      "id": "9e3fda7782c4",
+      "at": "2026-09-16T09:15:01.603Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "403be2e268af",
+      "at": "2026-09-16T09:14:20.825Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "194d68306b67",
+      "at": "2026-09-16T09:14:01.069Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "33c3022d5bd6",
+      "at": "2026-09-16T09:13:29.477Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "23c13ac1a94c",
+      "at": "2026-09-16T09:11:15.960Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "9d7bbef937f9",
+      "at": "2026-09-16T09:10:56.803Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "7c834e71807a",
+      "at": "2026-09-16T09:10:39.556Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "e02fa5d8091c",
+      "at": "2026-09-16T09:06:37.970Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "554e4755db96",
+      "at": "2026-09-16T09:04:55.069Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "eaecaf36a6a6",
+      "at": "2026-09-16T04:21:02.963Z",
+      "kind": "other",
+      "message": "Digest evening → Telegram",
+      "actor": "admin"
+    },
+    {
+      "id": "debdb820ed4d",
+      "at": "2026-09-16T04:03:39.389Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "c7dc414d1803",
+      "at": "2026-09-16T04:03:19.993Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "f7fbb9add39f",
+      "at": "2026-09-16T04:02:58.768Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "a124bee2e7ef",
+      "at": "2026-09-16T04:02:56.652Z",
+      "kind": "lead_status",
+      "message": "Заявка 797438fa → waiting",
+      "actor": "admin"
+    },
+    {
+      "id": "daf7fe5720a3",
+      "at": "2026-09-16T04:02:56.047Z",
+      "kind": "lead_status",
+      "message": "Заявка 797438fa → done",
+      "actor": "admin"
+    },
+    {
+      "id": "98f30795767d",
+      "at": "2026-09-16T04:02:55.569Z",
+      "kind": "lead_status",
+      "message": "Заявка 797438fa → no_answer",
+      "actor": "admin"
+    },
+    {
+      "id": "203679cdba06",
+      "at": "2026-09-16T04:02:49.951Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "5993f495e854",
+      "at": "2026-09-16T04:01:25.250Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "bf3c4594365c",
+      "at": "2026-09-16T04:01:22.660Z",
+      "kind": "lead_status",
+      "message": "Заявка 797438fa → waiting",
+      "actor": "admin"
+    },
+    {
+      "id": "f9e9a880d5e5",
+      "at": "2026-09-16T04:01:21.983Z",
+      "kind": "lead_status",
+      "message": "Заявка 797438fa → done",
+      "actor": "admin"
+    },
+    {
+      "id": "e6f0d03466c5",
+      "at": "2026-09-16T04:01:21.499Z",
+      "kind": "lead_status",
+      "message": "Заявка 797438fa → no_answer",
+      "actor": "admin"
+    },
+    {
+      "id": "e8c0950a15e2",
+      "at": "2026-09-16T04:01:14.726Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
+      "id": "b49fb52dbb79",
+      "at": "2026-09-16T03:58:25.686Z",
+      "kind": "lead_status",
+      "message": "Заявка 797438fa → waiting",
+      "actor": "admin"
+    },
+    {
+      "id": "c584cbab824c",
+      "at": "2026-09-16T03:57:33.674Z",
+      "kind": "lead_status",
+      "message": "Заявка 797438fa → waiting",
+      "actor": "admin"
+    },
+    {
+      "id": "314ca263cb90",
+      "at": "2026-09-16T03:57:32.912Z",
+      "kind": "lead_status",
+      "message": "Заявка 797438fa → waiting",
+      "actor": "admin"
+    },
+    {
+      "id": "5e11ccf722da",
+      "at": "2026-09-16T03:57:29.053Z",
+      "kind": "lead_status",
+      "message": "Заявка 797438fa → waiting",
+      "actor": "admin"
+    },
+    {
+      "id": "2c0ff7e0cb17",
+      "at": "2026-09-16T03:57:23.104Z",
+      "kind": "lead_status",
+      "message": "Заявка 797438fa → waiting",
+      "actor": "admin"
+    },
+    {
+      "id": "73c520a0acf9",
+      "at": "2026-09-16T03:57:11.696Z",
+      "kind": "lead_status",
+      "message": "Заявка 797438fa → called",
+      "actor": "admin"
+    },
+    {
+      "id": "6014c67a247f",
+      "at": "2026-09-16T03:57:10.378Z",
+      "kind": "lead_status",
+      "message": "Заявка 797438fa → no_answer",
+      "actor": "admin"
+    },
+    {
+      "id": "9a384554d788",
+      "at": "2026-09-16T03:39:14.442Z",
+      "kind": "lead_status",
+      "message": "Заявка 797438fa → waiting",
+      "actor": "admin"
+    },
+    {
+      "id": "5d35aaf39c5b",
+      "at": "2026-09-16T03:39:12.365Z",
+      "kind": "lead_status",
+      "message": "Заявка 797438fa → called",
+      "actor": "admin"
+    },
+    {
+      "id": "f7c5092293f4",
+      "at": "2026-09-16T03:39:10.146Z",
+      "kind": "lead_status",
+      "message": "Заявка 797438fa → waiting",
+      "actor": "admin"
+    },
+    {
+      "id": "21851d31f881",
+      "at": "2026-09-16T03:36:56.357Z",
+      "kind": "lead_status",
+      "message": "Telegram re-notify заявка 797438fa",
+      "actor": "admin"
+    },
+    {
+      "id": "8fa94010981b",
+      "at": "2026-09-16T03:34:25.768Z",
+      "kind": "lead_status",
+      "message": "Заявка 797438fa → waiting",
+      "actor": "admin"
+    },
+    {
+      "id": "7a0a069e8581",
+      "at": "2026-09-16T03:34:20.519Z",
+      "kind": "lead_status",
+      "message": "Заявка 797438fa → called",
+      "actor": "admin"
+    },
+    {
+      "id": "f2ec463bdf3b",
+      "at": "2026-09-16T03:33:24.370Z",
+      "kind": "lead_status",
+      "message": "Telegram re-notify заявка 48050240",
+      "actor": "admin"
+    },
+    {
+      "id": "f15f5fa38056",
+      "at": "2026-09-15T08:20:27.992Z",
+      "kind": "lead_status",
+      "message": "Заявка 48050240 → called",
+      "actor": "admin"
+    },
+    {
+      "id": "d4c09876b35c",
+      "at": "2026-09-15T07:51:19.533Z",
+      "kind": "security",
+      "message": "Створено користувача nata (operator)",
+      "actor": "admin"
+    },
+    {
+      "id": "9401244afecd",
+      "at": "2026-09-15T07:46:50.865Z",
+      "kind": "security",
+      "message": "Створено користувача iriska (editor)",
+      "actor": "admin"
+    },
+    {
+      "id": "fd258d104d0a",
+      "at": "2026-09-15T06:52:12.237Z",
+      "kind": "security",
+      "message": "Telegram: згенеровано код привʼязки",
+      "actor": "admin"
+    },
+    {
+      "id": "e422accc058a",
+      "at": "2026-09-15T06:51:07.831Z",
+      "kind": "other",
+      "message": "Telegram skip: open-phone",
+      "detail": "+380555555555"
+    },
+    {
       "id": "93c790353fd9",
       "at": "2026-09-15T05:19:57.283Z",
       "kind": "login",

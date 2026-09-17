@@ -21,6 +21,20 @@ const socialLinkSchema = z.object({
   icon: str(2000),
 });
 
+const contactsPersonSchema = z.object({
+  id: str(80),
+  title: str(300),
+  phones: z.array(phoneEntrySchema).max(10),
+  social: z.array(socialLinkSchema).max(20).optional(),
+});
+
+const doorsBrandContactSchema = z.object({
+  label: str(200),
+  phoneDisplay: str(80),
+  phoneTel: str(40),
+});
+
+
 const menuItemSchema = z.object({
   id: str(80),
   label: str(200),
@@ -125,6 +139,16 @@ const sectionSchema = z.object({
   inviteText: strOpt(2000),
   addressHtml: strOpt(5000),
   phones: z.array(phoneEntrySchema).max(10).optional(),
+  people: z.array(contactsPersonSchema).max(20).optional(),
+  findTitle: strOpt(500),
+  findLines: z.array(str(2000)).max(20).optional(),
+  intentChooser: z.boolean().optional(),
+  brandContacts: z
+    .object({
+      left: doorsBrandContactSchema,
+      right: doorsBrandContactSchema,
+    })
+    .optional(),
   email: strOpt(200),
   social: z.array(socialLinkSchema).max(20).optional(),
   mapEmbedUrl: strOpt(5000),

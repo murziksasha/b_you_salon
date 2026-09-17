@@ -209,13 +209,13 @@
           "email": "",
           "social": [
             {
-              "id": "natalia-telegram",
+              "id": "telegram",
               "type": "telegram",
               "url": "https://t.me/+380631284551",
               "icon": "/img/icons/telegram.svg"
             },
             {
-              "id": "natalia-viber",
+              "id": "viber",
               "type": "viber",
               "url": "viber://chat?number=+380631284551",
               "icon": "/img/icons/viber.svg"
@@ -227,7 +227,83 @@
               "icon": "/img/icons/facebook.svg"
             }
           ],
-          "mapEmbedUrl": ""
+          "mapEmbedUrl": "",
+          "people": [
+            {
+              "id": "natalia",
+              "title": "Майстер — універсал Наталія",
+              "phones": [
+                {
+                  "display": "063 128 45 51",
+                  "tel": "+380631284551"
+                },
+                {
+                  "display": "097 703 62 83",
+                  "tel": "+380977036283"
+                }
+              ],
+              "social": [
+                {
+                  "id": "telegram",
+                  "type": "telegram",
+                  "url": "https://t.me/+380631284551",
+                  "icon": "/img/icons/telegram.svg"
+                },
+                {
+                  "id": "viber",
+                  "type": "viber",
+                  "url": "viber://chat?number=+380631284551",
+                  "icon": "/img/icons/viber.svg"
+                },
+                {
+                  "id": "natalia-facebook",
+                  "type": "facebook",
+                  "url": "https://www.facebook.com/share/g/1DJFTnp45u/",
+                  "icon": "/img/icons/facebook.svg"
+                }
+              ]
+            },
+            {
+              "id": "iryna",
+              "title": "Продавець — консультант Ірина",
+              "phones": [
+                {
+                  "display": "093 632 72 24",
+                  "tel": "+380936327224"
+                },
+                {
+                  "display": "050 544 37 19",
+                  "tel": "+380505443719"
+                }
+              ],
+              "social": [
+                {
+                  "id": "iryna-telegram",
+                  "type": "telegram",
+                  "url": "https://t.me/+380936327224",
+                  "icon": "/img/icons/telegram.svg"
+                },
+                {
+                  "id": "iryna-viber",
+                  "type": "viber",
+                  "url": "viber://chat?number=+380936327224",
+                  "icon": "/img/icons/viber.svg"
+                },
+                {
+                  "id": "iryna-instagram",
+                  "type": "instagram",
+                  "url": "https://www.instagram.com/iriska_livesta/",
+                  "icon": "/img/icons/instagram.svg"
+                }
+              ]
+            }
+          ],
+          "intentChooser": true,
+          "findTitle": "Знаходимся м. Чорноморськ, вул. Вишнева, 4",
+          "findLines": [
+            "Пн–Сб 09:00–18:00",
+            "У неділю та в інший зручний час — запис за домовленістю."
+          ]
         }
       ]
     },
@@ -370,7 +446,48 @@
               "icon": "/img/icons/facebook.svg"
             }
           ],
-          "mapEmbedUrl": ""
+          "mapEmbedUrl": "",
+          "people": [
+            {
+              "id": "natalia",
+              "title": "Майстер — універсал Наталія",
+              "phones": [
+                {
+                  "display": "063 128 45 51",
+                  "tel": "+380631284551"
+                },
+                {
+                  "display": "097 703 62 83",
+                  "tel": "+380977036283"
+                }
+              ],
+              "social": [
+                {
+                  "id": "telegram",
+                  "type": "telegram",
+                  "url": "https://t.me/+380631284551",
+                  "icon": "/img/icons/telegram.svg"
+                },
+                {
+                  "id": "viber",
+                  "type": "viber",
+                  "url": "viber://chat?number=+380631284551",
+                  "icon": "/img/icons/viber.svg"
+                },
+                {
+                  "id": "natalia-facebook",
+                  "type": "facebook",
+                  "url": "https://www.facebook.com/share/g/1DJFTnp45u/",
+                  "icon": "/img/icons/facebook.svg"
+                }
+              ]
+            }
+          ],
+          "findTitle": "Знаходимся м. Чорноморськ, вул. Вишнева, 4",
+          "findLines": [
+            "Пн–Сб 09:00–18:00",
+            "У неділю та в інший зручний час — запис за домовленістю."
+          ]
         }
       ]
     },
@@ -758,7 +875,48 @@
               "icon": "/img/icons/instagram.svg"
             }
           ],
-          "mapEmbedUrl": ""
+          "mapEmbedUrl": "",
+          "people": [
+            {
+              "id": "iryna",
+              "title": "Продавець — консультант Ірина",
+              "phones": [
+                {
+                  "display": "093 632 72 24",
+                  "tel": "+380936327224"
+                },
+                {
+                  "display": "050 544 37 19",
+                  "tel": "+380505443719"
+                }
+              ],
+              "social": [
+                {
+                  "id": "iryna-telegram",
+                  "type": "telegram",
+                  "url": "https://t.me/+380936327224",
+                  "icon": "/img/icons/telegram.svg"
+                },
+                {
+                  "id": "iryna-viber",
+                  "type": "viber",
+                  "url": "viber://chat?number=+380936327224",
+                  "icon": "/img/icons/viber.svg"
+                },
+                {
+                  "id": "iryna-instagram",
+                  "type": "instagram",
+                  "url": "https://www.instagram.com/iriska_livesta/",
+                  "icon": "/img/icons/instagram.svg"
+                }
+              ]
+            }
+          ],
+          "findTitle": "Знаходимся м. Чорноморськ, вул. Вишнева, 4",
+          "findLines": [
+            "Пн–Сб 09:00–18:00",
+            "Магазин косметики — ліворуч від входу."
+          ]
         }
       ]
     },

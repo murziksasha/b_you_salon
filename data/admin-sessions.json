@@ -1,6 +1,166 @@
 {
   "sessions": [
     {
+      "id": "7e51479e74a1",
+      "fingerprint": "a4595d86b6d641b6",
+      "username": "admin",
+      "role": "owner",
+      "createdAt": "2026-09-16T09:15:08.768Z",
+      "lastSeenAt": "2026-09-16T09:15:08.768Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "902278de4db9",
+      "fingerprint": "f6613948615a4eb0",
+      "username": "admin",
+      "role": "owner",
+      "createdAt": "2026-09-16T09:15:01.589Z",
+      "lastSeenAt": "2026-09-16T09:15:01.589Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "c7e7fb4dbba4",
+      "fingerprint": "4e67a35e5a87e72a",
+      "username": "admin",
+      "role": "owner",
+      "createdAt": "2026-09-16T09:14:20.810Z",
+      "lastSeenAt": "2026-09-16T09:14:20.810Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "b3b24b25a5cc",
+      "fingerprint": "7cd72804ca597244",
+      "username": "admin",
+      "role": "owner",
+      "createdAt": "2026-09-16T09:14:01.053Z",
+      "lastSeenAt": "2026-09-16T09:14:01.053Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "ed3b87dd5f02",
+      "fingerprint": "dbc4e12e28d0f4d9",
+      "username": "admin",
+      "role": "owner",
+      "createdAt": "2026-09-16T09:13:29.463Z",
+      "lastSeenAt": "2026-09-16T09:13:29.463Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "d212b1a1c63c",
+      "fingerprint": "ea76b50539b70465",
+      "username": "admin",
+      "role": "owner",
+      "createdAt": "2026-09-16T09:11:15.941Z",
+      "lastSeenAt": "2026-09-16T09:11:15.941Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "ae398ca5af1b",
+      "fingerprint": "2b33f27dc75f1726",
+      "username": "admin",
+      "role": "owner",
+      "createdAt": "2026-09-16T09:10:56.788Z",
+      "lastSeenAt": "2026-09-16T09:10:56.788Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "ebdcb4673cf2",
+      "fingerprint": "4fe5937f1bd8a882",
+      "username": "admin",
+      "role": "owner",
+      "createdAt": "2026-09-16T09:10:39.541Z",
+      "lastSeenAt": "2026-09-16T09:10:39.541Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "bff2bfc8e1b9",
+      "fingerprint": "c3f509a8bab1e4d9",
+      "username": "admin",
+      "role": "owner",
+      "createdAt": "2026-09-16T09:06:37.955Z",
+      "lastSeenAt": "2026-09-16T09:06:37.955Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "0a61de9bbdb4",
+      "fingerprint": "ad8037b850c31e5c",
+      "username": "admin",
+      "role": "owner",
+      "createdAt": "2026-09-16T09:04:54.973Z",
+      "lastSeenAt": "2026-09-16T09:04:54.973Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "4d5397aa7d96",
+      "fingerprint": "932f61df90a36484",
+      "username": "admin",
+      "role": "owner",
+      "createdAt": "2026-09-16T04:03:39.373Z",
+      "lastSeenAt": "2026-09-16T04:03:39.373Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "61e01d9b0e79",
+      "fingerprint": "106ddc19bf8d36e5",
+      "username": "admin",
+      "role": "owner",
+      "createdAt": "2026-09-16T04:03:19.977Z",
+      "lastSeenAt": "2026-09-16T04:03:19.977Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "6ac69d4350e4",
+      "fingerprint": "5c1763b31366ec81",
+      "username": "admin",
+      "role": "owner",
+      "createdAt": "2026-09-16T04:02:58.751Z",
+      "lastSeenAt": "2026-09-16T04:02:58.751Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "7b032aeac994",
+      "fingerprint": "d7c38c5f89512f92",
+      "username": "admin",
+      "role": "owner",
+      "createdAt": "2026-09-16T04:02:49.934Z",
+      "lastSeenAt": "2026-09-16T04:02:49.934Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "90a0b8c6506a",
+      "fingerprint": "04f0a283d83a36a6",
+      "username": "admin",
+      "role": "owner",
+      "createdAt": "2026-09-16T04:01:25.234Z",
+      "lastSeenAt": "2026-09-16T04:01:25.234Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "927a5c69380c",
+      "fingerprint": "0058d44e180461c3",
+      "username": "admin",
+      "role": "owner",
+      "createdAt": "2026-09-16T04:01:14.707Z",
+      "lastSeenAt": "2026-09-16T04:01:14.707Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
       "id": "be968d0f3756",
       "fingerprint": "5f6fa5cfe5702f0e",
       "username": "admin",

@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  defaultOutcomeForStatus,
   handledFromStatus,
   isOpenStatus,
   isStaleOpen,
   normalizeStatus,
+  resolveCloseOutcome,
   statusFromHandled,
   statusRequiresOutcome,
   validateClosePatch,
@@ -41,11 +43,22 @@ describe('workflow', () => {
     expect(isStaleOpen(old, 'done')).toBe(false);
   });
 
-  it('close requires outcome + note', () => {
+  it('close requires outcome, note is optional', () => {
     expect(statusRequiresOutcome('done')).toBe(true);
     expect(validateClosePatch({ status: 'done' })).toMatch(/outcome/i);
-    expect(validateClosePatch({ status: 'done', outcome: 'deal' })).toMatch(/номат|нотать|нотат/i);
+    expect(validateClosePatch({ status: 'done', outcome: 'deal' })).toBeNull();
     expect(validateClosePatch({ status: 'done', outcome: 'deal', note: 'ok' })).toBeNull();
     expect(validateClosePatch({ status: 'called' })).toBeNull();
+  });
+
+  it('default and resolve close outcome', () => {
+    expect(defaultOutcomeForStatus('done')).toBe('deal');
+    expect(defaultOutcomeForStatus('spam')).toBe('spam');
+    expect(defaultOutcomeForStatus('no_answer')).toBe('no_answer');
+    expect(defaultOutcomeForStatus('called')).toBeUndefined();
+    expect(resolveCloseOutcome('done')).toBe('deal');
+    expect(resolveCloseOutcome('done', 'refused')).toBe('refused');
+    expect(resolveCloseOutcome('done', 'nope')).toBe('deal');
+    expect(resolveCloseOutcome('called')).toBeUndefined();
   });
 });
