@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useId, useState } from 'react';
+import { type FormEvent, useId, useState } from 'react';
 import { resolveFormFlow } from '@/lib/form-flow';
 import { isValidUaPhone, PHONE_PLACEHOLDER } from '@/lib/phone';
 import { sanitizeHtml } from '@/lib/sanitize';
@@ -136,8 +136,8 @@ export function CallbackForm({
           <select name='serviceId' defaultValue={activeServiceId || ''}>
             <option value=''>Не знаю / консультація</option>
             {services
-              .filter((s) => s.visible)
-              .map((s) => (
+              .filter(s => s.visible)
+              .map(s => (
                 <option key={s.id} value={s.id}>
                   {s.title}
                 </option>
@@ -169,11 +169,7 @@ export function CallbackForm({
         </label>
       </div>
       <button className='by-btn' type='submit' disabled={loading} aria-busy={loading}>
-        {buttonHtml ? (
-          <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(buttonHtml) }} />
-        ) : (
-          buttonText
-        )}
+        {buttonHtml ? <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(buttonHtml) }} /> : buttonText}
       </button>
       {status ? (
         <div
