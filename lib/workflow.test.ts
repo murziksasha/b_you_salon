@@ -4,11 +4,14 @@ import {
   handledFromStatus,
   isOpenStatus,
   isStaleOpen,
+  isVeryStaleOpen,
   normalizeStatus,
   resolveCloseOutcome,
+  statusBadgeClass,
   statusFromHandled,
   statusRequiresOutcome,
   validateClosePatch,
+  type WorkflowStatus,
 } from './workflow';
 
 describe('workflow', () => {
@@ -41,6 +44,31 @@ describe('workflow', () => {
     const old = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
     expect(isStaleOpen(old, 'new')).toBe(true);
     expect(isStaleOpen(old, 'done')).toBe(false);
+  });
+
+  it('very stale detection (24h+)', () => {
+    const twentyFiveHoursAgo = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
+    const tenHoursAgo = new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString();
+
+    expect(isVeryStaleOpen(twentyFiveHoursAgo, 'new')).toBe(true);
+    expect(isVeryStaleOpen(tenHoursAgo, 'new')).toBe(false);
+    expect(isVeryStaleOpen(twentyFiveHoursAgo, 'done')).toBe(false);
+  });
+
+  it('returns appropriate badge class for each status', () => {
+    const statuses: WorkflowStatus[] = ['new', 'called', 'waiting', 'in_progress', 'done', 'spam', 'no_answer'];
+    for (const st of statuses) {
+      const cls = statusBadgeClass(st);
+      expect(cls).toContain('admin-wf-badge');
+    }
+    expect(statusBadgeClass('new')).toBe('admin-wf-badge admin-wf-badge--new');
+    expect(statusBadgeClass('called')).toBe('admin-wf-badge admin-wf-badge--called');
+    expect(statusBadgeClass('waiting')).toBe('admin-wf-badge admin-wf-badge--waiting');
+    expect(statusBadgeClass('in_progress')).toBe('admin-wf-badge admin-wf-badge--called');
+    expect(statusBadgeClass('done')).toBe('admin-wf-badge admin-wf-badge--done');
+    expect(statusBadgeClass('spam')).toBe('admin-wf-badge admin-wf-badge--spam');
+    expect(statusBadgeClass('no_answer')).toBe('admin-wf-badge admin-wf-badge--no-answer');
+    expect(statusBadgeClass('unknown' as unknown as WorkflowStatus)).toBe('admin-wf-badge');
   });
 
   it('close requires outcome, note is optional', () => {

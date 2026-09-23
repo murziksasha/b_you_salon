@@ -36,6 +36,12 @@
 - Don't stop at reporting errors; install missing deps and resolve TS/Vite issues before final response.
 - **Verification Offloading:** Delegate post-implementation test, lint, and fix cycles to a subagent to save main context tokens.
 
+## Subagent Delegation
+
+- **Test & Lint Fixes:** Delegate all post-implementation test/lint runs and iterative error resolution to a subagent.
+- **Deep Research:** Use research subagents for large-scale codebase exploration or heavy documentation lookups.
+- **Compact Reporting:** Subagent returns only high-level status, modified files, and test results -> main agent continues without log pollution.
+
 ---
 
 ## Tech Stack & Conventions
