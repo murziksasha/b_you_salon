@@ -1,6 +1,16 @@
 {
   "sessions": [
     {
+      "id": "e3cbc3276411",
+      "fingerprint": "28623235745dc09d",
+      "username": "iriska",
+      "role": "editor",
+      "createdAt": "2026-09-23T01:15:27.736Z",
+      "lastSeenAt": "2026-09-23T01:15:27.736Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
+      "ip": "::1"
+    },
+    {
       "id": "7e51479e74a1",
       "fingerprint": "a4595d86b6d641b6",
       "username": "admin",
