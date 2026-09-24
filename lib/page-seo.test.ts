@@ -33,14 +33,14 @@ describe('pageSeoHints', () => {
   });
 
   it('warns when no visible sections exist', () => {
-    const hints = pageSeoHints(page({ sections: [{ id: 's1', type: 'hero', visible: false }] }));
+    const hints = pageSeoHints(page({ sections: [{ id: 's1', type: 'hero', visible: false } as unknown as Section] }));
     expect(hints.some(h => h.message.includes('Немає видимих секцій'))).toBe(true);
   });
 
   it('notes absence of hero section', () => {
     const hints = pageSeoHints(
       page({
-        sections: [{ id: 's1', type: 'contacts', visible: true }],
+        sections: [{ id: 's1', type: 'contacts', visible: true } as unknown as Section],
       }),
     );
     expect(hints.some(h => h.message.includes('Немає hero-секції'))).toBe(true);

@@ -25,7 +25,6 @@ describe('admin-notify-prefs', () => {
 
   beforeEach(() => {
     mockLocalStorage.clear();
-    // @ts-expect-error mocking window for test
     globalThis.window = {} as unknown as Window & typeof globalThis;
     // @ts-expect-error mocking localStorage for test
     globalThis.localStorage = mockLocalStorage;

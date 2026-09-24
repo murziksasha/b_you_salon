@@ -6,6 +6,8 @@ function createProduct(id: string, category: string, visible = true, relatedIds?
   return {
     id,
     title: `Product ${id}`,
+    description: '',
+    image: '/img/placeholder.webp',
     category,
     price: 100,
     visible,

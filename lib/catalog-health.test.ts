@@ -7,6 +7,7 @@ function mockProduct(partial: Partial<Product>): Product {
   return {
     id: 'prod-1',
     title: 'Facial Cream',
+    description: 'Sample description',
     code: 'FC-01',
     category: 'Skincare',
     price: 450,

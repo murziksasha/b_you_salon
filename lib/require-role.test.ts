@@ -28,6 +28,7 @@ describe('require-role', () => {
     it('resolves user from database in multi-user mode', async () => {
       vi.mocked(hasMultiUserMode).mockResolvedValue(true);
       vi.mocked(getAdminUserByUsername).mockResolvedValue({
+        id: 'u1',
         username: 'natali',
         role: 'editor',
         passwordHash: 'hash',
