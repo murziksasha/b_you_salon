@@ -31,7 +31,8 @@ docker compose up -d --build
 - [ ] `ADMIN_PASSWORD` — сильний, не `changeme`
 - [ ] `SESSION_SECRET` — довгий random (напр. `openssl rand -hex 32`)
 - [ ] SMTP для production (інакше заявки лише в логи)
-- [ ] `SITE_URL` — **публічний** https URL (sitemap.xml, Open Graph / WhatsApp). Не `localhost`. Приклад: `https://beyou.properservice.keenetic.pro`. Після зміни — рестарт і повторний шеринг (кеш месенджера).
+- [ ] `SITE_URL` — **публічний** https URL (sitemap.xml, Open Graph / WhatsApp, Telegram webhook). Не `localhost`. Приклад: `https://beyou.properservice.keenetic.pro`. Після зміни — рестарт і повторний шеринг (кеш месенджера).
+- [ ] `TELEGRAM_BOT_TOKEN` + `TELEGRAM_WEBHOOK_SECRET` (`openssl rand -hex 24`) — webhook `POST /api/telegram/webhook`. Без публічного https `SITE_URL` лишається pm2 long-poll.
 - [ ] `NODE_ENV=production` (в образі вже)
 
 ### Health

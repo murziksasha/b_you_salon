@@ -31,6 +31,7 @@ const SOCIAL_TYPES = [
   { type: 'viber', icon: '/img/icons/viber.svg' },
   { type: 'telegram', icon: '/img/icons/telegram.svg' },
   { type: 'instagram', icon: '/img/icons/instagram.svg' },
+  { type: 'facebook', icon: '/img/icons/facebook.svg' },
   { type: 'youtube', icon: '/img/icons/youtube.svg' },
 ] as const;
 

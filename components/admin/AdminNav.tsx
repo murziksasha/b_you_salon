@@ -176,7 +176,10 @@ export function AdminNav({ collapsed, mobileOpen, onToggleCollapsed, onCloseMobi
           </span>
           <span className='admin-nav-label'>
             {username}
-            <span className='admin-nav-role'> · {role}</span>
+            <span className='admin-nav-role'>
+              {' '}
+              · {role === 'owner' || role === 'legacy' ? 'супер-адмін' : role}
+            </span>
           </span>
         </div>
         <button

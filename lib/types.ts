@@ -12,7 +12,7 @@ export interface PhoneEntry {
 
 export interface SocialLink {
   id: string;
-  type: 'viber' | 'telegram' | 'instagram' | 'youtube' | string;
+  type: 'viber' | 'telegram' | 'instagram' | 'youtube' | 'facebook' | string;
   url: string;
   icon: string;
 }

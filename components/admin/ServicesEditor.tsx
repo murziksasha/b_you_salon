@@ -6,7 +6,7 @@ import { patchSiteSection, saveSiteData } from '@/lib/admin/saveSite';
 import { moveByDir } from '@/lib/admin/reorder';
 import { useSaveShortcut, useUnsavedGuard } from '@/lib/admin/useUnsavedGuard';
 import { uniqueServiceSlug } from '@/lib/services-catalog';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { showToast } from './AdminToast';
 import { ImageField } from './ImageField';
 import { StickySaveBar } from './StickySaveBar';
@@ -29,8 +29,45 @@ export function ServicesEditor({ initialData }: { initialData: SiteData }) {
   const [editing, setEditing] = useState<SalonService | null>(null);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const editFormRef = useRef<HTMLDivElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const prevEditingId = useRef<string | null>(null);
 
   useUnsavedGuard(dirty || Boolean(editing));
+
+  /** Jump admin-main to the editor (#service-edit-form) when opening edit/create. */
+  useEffect(() => {
+    const id = editing?.id ?? null;
+    if (!id || id === prevEditingId.current) {
+      if (!id) {
+        prevEditingId.current = null;
+        if (typeof window !== 'undefined' && window.location.hash === '#service-edit-form') {
+          window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+        }
+      }
+      return;
+    }
+    prevEditingId.current = id;
+    const form = editFormRef.current;
+    if (!form) return;
+
+    const run = () => {
+      const main = form.closest('.admin-main');
+      if (main instanceof HTMLElement) {
+        const top = form.getBoundingClientRect().top - main.getBoundingClientRect().top + main.scrollTop;
+        main.scrollTo({ top: Math.max(0, top - 16), behavior: 'auto' });
+      } else {
+        form.scrollIntoView({ behavior: 'auto', block: 'start' });
+      }
+      if (typeof window !== 'undefined' && window.location.hash !== '#service-edit-form') {
+        window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#service-edit-form`);
+      }
+      window.setTimeout(() => {
+        titleInputRef.current?.focus({ preventScroll: true });
+      }, 50);
+    };
+    requestAnimationFrame(run);
+  }, [editing?.id]);
 
   const list = data.services || [];
 
@@ -90,6 +127,91 @@ export function ServicesEditor({ initialData }: { initialData: SiteData }) {
           + Послуга
         </button>
       </div>
+
+      {editing ? (
+        <div
+          ref={editFormRef}
+          id='service-edit-form'
+          className='admin-card admin-form admin-form--editing admin-mb-lg'
+          tabIndex={-1}
+        >
+          <h3>{list.some((s) => s.id === editing.id) ? 'Редагувати послугу' : 'Нова послуга'}</h3>
+          <label>
+            Назва
+            <input
+              ref={titleInputRef}
+              value={editing.title}
+              onChange={(e) => setEditing({ ...editing, title: e.target.value })}
+            />
+          </label>
+          <label>
+            Slug
+            <input value={editing.slug} onChange={(e) => setEditing({ ...editing, slug: e.target.value })} />
+          </label>
+          <label>
+            Категорія
+            <input
+              value={editing.category}
+              onChange={(e) => setEditing({ ...editing, category: e.target.value })}
+            />
+          </label>
+          <label>
+            Опис
+            <textarea
+              rows={3}
+              value={editing.description}
+              onChange={(e) => setEditing({ ...editing, description: e.target.value })}
+            />
+          </label>
+          <label>
+            Ціна від
+            <input
+              type='number'
+              min={0}
+              value={editing.priceFrom}
+              onChange={(e) => setEditing({ ...editing, priceFrom: Number(e.target.value) || 0 })}
+            />
+          </label>
+          <label>
+            Примітка до ціни
+            <input
+              value={editing.priceNote || ''}
+              onChange={(e) => setEditing({ ...editing, priceNote: e.target.value })}
+            />
+          </label>
+          <label>
+            Тривалість, хв
+            <input
+              type='number'
+              min={0}
+              value={editing.durationMin || ''}
+              onChange={(e) => setEditing({ ...editing, durationMin: Number(e.target.value) || undefined })}
+            />
+          </label>
+          <label className='admin-check'>
+            <input
+              type='checkbox'
+              checked={editing.visible}
+              onChange={(e) => setEditing({ ...editing, visible: e.target.checked })}
+            />
+            Видима
+          </label>
+          <ImageField
+            value={editing.image}
+            onChange={(url) => setEditing({ ...editing, image: url })}
+            preset='default'
+          />
+          <div className='admin-row'>
+            <button type='button' className='admin-btn' onClick={saveEditing}>
+              Зберегти послугу
+            </button>
+            <button type='button' className='admin-btn admin-btn--secondary' onClick={() => setEditing(null)}>
+              Скасувати
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <div className='admin-list'>
         {list.map((svc, index) => (
           <div key={svc.id} className='admin-nested-card'>
@@ -128,79 +250,6 @@ export function ServicesEditor({ initialData }: { initialData: SiteData }) {
           </div>
         ))}
       </div>
-
-      {editing ? (
-        <div className='admin-nested-card' style={{ marginTop: '1rem' }}>
-          <h2>Редагування</h2>
-          <label>
-            Назва
-            <input value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} />
-          </label>
-          <label>
-            Slug
-            <input value={editing.slug} onChange={(e) => setEditing({ ...editing, slug: e.target.value })} />
-          </label>
-          <label>
-            Категорія
-            <input
-              value={editing.category}
-              onChange={(e) => setEditing({ ...editing, category: e.target.value })}
-            />
-          </label>
-          <label>
-            Опис
-            <textarea
-              rows={3}
-              value={editing.description}
-              onChange={(e) => setEditing({ ...editing, description: e.target.value })}
-            />
-          </label>
-          <label>
-            Ціна від
-            <input
-              type='number'
-              value={editing.priceFrom}
-              onChange={(e) => setEditing({ ...editing, priceFrom: Number(e.target.value) || 0 })}
-            />
-          </label>
-          <label>
-            Примітка до ціни
-            <input
-              value={editing.priceNote || ''}
-              onChange={(e) => setEditing({ ...editing, priceNote: e.target.value })}
-            />
-          </label>
-          <label>
-            Тривалість, хв
-            <input
-              type='number'
-              value={editing.durationMin || ''}
-              onChange={(e) => setEditing({ ...editing, durationMin: Number(e.target.value) || undefined })}
-            />
-          </label>
-          <label className='admin-row'>
-            <input
-              type='checkbox'
-              checked={editing.visible}
-              onChange={(e) => setEditing({ ...editing, visible: e.target.checked })}
-            />
-            Видима
-          </label>
-          <ImageField
-            value={editing.image}
-            onChange={(url) => setEditing({ ...editing, image: url })}
-            preset='default'
-          />
-          <div className='admin-row'>
-            <button type='button' className='admin-btn' onClick={saveEditing}>
-              Зберегти послугу
-            </button>
-            <button type='button' className='admin-btn admin-btn--secondary' onClick={() => setEditing(null)}>
-              Скасувати
-            </button>
-          </div>
-        </div>
-      ) : null}
 
       <StickySaveBar dirty={dirty} saving={saving} onSave={() => void save()} />
     </div>
