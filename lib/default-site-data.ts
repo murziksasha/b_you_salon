@@ -26,6 +26,15 @@ const SOCIAL = [
   },
 ];
 
+const NATALIA_FACEBOOK = {
+  id: 'natalia-facebook',
+  type: 'facebook' as const,
+  url: 'https://www.facebook.com/share/g/1DJFTnp45u/',
+  icon: '/img/icons/facebook.svg',
+};
+
+const NATALIA_SOCIAL = [...SOCIAL, NATALIA_FACEBOOK];
+
 const SETTINGS: SiteSettings = {
   title: 'B_You — студія краси',
   description:
@@ -317,12 +326,13 @@ const HOME: Page = {
       id: 'contacts-home',
       inviteText: 'один вхід, два простори зліва',
       intentChooser: true,
+      social: NATALIA_SOCIAL,
       people: [
         {
           id: 'natalia',
           title: 'Майстер — універсал Наталія',
           phones: [PHONE_1, PHONE_2],
-          social: SOCIAL.filter((s) => s.type === 'telegram' || s.type === 'viber'),
+          social: NATALIA_SOCIAL,
         },
         {
           id: 'iryna',
@@ -384,12 +394,13 @@ const SALON: Page = {
     {
       ...CONTACTS,
       id: 'contacts-salon',
+      social: NATALIA_SOCIAL,
       people: [
         {
           id: 'natalia',
           title: 'Майстер — універсал Наталія',
           phones: [PHONE_1, PHONE_2],
-          social: SOCIAL.filter((s) => s.type === 'telegram' || s.type === 'viber'),
+          social: NATALIA_SOCIAL,
         },
       ],
       findTitle: 'Знаходимся м. Чорноморськ, вул. Вишнева, 4',

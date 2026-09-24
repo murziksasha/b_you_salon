@@ -4,14 +4,24 @@ import path from 'path';
 import { atomicWriteJson } from './atomic-write';
 import { withFileMutex } from './file-mutex';
 import { createId } from './id';
-import type { AdminRole } from './admin-roles';
+import {
+  sanitizeGrants,
+  type AdminCapability,
+  type AdminRole,
+} from './admin-roles';
 import { revokeSessionsByUsername } from './admin-sessions';
 
 /** Only allow safe alphanumeric usernames: letters, digits, underscore, dot, dash. */
 const SAFE_USERNAME_RE = /^[a-zA-Z0-9_.-]{2,32}$/;
 
-export type { AdminRole } from './admin-roles';
-export { navAllowedForRole, roleCan } from './admin-roles';
+export type { AdminCapability, AdminRole } from './admin-roles';
+export {
+  capabilitiesFor,
+  navAllowedForRole,
+  presetGrants,
+  roleCan,
+  sanitizeGrants,
+} from './admin-roles';
 
 export type AdminUser = {
   id: string;
@@ -19,9 +29,13 @@ export type AdminUser = {
   /** scrypt hash: saltHex:hashHex */
   passwordHash: string;
   role: AdminRole;
+  /** Checkbox grants. Ignored for owner. Missing = use the role preset. */
+  grants?: AdminCapability[];
   createdAt: string;
   disabled?: boolean;
 };
+
+export type UserMutateResult = { ok: true } | { error: string };
 
 type UsersStore = { users: AdminUser[] };
 
@@ -94,10 +108,23 @@ export async function getAdminUserByUsername(username: string): Promise<AdminUse
   return store.users.find(u => u.username.toLowerCase() === key && !u.disabled) || null;
 }
 
+function enabledOwners(store: UsersStore, exceptId?: string): AdminUser[] {
+  return store.users.filter((u) => u.role === 'owner' && !u.disabled && u.id !== exceptId);
+}
+
+function lastOwnerBlocked(store: UsersStore, target: AdminUser, next: Pick<AdminUser, 'role' | 'disabled'>): boolean {
+  if (target.role !== 'owner' || target.disabled) return false;
+  const others = enabledOwners(store, target.id);
+  if (others.length > 0) return false;
+  const stillOwner = (next.role ?? target.role) === 'owner' && !(next.disabled ?? target.disabled);
+  return !stillOwner;
+}
+
 export async function createAdminUser(input: {
   username: string;
   password: string;
   role: AdminRole;
+  grants?: AdminCapability[];
 }): Promise<Omit<AdminUser, 'passwordHash'> | { error: string }> {
   const username = input.username.trim();
   if (!username || username.length < 2) return { error: 'Username too short' };
@@ -105,6 +132,8 @@ export async function createAdminUser(input: {
     return { error: 'Username must be 2-32 chars: letters, digits, _ . - only' };
   }
   if (!input.password || input.password.length < 8) return { error: 'Password must be ≥8 chars' };
+  const role = input.role;
+  const grants = sanitizeGrants(role, input.grants);
   return withUsersLock(async () => {
   const store = await readStore();
   if (store.users.some(u => u.username.toLowerCase() === username.toLowerCase())) {
@@ -114,9 +143,10 @@ export async function createAdminUser(input: {
     id: createId(),
     username,
     passwordHash: await hashPassword(input.password),
-    role: input.role,
+    role,
     createdAt: new Date().toISOString(),
   };
+  if (grants) user.grants = grants;
   store.users.push(user);
   await writeStore(store);
   const { passwordHash: _, ...safe } = user;
@@ -126,54 +156,68 @@ export async function createAdminUser(input: {
 
 export async function updateAdminUser(
   id: string,
-  patch: Partial<Pick<AdminUser, 'role' | 'disabled'>> & { password?: string },
-): Promise<boolean> {
+  patch: Partial<Pick<AdminUser, 'role' | 'disabled' | 'grants'>> & { password?: string },
+): Promise<UserMutateResult> {
   if (patch.password !== undefined && patch.password.length < 8) {
-    return false;
+    return { error: 'Password must be ≥8 chars' };
   }
   return withUsersLock(async () => {
   const store = await readStore();
   const idx = store.users.findIndex(u => u.id === id);
-  if (idx < 0) return false;
+  if (idx < 0) return { error: 'Not found' };
   const cur = store.users[idx];
+  const nextRole = patch.role ?? cur.role;
+  const nextDisabled = patch.disabled ?? cur.disabled;
+  if (lastOwnerBlocked(store, cur, { role: nextRole, disabled: nextDisabled })) {
+    return { error: 'Не можна прибрати останнього супер-адміна' };
+  }
   const passwordChanged = !!patch.password;
   const roleChanged = patch.role !== undefined && patch.role !== cur.role;
   const disabledChanged = patch.disabled !== undefined && patch.disabled !== cur.disabled;
-  store.users[idx] = {
+  const nextGrants = patch.grants !== undefined ? sanitizeGrants(nextRole, patch.grants) : sanitizeGrants(nextRole, cur.grants);
+  const grantsChanged = JSON.stringify(nextGrants || []) !== JSON.stringify(cur.grants || []);
+  const next: AdminUser = {
     ...cur,
-    role: patch.role ?? cur.role,
-    disabled: patch.disabled ?? cur.disabled,
+    role: nextRole,
+    disabled: nextDisabled,
     passwordHash: patch.password ? await hashPassword(patch.password) : cur.passwordHash,
   };
+  if (nextRole === 'owner') {
+    delete next.grants;
+  } else if (nextGrants) {
+    next.grants = nextGrants;
+  } else {
+    delete next.grants;
+  }
+  store.users[idx] = next;
   await writeStore(store);
-  // Revoke all sessions for this user when security-relevant fields change
-  if (passwordChanged || roleChanged || disabledChanged) {
+  if (passwordChanged || roleChanged || disabledChanged || grantsChanged) {
     try {
       await revokeSessionsByUsername(cur.username);
     } catch {
       /* best-effort revocation */
     }
   }
-  return true;
+  return { ok: true };
   });
 }
 
-export async function deleteAdminUser(id: string): Promise<boolean> {
+export async function deleteAdminUser(id: string): Promise<UserMutateResult> {
   return withUsersLock(async () => {
   const store = await readStore();
-  const before = store.users.length;
   const target = store.users.find(u => u.id === id);
-  if (!target) return false;
+  if (!target) return { error: 'Not found' };
+  if (lastOwnerBlocked(store, target, { role: 'operator', disabled: true })) {
+    return { error: 'Не можна прибрати останнього супер-адміна' };
+  }
   store.users = store.users.filter(u => u.id !== id);
-  if (store.users.length === before) return false;
   await writeStore(store);
-  // Revoke all sessions belonging to the deleted user
   try {
     await revokeSessionsByUsername(target.username);
   } catch {
     /* best-effort revocation */
   }
-  return true;
+  return { ok: true };
   });
 }
 

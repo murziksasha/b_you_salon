@@ -14,6 +14,10 @@ import { SESSION_COOKIE } from '@/lib/session';
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  if (pathname === '/api/telegram/webhook' || pathname.startsWith('/api/telegram/webhook/')) {
+    return NextResponse.next();
+  }
+
   const isAdminUi = pathname.startsWith('/admin');
   const isProtectedApi =
     pathname.startsWith('/api/auth') ||

@@ -2,8 +2,11 @@
 
 import Link from 'next/link';
 import { showToast } from './AdminToast';
+import { useAdminRole } from './AdminRoleContext';
 
 export function EmergencyOpsPanel() {
+  const { can } = useAdminRole();
+  if (!can('ops')) return null;
   return (
     <div className='admin-card'>
       <h2 className='admin-h2'>Якщо форми не доходять / сайт «мовчить»</h2>

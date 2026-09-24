@@ -10,18 +10,27 @@ import {
   patchTelegramBotSettings,
   revokeTelegramSubscriber,
 } from '@/lib/telegram-store';
+import {
+  deleteTelegramWebhook,
+  getTelegramWebhookInfo,
+  setTelegramWebhook,
+  telegramWebhookMode,
+  telegramWebhookSecret,
+  telegramWebhookUrl,
+} from '@/lib/telegram-webhook';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const g = await requireAdminRole();
+  const g = await requireAdminRole('telegram');
   if (!g.ok) return g.response;
 
-  const [subscribers, pairing, canSend, settings] = await Promise.all([
+  const [subscribers, pairing, canSend, settings, hookInfo] = await Promise.all([
     listTelegramSubscribers(),
     getTelegramPairing(),
     telegramCanSend(),
     getTelegramBotSettings(),
+    getTelegramWebhookInfo().catch(() => ({ url: '', pending: 0, lastError: undefined })),
   ]);
 
   return NextResponse.json({
@@ -35,11 +44,19 @@ export async function GET() {
       quietEnd: settings.quietEnd,
       timezone: settings.timezone,
     },
+    webhook: {
+      secretConfigured: Boolean(telegramWebhookSecret()),
+      expectedUrl: telegramWebhookUrl() || null,
+      mode: telegramWebhookMode(),
+      telegramUrl: hookInfo.url || '',
+      lastError: hookInfo.lastError || '',
+      pending: hookInfo.pending || 0,
+    },
   });
 }
 
 export async function POST(request: NextRequest) {
-  const g = await requireAdminRole();
+  const g = await requireAdminRole('telegram');
   if (!g.ok) return g.response;
 
   let body: { action?: string; userId?: string; quietStart?: number; quietEnd?: number } = {};
@@ -81,6 +98,40 @@ export async function POST(request: NextRequest) {
       /* ignore */
     }
     return NextResponse.json({ ok: true, settings });
+  }
+
+  if (body.action === 'webhook_on') {
+    const result = await setTelegramWebhook();
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error || 'Не вдалося увімкнути webhook' }, { status: 400 });
+    }
+    try {
+      await appendActivity({
+        kind: 'settings',
+        message: `Telegram webhook: ${result.url}`,
+        actor: g.username,
+      });
+    } catch {
+      /* ignore */
+    }
+    return NextResponse.json({ ok: true, webhook: result });
+  }
+
+  if (body.action === 'webhook_off') {
+    const result = await deleteTelegramWebhook();
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error || 'Не вдалося вимкнути webhook' }, { status: 400 });
+    }
+    try {
+      await appendActivity({
+        kind: 'settings',
+        message: 'Telegram webhook вимкнено (polling)',
+        actor: g.username,
+      });
+    } catch {
+      /* ignore */
+    }
+    return NextResponse.json({ ok: true });
   }
 
   if (body.action === 'revoke') {

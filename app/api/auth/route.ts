@@ -13,6 +13,7 @@ import { clientKey, rateLimit } from '@/lib/rate-limit';
 import { getTotpSecret, verifyTotp } from '@/lib/totp';
 import { clientIpFromHeaders } from '@/lib/admin-ip';
 import { parseSession } from '@/lib/session';
+import { resolveAdminAccess } from '@/lib/require-role';
 
 export async function POST(request: NextRequest) {
   const ipGate = await assertAdminIp();
@@ -91,7 +92,14 @@ export async function GET() {
   if (!claims) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
-  return NextResponse.json({ ok: true, user: claims });
+  const access = await resolveAdminAccess(claims.username || 'admin', claims.role);
+  if (!access) {
+    return NextResponse.json({ ok: false }, { status: 401 });
+  }
+  return NextResponse.json({
+    ok: true,
+    user: { username: access.username, role: access.role, grants: access.grants },
+  });
 }
 
 export async function DELETE(request: NextRequest) {

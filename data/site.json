@@ -1,10 +1,9 @@
 {
   "settings": {
-    "title": "B_You — студія краси",
-    "description": "Студія краси B_You: салон праворуч — манікюр, педикюр, зачіски; магазин косметики ліворуч. Запис і самовивіз. Be you!",
+    "title": "BeYou — студія краси",
+    "description": "Студія краси BeYou — манікюр, педикюр, зачіски; магазин косметики ліворуч. Запис і самовивіз. Be you!",
     "logo": "/img/icons/logo.jpg",
     "favicon": "/img/icons/logo.jpg",
-    "ogImage": "/img/og-cover.jpg",
     "phones": [
       {
         "display": "063 128 45 51",
@@ -18,6 +17,10 @@
     "headerPhone": {
       "display": "063 128 45 51",
       "tel": "+380631284551"
+    },
+    "shopPhone": {
+      "display": "093 632 72 24",
+      "tel": "+380936327224"
     },
     "social": [
       {
@@ -45,14 +48,11 @@
     "officeHours": "Пн–Сб 10:00–20:00",
     "email": "",
     "mapEmbedUrl": "",
-    "copyright": "© Byou",
+    "copyright": "© BeYou",
     "privacyPolicyUrl": "/confident",
     "privacyPolicyText": "",
     "reviewsUrl": "",
-    "shopPhone": {
-      "display": "093 632 72 24",
-      "tel": "+380936327224"
-    }
+    "ogImage": "/img/og-cover.jpg"
   },
   "headerMenu": [
     {
@@ -187,18 +187,6 @@
             "subtitle": "Манікюр, педикюр, стрижки, фарбування",
             "href": "/salon",
             "cta": "До салону"
-          },
-          "brandContacts": {
-            "left": {
-              "label": "МАГАЗИН КОСМЕТИКИ",
-              "phoneDisplay": "093 632 72 24",
-              "phoneTel": "+380936327224"
-            },
-            "right": {
-              "label": "СТУДІЯ КРАСИ",
-              "phoneDisplay": "097 703 62 83",
-              "phoneTel": "+380977036283"
-            }
           }
         },
         {
@@ -231,79 +219,15 @@
               "type": "viber",
               "url": "viber://chat?number=+380631284551",
               "icon": "/img/icons/viber.svg"
-            }
-          ],
-          "mapEmbedUrl": "",
-          "people": [
-            {
-              "id": "natalia",
-              "title": "Майстер — універсал Наталія",
-              "phones": [
-                {
-                  "display": "063 128 45 51",
-                  "tel": "+380631284551"
-                },
-                {
-                  "display": "097 703 62 83",
-                  "tel": "+380977036283"
-                }
-              ],
-              "social": [
-                {
-                  "id": "natalia-telegram",
-                  "type": "telegram",
-                  "url": "https://t.me/+380631284551",
-                  "icon": "/img/icons/telegram.svg"
-                },
-                {
-                  "id": "natalia-viber",
-                  "type": "viber",
-                  "url": "viber://chat?number=+380631284551",
-                  "icon": "/img/icons/viber.svg"
-                }
-              ]
             },
             {
-              "id": "iryna",
-              "title": "Продавець — консультант Ірина",
-              "phones": [
-                {
-                  "display": "093 632 72 24",
-                  "tel": "+380936327224"
-                },
-                {
-                  "display": "050 544 37 19",
-                  "tel": "+380505443719"
-                }
-              ],
-              "social": [
-                {
-                  "id": "iryna-telegram",
-                  "type": "telegram",
-                  "url": "https://t.me/+380936327224",
-                  "icon": "/img/icons/telegram.svg"
-                },
-                {
-                  "id": "iryna-viber",
-                  "type": "viber",
-                  "url": "viber://chat?number=+380936327224",
-                  "icon": "/img/icons/viber.svg"
-                },
-                {
-                  "id": "iryna-instagram",
-                  "type": "instagram",
-                  "url": "https://www.instagram.com/iriska_livesta/",
-                  "icon": "/img/icons/instagram.svg"
-                }
-              ]
+              "id": "natalia-facebook",
+              "type": "facebook",
+              "url": "https://www.facebook.com/share/g/1DJFTnp45u/",
+              "icon": "/img/icons/facebook.svg"
             }
           ],
-          "findTitle": "Знаходимся м. Чорноморськ, вул. Вишнева, 4",
-          "findLines": [
-            "Пн–Сб 09:00–18:00",
-            "У неділю та в інший зручний час — запис за домовленістю."
-          ],
-          "intentChooser": true
+          "mapEmbedUrl": ""
         }
       ]
     },
@@ -400,13 +324,13 @@
           "id": "door-to-shop",
           "type": "zone-door",
           "visible": true,
-          "side": "left",
+          "image": "/img/hero/interior.jpg",
+          "imageAlt": "Магазин B_You",
           "title": "Магазин косметики",
           "subtitle": "Ліворуч від входу в салон — догляд, який забираєте з собою",
+          "side": "left",
           "href": "/shop",
-          "cta": "У магазин",
-          "image": "/img/hero/interior.jpg",
-          "imageAlt": "Магазин B_You"
+          "cta": "У магазин"
         },
         {
           "id": "contacts-salon",
@@ -438,44 +362,15 @@
               "type": "viber",
               "url": "viber://chat?number=+380631284551",
               "icon": "/img/icons/viber.svg"
-            }
-          ],
-          "mapEmbedUrl": "",
-          "people": [
+            },
             {
-              "id": "natalia",
-              "title": "Майстер — універсал Наталія",
-              "phones": [
-                {
-                  "display": "063 128 45 51",
-                  "tel": "+380631284551"
-                },
-                {
-                  "display": "097 703 62 83",
-                  "tel": "+380977036283"
-                }
-              ],
-              "social": [
-                {
-                  "id": "natalia-telegram",
-                  "type": "telegram",
-                  "url": "https://t.me/+380631284551",
-                  "icon": "/img/icons/telegram.svg"
-                },
-                {
-                  "id": "natalia-viber",
-                  "type": "viber",
-                  "url": "viber://chat?number=+380631284551",
-                  "icon": "/img/icons/viber.svg"
-                }
-              ]
+              "id": "natalia-facebook",
+              "type": "facebook",
+              "url": "https://www.facebook.com/share/g/1DJFTnp45u/",
+              "icon": "/img/icons/facebook.svg"
             }
           ],
-          "findTitle": "Знаходимся м. Чорноморськ, вул. Вишнева, 4",
-          "findLines": [
-            "Пн–Сб 09:00–18:00",
-            "У неділю та в інший зручний час — запис за домовленістю."
-          ]
+          "mapEmbedUrl": ""
         }
       ]
     },
@@ -507,8 +402,8 @@
           "type": "price-list",
           "visible": true,
           "title": "Орієнтовна вартість",
-          "source": "catalog",
-          "category": "Нігті"
+          "category": "Нігті",
+          "source": "catalog"
         },
         {
           "id": "cb-manicure",
@@ -523,13 +418,13 @@
           "id": "door-to-shop",
           "type": "zone-door",
           "visible": true,
-          "side": "left",
+          "image": "/img/hero/interior.jpg",
+          "imageAlt": "Магазин B_You",
           "title": "Магазин косметики",
           "subtitle": "Ліворуч від входу в салон — догляд, який забираєте з собою",
+          "side": "left",
           "href": "/shop",
-          "cta": "У магазин",
-          "image": "/img/hero/interior.jpg",
-          "imageAlt": "Магазин B_You"
+          "cta": "У магазин"
         }
       ]
     },
@@ -561,8 +456,8 @@
           "type": "price-list",
           "visible": true,
           "title": "Орієнтовна вартість",
-          "source": "catalog",
-          "category": "Нігті"
+          "category": "Нігті",
+          "source": "catalog"
         },
         {
           "id": "cb-pedicure",
@@ -577,13 +472,13 @@
           "id": "door-to-shop",
           "type": "zone-door",
           "visible": true,
-          "side": "left",
+          "image": "/img/hero/interior.jpg",
+          "imageAlt": "Магазин B_You",
           "title": "Магазин косметики",
           "subtitle": "Ліворуч від входу в салон — догляд, який забираєте з собою",
+          "side": "left",
           "href": "/shop",
-          "cta": "У магазин",
-          "image": "/img/hero/interior.jpg",
-          "imageAlt": "Магазин B_You"
+          "cta": "У магазин"
         }
       ]
     },
@@ -615,8 +510,8 @@
           "type": "price-list",
           "visible": true,
           "title": "Орієнтовна вартість",
-          "source": "catalog",
-          "category": "Волосся"
+          "category": "Волосся",
+          "source": "catalog"
         },
         {
           "id": "cb-women-hair",
@@ -631,13 +526,13 @@
           "id": "door-to-shop",
           "type": "zone-door",
           "visible": true,
-          "side": "left",
+          "image": "/img/hero/interior.jpg",
+          "imageAlt": "Магазин B_You",
           "title": "Магазин косметики",
           "subtitle": "Ліворуч від входу в салон — догляд, який забираєте з собою",
+          "side": "left",
           "href": "/shop",
-          "cta": "У магазин",
-          "image": "/img/hero/interior.jpg",
-          "imageAlt": "Магазин B_You"
+          "cta": "У магазин"
         }
       ]
     },
@@ -669,8 +564,8 @@
           "type": "price-list",
           "visible": true,
           "title": "Орієнтовна вартість",
-          "source": "catalog",
-          "category": "Волосся"
+          "category": "Волосся",
+          "source": "catalog"
         },
         {
           "id": "cb-men-hair",
@@ -685,13 +580,13 @@
           "id": "door-to-shop",
           "type": "zone-door",
           "visible": true,
-          "side": "left",
+          "image": "/img/hero/interior.jpg",
+          "imageAlt": "Магазин B_You",
           "title": "Магазин косметики",
           "subtitle": "Ліворуч від входу в салон — догляд, який забираєте з собою",
+          "side": "left",
           "href": "/shop",
-          "cta": "У магазин",
-          "image": "/img/hero/interior.jpg",
-          "imageAlt": "Магазин B_You"
+          "cta": "У магазин"
         }
       ]
     },
@@ -723,8 +618,8 @@
           "type": "price-list",
           "visible": true,
           "title": "Орієнтовна вартість",
-          "source": "catalog",
-          "category": "Волосся"
+          "category": "Волосся",
+          "source": "catalog"
         },
         {
           "id": "cb-coloring",
@@ -739,13 +634,13 @@
           "id": "door-to-shop",
           "type": "zone-door",
           "visible": true,
-          "side": "left",
+          "image": "/img/hero/interior.jpg",
+          "imageAlt": "Магазин B_You",
           "title": "Магазин косметики",
           "subtitle": "Ліворуч від входу в салон — догляд, який забираєте з собою",
+          "side": "left",
           "href": "/shop",
-          "cta": "У магазин",
-          "image": "/img/hero/interior.jpg",
-          "imageAlt": "Магазин B_You"
+          "cta": "У магазин"
         }
       ]
     },
@@ -777,8 +672,8 @@
           "type": "price-list",
           "visible": true,
           "title": "Орієнтовна вартість",
-          "source": "catalog",
-          "category": "Брови та вії"
+          "category": "Брови та вії",
+          "source": "catalog"
         },
         {
           "id": "cb-brows-lashes",
@@ -793,13 +688,13 @@
           "id": "door-to-shop",
           "type": "zone-door",
           "visible": true,
-          "side": "left",
+          "image": "/img/hero/interior.jpg",
+          "imageAlt": "Магазин B_You",
           "title": "Магазин косметики",
           "subtitle": "Ліворуч від входу в салон — догляд, який забираєте з собою",
+          "side": "left",
           "href": "/shop",
-          "cta": "У магазин",
-          "image": "/img/hero/interior.jpg",
-          "imageAlt": "Магазин B_You"
+          "cta": "У магазин"
         }
       ]
     },
@@ -832,42 +727,6 @@
           "visible": true,
           "title": "Контакти",
           "inviteText": "Завітайте в магазин або залиште номер — передзвонимо.",
-          "people": [
-            {
-              "id": "iryna",
-              "title": "Продавець — консультант Ірина",
-              "phones": [
-                {
-                  "display": "093 632 72 24",
-                  "tel": "+380936327224"
-                },
-                {
-                  "display": "050 544 37 19",
-                  "tel": "+380505443719"
-                }
-              ],
-              "social": [
-                {
-                  "id": "iryna-telegram",
-                  "type": "telegram",
-                  "url": "https://t.me/+380936327224",
-                  "icon": "/img/icons/telegram.svg"
-                },
-                {
-                  "id": "iryna-viber",
-                  "type": "viber",
-                  "url": "viber://chat?number=+380936327224",
-                  "icon": "/img/icons/viber.svg"
-                },
-                {
-                  "id": "iryna-instagram",
-                  "type": "instagram",
-                  "url": "https://www.instagram.com/iriska_livesta/",
-                  "icon": "/img/icons/instagram.svg"
-                }
-              ]
-            }
-          ],
           "phones": [
             {
               "display": "093 632 72 24",
@@ -899,11 +758,6 @@
               "icon": "/img/icons/instagram.svg"
             }
           ],
-          "findTitle": "Знаходимся м. Чорноморськ, вул. Вишнева, 4",
-          "findLines": [
-            "Пн–Сб 09:00–18:00",
-            "Магазин косметики — ліворуч від входу."
-          ],
           "mapEmbedUrl": ""
         }
       ]
@@ -921,119 +775,119 @@
   ],
   "goods": [
     {
-      "visible": true,
-      "inStock": true,
       "id": "p-serum",
       "title": "Сироватка Glow Drops",
       "description": "Легка сироватка для сяйва шкіри. Відтінок/об’єм уточніть у коментарі до замовлення.",
       "price": 890,
       "image": "/img/shop/serum.jpg",
+      "visible": true,
       "category": "Догляд обличчя",
       "code": "BY-SER-01",
+      "inStock": true,
       "badge": "hit",
       "promoText": "Хіт догляду"
     },
     {
-      "visible": true,
-      "inStock": true,
       "id": "p-cream",
       "title": "Крем Silk Barrier",
       "description": "Насичений крем з м’якою текстурою. Для вечірнього ритуалу.",
       "price": 760,
       "image": "/img/shop/cream.jpg",
+      "visible": true,
       "category": "Догляд обличчя",
       "code": "BY-CRM-02",
+      "inStock": true,
       "badge": "new"
     },
     {
-      "visible": true,
-      "inStock": false,
       "id": "p-toner",
       "title": "Тонер Petal Mist",
       "description": "Зволожувальний тонер. Немає в наявності — можна залишити запит у коментарі.",
       "price": 520,
       "image": "/img/shop/toner.jpg",
+      "visible": true,
       "category": "Догляд обличчя",
-      "code": "BY-TNR-03"
+      "code": "BY-TNR-03",
+      "inStock": false
     },
     {
-      "visible": true,
-      "inStock": true,
       "id": "p-spf",
       "title": "Флюїд SPF Soft Veil",
       "description": "Легкий денний флюїд. Нанесіть як фініш догляду.",
       "price": 640,
       "image": "/img/shop/spf.jpg",
+      "visible": true,
       "category": "Догляд обличчя",
-      "code": "BY-SPF-04"
+      "code": "BY-SPF-04",
+      "inStock": true
     },
     {
-      "visible": true,
-      "inStock": true,
       "id": "p-shampoo",
       "title": "Шампунь Quiet Cleanse",
       "description": "Делікатне очищення для фарбованого волосся.",
       "price": 480,
       "image": "/img/shop/shampoo.jpg",
+      "visible": true,
       "category": "Волосся",
-      "code": "BY-SH-05"
+      "code": "BY-SH-05",
+      "inStock": true
     },
     {
-      "visible": true,
-      "inStock": true,
       "id": "p-mask",
       "title": "Маска Silk Repair",
       "description": "Інтенсивна маска після фарбування. Час витримки — 5–10 хвилин.",
       "price": 610,
       "image": "/img/shop/mask.jpg",
+      "visible": true,
       "category": "Волосся",
       "code": "BY-MSK-06",
+      "inStock": true,
       "badge": "sale",
       "promoText": "Догляд після кольору"
     },
     {
-      "visible": true,
-      "inStock": true,
       "id": "p-oil",
       "title": "Олія для кінчиків Amber Glow",
       "description": "Кілька крапель на вологі кінчики. Не обтяжує.",
       "price": 540,
       "image": "/img/shop/oil.jpg",
+      "visible": true,
       "category": "Волосся",
-      "code": "BY-OIL-07"
+      "code": "BY-OIL-07",
+      "inStock": true
     },
     {
-      "visible": true,
-      "inStock": true,
       "id": "p-body",
       "title": "Олія для тіла Warm Milk",
       "description": "Суха олія з теплим шлейфом. Для після душу.",
       "price": 720,
       "image": "/img/shop/body.jpg",
+      "visible": true,
       "category": "Тіло",
-      "code": "BY-BDY-08"
+      "code": "BY-BDY-08",
+      "inStock": true
     },
     {
-      "visible": true,
-      "inStock": true,
       "id": "p-nail",
       "title": "Олійка для кутикули Nude Care",
       "description": "Догляд між візитами в салон. Відтінок лаку — у коментарі.",
       "price": 280,
       "image": "/img/shop/nail.jpg",
+      "visible": true,
       "category": "Нігті",
-      "code": "BY-NL-09"
+      "code": "BY-NL-09",
+      "inStock": true
     },
     {
-      "visible": true,
-      "inStock": true,
       "id": "p-lip",
       "title": "Помада Quiet Nude",
       "description": "Нюдовий відтінок. Конкретний тон напишіть у коментарі до замовлення.",
       "price": 390,
       "image": "/img/shop/lipstick.jpg",
+      "visible": true,
       "category": "Декор",
-      "code": "BY-LP-10"
+      "code": "BY-LP-10",
+      "inStock": true
     }
   ],
   "services": [
@@ -1109,5 +963,6 @@
       "image": "/img/services/brows.jpg",
       "visible": false
     }
-  ]
+  ],
+  "updatedAt": "2026-09-14T20:44:51.447Z"
 }

@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 /** Admin-only: send a test email to MAIL_TO. */
 export async function POST() {
-  const gate = await requireAdminRole('settings');
+  const gate = await requireAdminRole('ops');
   if (!gate.ok) return gate.response;
 
   const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';

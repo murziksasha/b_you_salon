@@ -46,17 +46,17 @@
 
 Адмін-бот B_You — **черга оператора в Telegram**, не клієнтський канал і не заміна адмінки. Username бота не публікується на сайті.
 
-Доступ: лише paired subscribers (`data/telegram-subscribers.json`) після одноразового коду з `/admin/ops`. Стороннім — тиша; `/start` без коду — «Немає доступу.» Ліміт: 20 команд/хв на `userId`. Процес: pm2 `byou-telegram` (long-poll). Пуші лідів/замовлень шле процес Next.js (`notifyLead` / `notifyOrder`).
+Доступ: лише paired subscribers (`data/telegram-subscribers.json`) після одноразового коду з `/admin/ops` або Налаштувань (потрібне право `telegram`). Стороннім — тиша; `/start` без коду — «Немає доступу.» Ліміт: 20 команд/хв на `userId`. Оновлення: HTTPS webhook `POST /api/telegram/webhook` (`TELEGRAM_WEBHOOK_SECRET` + публічний https `SITE_URL`). Long-poll `pm2 byou-telegram` — fallback без публічного URL. Пуші лідів/замовлень шле процес Next.js (`notifyLead` / `notifyOrder`). Дайджест — у Next.js instrumentation.
 
 ### Картка пуша
 
 ```
 Запис | Заявка | Продаж
-ДД.ММ.РРРР, ГГ:ХХ
+Надіслано: ДД.ММ.РРРР, ГГ:ХХ
 +38067***12
 Статус: Нова
-Послуга/Товар: …
-коментар (якщо є)
+Потрібно: … / Товари: • … ×n
+Імʼя / адреса / коментар — якщо є
 ```
 
 1. **Маска телефону** у пуші та в списках «Останні записи/продажі»: `+38067***12`. Повний номер лише в `/find`, кнопці «Копіювати номер», файлах на диску.
