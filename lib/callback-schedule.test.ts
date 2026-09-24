@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { buildDayTimeline, isOverdueCallback, snoozeHours, snoozeTomorrow } from './callback-schedule';
+import {
+  buildDayTimeline,
+  fromDatetimeLocalValue,
+  isOverdueCallback,
+  snoozeHours,
+  snoozeTomorrow,
+  toDatetimeLocalValue,
+} from './callback-schedule';
 
 describe('callback-schedule', () => {
   it('snoozeHours advances time', () => {
@@ -21,6 +28,15 @@ describe('callback-schedule', () => {
     const future = new Date(Date.now() + 60_000).toISOString();
     expect(isOverdueCallback(past)).toBe(true);
     expect(isOverdueCallback(future)).toBe(false);
+  });
+
+  it('datetime-local round-trips local time', () => {
+    const local = '2026-03-15T10:15';
+    const iso = fromDatetimeLocalValue(local);
+    expect(iso).toBeTruthy();
+    expect(toDatetimeLocalValue(iso)).toBe(local);
+    expect(fromDatetimeLocalValue('')).toBeNull();
+    expect(toDatetimeLocalValue(undefined)).toBe('');
   });
 
   it('buildDayTimeline groups by hour', () => {

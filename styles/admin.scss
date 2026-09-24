@@ -1899,9 +1899,10 @@ body:has(.admin-body) {
   margin: 0;
   padding: 0;
 }
-/* Sessions panel: show ~10 rows, scroll the rest inside the list */
+/* Settings → Сесії: show ~10 rows, scroll the rest inside the list */
 .admin-sessions-list {
-  max-height: calc(10 * (32px + 1.2em + 4px + 0.95em));
+  --admin-session-row: calc(16px + 1.15em + 4px + 0.95em + 16px + 1px);
+  max-height: calc(10 * var(--admin-session-row));
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -2539,7 +2540,7 @@ body:has(.admin-body) {
   }
   &__time { color: #789; white-space: nowrap; min-width: 9rem; }
   &--scroll {
-    max-height: calc(10 * var(--admin-activity-row));
+    max-height: calc(15 * var(--admin-activity-row));
     overflow-y: auto;
     overscroll-behavior: contain;
     li {
@@ -2661,7 +2662,54 @@ body:has(.admin-body) {
   }
 }
 
-.admin-field { display: block; margin-bottom: 8px; font-size: 0.9rem; }
+.admin-field {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+  font-weight: 550;
+  color: var(--admin-muted-ink);
+
+  input:not([type='checkbox']):not([type='radio']):not(.admin-field-sm),
+  textarea,
+  select,
+  .admin-select {
+    display: block;
+    width: 100%;
+    margin-top: 6px;
+    margin-bottom: 0;
+    padding: 11px 12px;
+    border: 1px solid var(--admin-line-strong);
+    border-radius: 10px;
+    background: var(--admin-surface);
+    color: var(--admin-ink);
+    font: inherit;
+    box-sizing: border-box;
+
+    &:focus {
+      outline: 2px solid color-mix(in srgb, var(--admin-gold) 55%, transparent);
+      outline-offset: 1px;
+      border-color: var(--admin-gold);
+    }
+  }
+
+  textarea {
+    min-height: 96px;
+    resize: vertical;
+  }
+}
+
+.admin-template-preview {
+  margin: 8px 0 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--admin-line);
+  border-radius: 10px;
+  background: var(--admin-surface-2);
+  color: var(--admin-muted-ink);
+  font-size: 0.9rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 .admin-btn.is-active { background: var(--admin-gold); border-color: var(--admin-gold); color: var(--admin-gold-ink); outline: none; }
  
 .admin-richtext__toolbar{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}  

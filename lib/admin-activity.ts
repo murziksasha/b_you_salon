@@ -29,7 +29,7 @@ export type ActivityEntry = {
 
 type ActivityStore = { entries: ActivityEntry[] };
 
-const MAX_ENTRIES = 200;
+const MAX_ENTRIES = 500;
 
 function dataRoot(): string {
   return process.env.DATA_DIR || path.join(process.cwd(), 'data');

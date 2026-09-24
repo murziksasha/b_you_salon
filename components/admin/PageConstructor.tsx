@@ -1328,7 +1328,7 @@ export function PageConstructor({ initialData, pageSlug }: { initialData: SiteDa
                       </div>
                     </div>
                     <p className='admin-hint admin-mb'>
-                      Якщо список порожній — на сайті покажуться телефони з Налаштувань.
+                      Якщо список порожній — на сайті покажуться телефони з Налаштувань. Картки людей (Наталія / Ірина) живуть у полі people секції і більше не зникають при збереженні.
                     </p>
                     {(section.phones || []).map((phone, pi) => (
                       <div key={pi} className='admin-nested-card'>

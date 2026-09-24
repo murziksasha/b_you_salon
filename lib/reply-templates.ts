@@ -86,8 +86,22 @@ export function viberChatLink(phone: string): string {
   return d ? `viber://chat?number=%2B${d}` : 'viber://';
 }
 
-export function telegramShareLink(text: string): string {
-  return `https://t.me/share/url?url=${encodeURIComponent('')}&text=${encodeURIComponent(text)}`;
+/** Opens the Telegram app compose/share sheet with the template text. */
+export function telegramAppShareLink(text: string): string {
+  return `tg://msg?text=${encodeURIComponent(text)}`;
+}
+
+/**
+ * Web share fallback. `url` must be non-empty — an empty url opens t.me home.
+ */
+export function telegramWebShareLink(text: string, url: string): string {
+  const shareUrl = url.trim() || 'https://t.me';
+  return `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(text)}`;
+}
+
+/** @deprecated empty-url share opened t.me home; use telegramAppShareLink / telegramWebShareLink */
+export function telegramShareLink(text: string, url = 'https://t.me'): string {
+  return telegramWebShareLink(text, url);
 }
 
 export function smsLink(phone: string, body: string): string {

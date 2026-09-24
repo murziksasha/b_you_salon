@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { listLeads, updateLead, deleteLead } from '@/lib/leads';
 import { listOrders, updateOrder, deleteOrder } from '@/lib/orders';
 import { historyByPhone, mergeInbox } from '@/lib/inbox';
-import { isWorkflowStatus, validateClosePatch } from '@/lib/workflow';
+import { isWorkflowStatus, resolveCloseOutcome, validateClosePatch } from '@/lib/workflow';
 import { appendActivity } from '@/lib/admin-activity';
 import { requireAdminRole } from '@/lib/require-role';
 import { toCsv } from '@/lib/csv';
@@ -86,9 +86,10 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
     }
     const status = body.status as undefined | import('@/lib/workflow').WorkflowStatus;
+    const outcome = resolveCloseOutcome(status, body.outcome);
     const closeErr = validateClosePatch({
       status,
-      outcome: body.outcome,
+      outcome,
       note: body.note,
     });
     if (closeErr) {
@@ -100,7 +101,7 @@ export async function PATCH(request: NextRequest) {
       handled: body.handled,
       note: body.note,
       callbackAt: body.callbackAt,
-      outcome: body.outcome as undefined | import('@/lib/workflow').CloseOutcome,
+      outcome,
       assignee: body.assignee,
     };
 
