@@ -80,3 +80,10 @@ Each backend domain module in `lib/` follows:
 - **Data Access:** File persistence wrapped with `atomicWriteFile` and file mutex locks.
 - **Route Handlers:** `app/api/<domain>/route.ts` validating requests, checking sessions/roles via `require-role.ts`, and invoking domain logic.
 - **Testing:** Co-located or parallel unit tests named `<module>.test.ts` executed via Vitest.
+
+## Plan Mode Discipline
+
+- When creating an implementation plan (or in Plan mode):
+  - Always create the plan artifact with `RequestFeedback: true`.
+  - **Halt immediately** upon creating the plan. Never start executing tasks or editing code automatically.
+  - Explicitly ask the user for approval to proceed with the implementation.
