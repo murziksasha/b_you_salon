@@ -30,6 +30,7 @@ import { ProductMediaEditor } from './ProductMediaEditor';
 import { StickySaveBar } from './StickySaveBar';
 import { PriceHistory } from './PriceHistory';
 import { RelatedProductsPicker } from './RelatedProductsPicker';
+import { CategorySelectDropdown } from './CategorySelectDropdown';
 
 type ListMode = 'grouped' | 'flat';
 
@@ -176,6 +177,14 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
       };
     });
   }, [data.goods, categorySuggestions]);
+
+  const categoryCounts = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const item of categoryChipStats) {
+      map[item.cat] = item.total;
+    }
+    return map;
+  }, [categoryChipStats]);
 
   const filtersActive = useMemo(() => {
     return (
@@ -996,27 +1005,25 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
             onChange={(patch) => setEditing({ ...editing, ...patch })}
             disabled={saving}
           />
-          <label>
-            Категорія (група на сайті)
-            <input
-              list='goods-category-suggestions'
+          <div>
+            <label htmlFor='goods-editing-category'>
+              Категорія (група на сайті)
+            </label>
+            <CategorySelectDropdown
+              id='goods-editing-category'
               value={editing.category || ''}
-              onChange={(e) => setEditing({ ...editing, category: e.target.value })}
-              placeholder={`Напр. Телефони, ТВ… (порожньо = ${DEFAULT_CATEGORY})`}
+              onChange={(cat) =>
+                setEditing({ ...editing, category: cat === DEFAULT_CATEGORY ? '' : cat })
+              }
+              categories={categorySuggestions}
+              counts={categoryCounts}
+              disabled={saving}
             />
-            <datalist id='goods-category-suggestions'>
-              {categorySuggestions
-                .filter((cat) => cat !== DEFAULT_CATEGORY)
-                .map((cat) => (
-                  <option key={cat} value={cat} />
-                ))}
-              <option value={DEFAULT_CATEGORY} />
-            </datalist>
             <span className='admin-hint'>
               Опційно. Порожнє поле = «{DEFAULT_CATEGORY}». Однакова назва об’єднує товари в групу в
               адмінці та на /shop.
             </span>
-          </label>
+          </div>
           <label>
             Опис
             <textarea

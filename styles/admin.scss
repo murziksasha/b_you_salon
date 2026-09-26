@@ -11,6 +11,7 @@ body:has(.admin-body) {
   margin: 0;
 }
 
+:root,
 .admin-body {
   --admin-bg: #f7f1ea;
   --admin-surface: #fffcf8;
@@ -2826,3 +2827,298 @@ kbd {
   background: var(--admin-nav);
   color: var(--admin-cream);
 } 
+
+/* ==========================================================================
+   Category Select Dropdown with Blocking Backdrop
+   ========================================================================== */
+
+.admin-category-select {
+  position: relative;
+  width: 100%;
+}
+
+.admin-category-select__trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 11px 12px;
+  border: 1px solid var(--admin-line-strong);
+  border-radius: 10px;
+  margin-bottom: 6px;
+  box-sizing: border-box;
+  font-size: 1rem;
+  line-height: 1.4;
+  background: var(--admin-surface);
+  color: var(--admin-ink);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s ease, outline 0.15s ease;
+
+  &:hover {
+    border-color: var(--admin-gold);
+  }
+
+  &:focus,
+  &:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--admin-gold) 55%, transparent);
+    outline-offset: 1px;
+    border-color: var(--admin-gold);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.admin-category-select__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-category-select__current {
+  color: var(--admin-ink);
+  font-weight: 500;
+}
+
+.admin-category-select__placeholder {
+  color: var(--admin-muted-ink);
+  font-weight: 400;
+}
+
+.admin-category-select__chevron {
+  flex-shrink: 0;
+  color: var(--admin-muted-ink);
+  transition: transform 0.2s ease;
+
+  &.is-open {
+    transform: rotate(180deg);
+    color: var(--admin-gold);
+  }
+}
+
+.admin-category-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(1px);
+  cursor: pointer;
+  animation: adminCategoryFadeIn 0.15s ease-out;
+}
+
+@keyframes adminCategoryFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.admin-category-menu {
+  position: fixed;
+  z-index: 901;
+  background: #ffffff;
+  color: var(--admin-ink, #1a1208);
+  border: 1px solid var(--admin-line-strong);
+  border-radius: 12px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22);
+  display: flex;
+  flex-direction: column;
+  max-height: 380px;
+  overflow: hidden;
+  box-sizing: border-box;
+  animation: adminCategorySlideIn 0.15s ease-out;
+
+  &.is-above {
+    animation: adminCategorySlideUp 0.15s ease-out;
+  }
+}
+
+@keyframes adminCategorySlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes adminCategorySlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.admin-category-menu__header {
+  padding: 8px 8px 6px;
+  border-bottom: 1px solid var(--admin-line);
+  background: #ffffff;
+}
+
+.admin-category-menu__search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--admin-surface-2, var(--admin-tint));
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+  padding: 0 8px;
+}
+
+.admin-category-menu__search-icon {
+  color: var(--admin-muted-ink);
+  flex-shrink: 0;
+  margin-right: 6px;
+}
+
+.admin-category-menu__search-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 8px 4px;
+  font-size: 0.95rem;
+  color: var(--admin-ink);
+  outline: none;
+  margin-bottom: 0 !important;
+
+  &::placeholder {
+    color: var(--admin-muted-ink);
+  }
+}
+
+.admin-category-menu__clear-btn {
+  background: transparent;
+  border: none;
+  color: var(--admin-muted-ink);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+
+  &:hover {
+    color: var(--admin-ink);
+  }
+}
+
+.admin-category-menu__list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: #ffffff;
+}
+
+.admin-category-menu__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.95rem;
+  color: var(--admin-ink);
+  transition: background-color 0.1s ease;
+
+  &.is-highlighted {
+    background: var(--admin-tint);
+  }
+
+  &.is-selected {
+    font-weight: 600;
+    color: var(--admin-gold);
+    background: color-mix(in srgb, var(--admin-gold) 10%, var(--admin-surface));
+  }
+}
+
+.admin-category-menu__item-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-category-menu__item-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.admin-category-menu__count {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--admin-muted-ink);
+  background: var(--admin-line);
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.admin-category-menu__check {
+  color: var(--admin-gold);
+  flex-shrink: 0;
+}
+
+.admin-category-menu__badge {
+  font-size: 0.75rem;
+  font-weight: 400;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--admin-line);
+  color: var(--admin-muted-ink);
+
+  &--new {
+    background: color-mix(in srgb, var(--admin-gold) 20%, transparent);
+    color: var(--admin-gold);
+    font-weight: 600;
+  }
+}
+
+.admin-category-menu__item--create {
+  color: var(--admin-gold);
+  border-top: 1px dashed var(--admin-line);
+  margin-top: 4px;
+  padding-top: 8px;
+
+  .admin-category-menu__create-icon {
+    flex-shrink: 0;
+  }
+}
+
+.admin-category-menu__empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--admin-muted-ink);
+  font-size: 0.9rem;
+}
+
+.admin-category-menu__footer {
+  padding: 8px 12px;
+  border-top: 1px solid var(--admin-line);
+  background: var(--admin-surface-2, var(--admin-tint));
+  font-size: 0.8rem;
+  color: var(--admin-muted-ink);
+}

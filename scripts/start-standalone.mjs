@@ -6,7 +6,7 @@
  * We do NOT copy uploads into the standalone snapshot so runtime writes stay durable
  * and `app/uploads/[name]` can serve them without a process restart.
  */
-import { cpSync, existsSync, mkdirSync, readdirSync, statSync, symlinkSync, rmSync } from 'fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, symlinkSync, rmSync } from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
@@ -50,7 +50,6 @@ mkdirSync(uploadsSrc, { recursive: true });
 function linkUploads() {
   try {
     if (existsSync(uploadsDest)) {
-      const st = statSync(uploadsDest);
       // If it's already a symlink/junction, leave it; if a real dir with files, replace carefully
       try {
         rmSync(uploadsDest, { recursive: true, force: true });

@@ -58,7 +58,7 @@ const SETTINGS: SiteSettings = {
   reviewsUrl: '',
 };
 
-const ADVANTAGES: Section = {
+export const ADVANTAGES: Section = {
   id: 'adv-salon',
   type: 'advantages',
   visible: true,

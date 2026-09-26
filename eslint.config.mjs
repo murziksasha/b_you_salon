@@ -11,20 +11,22 @@ const compat = new FlatCompat({
 
 /** @type {import('eslint').Linter.Config[]} */
 const config = [
-  ...compat.extends('next/core-web-vitals', 'next/typescript'),
   {
     ignores: [
       'node_modules/**',
       '.next/**',
       'dist/**',
+      'coverage/**',
       'mailer/**',
       'public/**',
       'mcps/**',
       'next-env.d.ts',
       '**/*.test.ts',
       '**/*.test.tsx',
+      'ecosystem.config.cjs',
     ],
   },
+  ...compat.extends('next/core-web-vitals', 'next/typescript'),
   {
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
