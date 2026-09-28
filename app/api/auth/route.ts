@@ -102,7 +102,7 @@ export async function GET() {
   });
 }
 
-export async function DELETE(request: NextRequest) {
+export async function DELETE(_request: NextRequest) {
   try {
     const claims = await getSessionClaims();
     const fp = await getSessionFingerprint();

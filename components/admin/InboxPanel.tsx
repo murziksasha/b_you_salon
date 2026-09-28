@@ -220,7 +220,52 @@ export function InboxPanel({
         /* ignore */
       }
     })();
-  }, [selected?.id, selected?.kind, selected?.phone]);
+  }, [selected]);
+
+  const patch = useCallback(
+    async (
+      item: InboxItem,
+      body: {
+        status?: WorkflowStatus;
+        note?: string;
+        callbackAt?: string;
+        handled?: boolean;
+        outcome?: CloseOutcome;
+        assignee?: string;
+      },
+      okMsg: string,
+    ) => {
+      if (body.status && statusRequiresOutcome(body.status)) {
+        const outcome = resolveCloseOutcome(body.status, body.outcome);
+        if (!outcome) {
+          showToast('Оберіть результат закриття (outcome)', 'error');
+          return;
+        }
+        body = { ...body, outcome };
+      }
+      setBusy(true);
+      try {
+        const res = await fetch('/api/inbox', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind: item.kind, id: item.id, ...body }),
+        });
+        if (!res.ok) {
+          const j = (await res.json().catch(() => ({}))) as { error?: string };
+          showToast(j.error || 'Не вдалося оновити', 'error');
+          return;
+        }
+        showToast(okMsg, 'success');
+        await load();
+        await refreshCounts();
+      } catch {
+        showToast('Мережева помилка', 'error');
+      } finally {
+        setBusy(false);
+      }
+    },
+    [load, refreshCounts],
+  );
 
   // Keyboard navigation
   useEffect(() => {
@@ -255,49 +300,7 @@ export function InboxPanel({
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [visible, selected]);
-
-  async function patch(
-    item: InboxItem,
-    body: {
-      status?: WorkflowStatus;
-      note?: string;
-      callbackAt?: string;
-      handled?: boolean;
-      outcome?: CloseOutcome;
-      assignee?: string;
-    },
-    okMsg: string,
-  ) {
-    if (body.status && statusRequiresOutcome(body.status)) {
-      const outcome = resolveCloseOutcome(body.status, body.outcome);
-      if (!outcome) {
-        showToast('Оберіть результат закриття (outcome)', 'error');
-        return;
-      }
-      body = { ...body, outcome };
-    }
-    setBusy(true);
-    try {
-      const res = await fetch('/api/inbox', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kind: item.kind, id: item.id, ...body }),
-      });
-      if (!res.ok) {
-        const j = (await res.json().catch(() => ({}))) as { error?: string };
-        showToast(j.error || 'Не вдалося оновити', 'error');
-        return;
-      }
-      showToast(okMsg, 'success');
-      await load();
-      await refreshCounts();
-    } catch {
-      showToast('Мережева помилка', 'error');
-    } finally {
-      setBusy(false);
-    }
-  }
+  }, [visible, selected, patch]);
 
   async function remove(item: InboxItem) {
     setBusy(true);
