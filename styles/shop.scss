@@ -818,3 +818,32 @@
     color: var(--by-cream, #f5ede4);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Characteristics table (product detail page)
+// ---------------------------------------------------------------------------
+.shop-char-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.4rem 0;
+  font-size: 1.4rem;
+
+  th,
+  td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid rgba(255 255 255 / 0.12);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  th {
+    width: 40%;
+    color: var(--by-cream-muted, rgba(245 237 228 / 0.6));
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  td {
+    color: var(--by-cream, #f5ede4);
+  }
+}

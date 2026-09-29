@@ -5,11 +5,13 @@ import { BreadcrumbJsonLd } from '@/components/seo/BreadcrumbJsonLd';
 import { ProductJsonLd } from '@/components/seo/ProductJsonLd';
 import { ProductCard } from '@/components/shop/ProductCard';
 import { ProductGallery } from '@/components/shop/ProductGallery';
+import { CharacteristicsTable } from '@/components/shop/CharacteristicsTable';
 import { formatTelHref } from '@/lib/phone';
 import { getRelatedProducts } from '@/lib/related-products';
 import { requestSiteUrl } from '@/lib/request-site-url';
 import { buildPublicMetadata, shareImageFromSettings } from '@/lib/seo-metadata';
 import { getProduct, getProducts, getSiteData } from '@/lib/site-data';
+
 
 export const dynamic = 'force-dynamic';
 
@@ -92,6 +94,9 @@ export default async function ProductPage({ params }: PageProps) {
           {product.code ? <p className='shop-detail__code'>Код: {product.code}</p> : null}
           <p className='shop-detail__price'>{product.price.toLocaleString('uk-UA')} ₴</p>
           <p className='shop-detail__desc'>{product.description}</p>
+          {product.characteristics ? (
+            <CharacteristicsTable raw={product.characteristics} />
+          ) : null}
           {product.video ? (
             <div className='shop-detail__video'>
               <h2 className='shop-detail__video-title'>Огляд</h2>

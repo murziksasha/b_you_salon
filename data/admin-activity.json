@@ -1,6 +1,27 @@
 {
   "entries": [
     {
+      "id": "d580f566b9e9",
+      "at": "2026-09-29T05:35:58.904Z",
+      "kind": "site_save",
+      "message": "Імпорт фіду: +0 нових, 1324 оновлено (JSON)",
+      "actor": "admin"
+    },
+    {
+      "id": "8cc0a3bb9e26",
+      "at": "2026-09-29T05:30:01.492Z",
+      "kind": "site_save",
+      "message": "Імпорт фіду: +1324 нових, 0 оновлено (JSON)",
+      "actor": "admin"
+    },
+    {
+      "id": "85980246749c",
+      "at": "2026-09-29T05:12:18.456Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
       "id": "ed7fe305fc7a",
       "at": "2026-09-23T01:15:27.761Z",
       "kind": "login",
