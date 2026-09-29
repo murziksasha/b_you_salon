@@ -4,6 +4,7 @@
 # next.js
 /.next/
 /out/
+*.tsbuildinfo
 
 # production
 /build
@@ -19,19 +20,13 @@
 /public/uploads/*
 !/public/uploads/.gitkeep
 
-# data overrides (optional local edits)
+# data overrides & runtime CMS state (seed template kept)
+/data/*.json
+!/data/site.seed.json
 /data/site.json.bak
 /data/backups/
-/data/leads.json
-/data/orders.json
-/data/admin-totp.json
-/data/media-index.json
-
-# sensitive credential & session data
-/data/admins.json
-/data/admin-sessions.json
-/data/admin-activity.json
-/data/telegram-subscribers.json
+/data/previews/
+/data/revisions/
 
 # misc
 .DS_Store

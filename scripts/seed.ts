@@ -10,11 +10,18 @@ async function main(): Promise<void> {
   await fs.mkdir(path.dirname(targetPath), { recursive: true });
   await fs.mkdir(path.dirname(seedPath), { recursive: true });
 
-  const json = JSON.stringify(defaultSiteData, null, 2);
-  await fs.writeFile(seedPath, json, 'utf-8');
-  await fs.writeFile(targetPath, json, 'utf-8');
+  let json: string;
+  const seedTemplatePath = path.join(process.cwd(), 'data', 'site.seed.json');
+  try {
+    json = await fs.readFile(seedTemplatePath, 'utf-8');
+    console.log(`Using seed template from ${seedTemplatePath}`);
+  } catch {
+    json = JSON.stringify(defaultSiteData, null, 2);
+    console.log('Using minimal defaultSiteData');
+  }
 
-  console.log(`Seeded site data to ${seedPath} and ${targetPath}`);
+  await fs.writeFile(targetPath, json, 'utf-8');
+  console.log(`Seeded site data to ${targetPath}`);
 }
 
 main().catch((error: unknown) => {

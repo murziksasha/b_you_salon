@@ -46,9 +46,25 @@ async function readSiteDataUnlocked(): Promise<SiteData> {
   } catch (err) {
     const code = (err as NodeJS.ErrnoException)?.code;
     if (code === 'ENOENT') {
-      // First run: file doesn't exist yet — seed with defaults
-      const { defaultSiteData } = await import('./default-site-data');
+      // First run: file doesn't exist yet — seed with site.seed.json or defaults
       await ensureDataDir(filePath);
+      const candidateSeeds = [
+        path.join(path.dirname(filePath), 'site.seed.json'),
+        path.join(process.cwd(), 'data', 'site.seed.json'),
+      ];
+
+      for (const seedPath of candidateSeeds) {
+        try {
+          const seedRaw = await fs.readFile(seedPath, 'utf-8');
+          const seedData = JSON.parse(seedRaw) as SiteData;
+          await atomicWriteJson(filePath, seedData);
+          return normalizeSiteData(seedData);
+        } catch {
+          // try next candidate
+        }
+      }
+
+      const { defaultSiteData } = await import('./default-site-data');
       await atomicWriteJson(filePath, defaultSiteData);
       return normalizeSiteData(defaultSiteData);
     }
@@ -184,39 +200,39 @@ export async function deleteProduct(id: string): Promise<boolean> {
 
 export async function createPage(page: Omit<Page, 'id'> & { id?: string }): Promise<Page> {
   return withSiteDataLock(async () => {
-  const data = await readSiteDataUnlocked();
-  const newPage: Page = {
-    id: page.id || createId(),
-    ...page,
-  } as Page;
+    const data = await readSiteDataUnlocked();
+    const newPage: Page = {
+      id: page.id || createId(),
+      ...page,
+    } as Page;
 
-  // ensure unique slug
-  let slug = newPage.slug;
-  let suffix = 1;
-  while (data.pages.some(p => p.slug === slug)) {
-    slug = `${page.slug || 'page'}-${suffix++}`;
-  }
-  newPage.slug = slug;
+    // ensure unique slug
+    let slug = newPage.slug;
+    let suffix = 1;
+    while (data.pages.some(p => p.slug === slug)) {
+      slug = `${page.slug || 'page'}-${suffix++}`;
+    }
+    newPage.slug = slug;
 
-  data.pages.push(newPage);
-  await saveSiteDataUnlocked(data);
-  return newPage;
+    data.pages.push(newPage);
+    await saveSiteDataUnlocked(data);
+    return newPage;
   });
 }
 
 export async function deletePage(id: string): Promise<boolean> {
   return withSiteDataLock(async () => {
-  const data = await readSiteDataUnlocked();
-  // protect home
-  const target = data.pages.find(p => p.id === id);
-  if (!target || target.slug === '') return false;
+    const data = await readSiteDataUnlocked();
+    // protect home
+    const target = data.pages.find(p => p.id === id);
+    if (!target || target.slug === '') return false;
 
-  const before = data.pages.length;
-  data.pages = data.pages.filter(p => p.id !== id);
-  if (data.pages.length === before) return false;
+    const before = data.pages.length;
+    data.pages = data.pages.filter(p => p.id !== id);
+    if (data.pages.length === before) return false;
 
-  await saveSiteDataUnlocked(data);
-  return true;
+    await saveSiteDataUnlocked(data);
+    return true;
   });
 }
 

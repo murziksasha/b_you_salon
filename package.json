@@ -3,7 +3,10 @@
   "version": "2.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3001",
+    "data:pull-prod": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/pull-prod-data.ps1",
+    "prod:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/setup-prod.ps1",
+    "deploy:prod": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/deploy-prod.ps1",
     "docker:dev": "docker compose -f docker-compose.dev.yml up --build",
     "build": "next build",
     "start": "node scripts/start-standalone.mjs",
