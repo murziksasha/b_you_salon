@@ -654,6 +654,29 @@
   &__desc {
     margin-bottom: 20px;
     color: var(--by-muted, #b8a99a);
+    font-size: 1.05rem;
+    line-height: 1.6;
+
+    p {
+      margin: 0 0 12px;
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+
+    ul, ol {
+      margin: 0 0 12px 20px;
+      padding: 0;
+    }
+
+    li {
+      margin-bottom: 4px;
+    }
+
+    b, strong {
+      color: var(--by-cream, #f5ede4);
+      font-weight: 600;
+    }
   }
 
   &__actions {

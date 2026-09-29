@@ -8,6 +8,7 @@ import {
   parseLivestaJson,
   parseLivestaXml,
   buildCharacteristics,
+  cleanFeedDescription,
   detectFeedFormat,
   type FeedProduct,
 } from '@/lib/feed-import';
@@ -37,7 +38,7 @@ function buildProduct(fp: FeedProduct, imageUrl: string): Omit<Product, 'id'> {
 
   return {
     title: fp.name,
-    description: fp.description,
+    description: cleanFeedDescription(fp.description),
     characteristics: characteristics || undefined,
     price: fp.price,
     image: imageUrl || PRODUCT_PLACEHOLDER_IMAGE,

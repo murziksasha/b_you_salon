@@ -1,4 +1,5 @@
 import { XMLParser } from 'fast-xml-parser';
+import sanitizeHtmlLib from 'sanitize-html';
 
 export interface FeedProduct {
   sku: string;
@@ -13,6 +14,82 @@ export interface FeedProduct {
   netVolume?: string;
   unit?: string;
   quantity?: string;
+}
+
+// ---------------------------------------------------------------------------
+// HTML Cleaning Helpers
+// ---------------------------------------------------------------------------
+
+export function decodeHtmlEntities(str: string): string {
+  let prev = '';
+  let curr = str;
+  for (let i = 0; i < 3 && prev !== curr; i++) {
+    prev = curr;
+    curr = curr
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&quot;/gi, '"')
+      .replace(/&#0?39;/gi, "'")
+      .replace(/&apos;/gi, "'")
+      .replace(/&amp;/gi, '&');
+  }
+  return curr;
+}
+
+export function cleanFeedDescription(raw: unknown): string {
+  if (!raw) return '';
+  let str = typeof raw === 'string' ? raw : String(raw);
+  str = str.trim();
+  if (!str) return '';
+
+  if (
+    str.includes('&lt;') ||
+    str.includes('&gt;') ||
+    str.includes('&quot;') ||
+    str.includes('&#039;') ||
+    str.includes('&apos;') ||
+    str.includes('&amp;')
+  ) {
+    str = decodeHtmlEntities(str);
+  }
+
+  // If no HTML tags present, return cleaned string
+  if (!str.includes('<') && !str.includes('>')) {
+    return str;
+  }
+
+  // Strip head, style, script and their contents
+  str = str.replace(/<head[^>]*>[\s\S]*?<\/head>/gi, '');
+  str = str.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+  str = str.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
+
+  const cleaned = sanitizeHtmlLib(str, {
+    allowedTags: ['p', 'b', 'strong', 'i', 'em', 'br', 'ul', 'ol', 'li', 'span'],
+    allowedAttributes: {},
+    nonTextTags: ['style', 'script', 'textarea', 'option', 'noscript', 'head'],
+  }).trim();
+
+  return cleaned;
+}
+
+export function stripHtmlToPlainText(raw: string | undefined | null): string {
+  if (!raw) return '';
+  let str = String(raw).trim();
+  if (!str) return '';
+  if (str.includes('&lt;') || str.includes('&gt;')) {
+    str = decodeHtmlEntities(str);
+  }
+  str = str.replace(/<head[^>]*>[\s\S]*?<\/head>/gi, '');
+  str = str.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+  str = str.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
+  // Replace block element endings and line breaks with space
+  str = str.replace(/<\/(p|div|li|h[1-6])>/gi, ' ');
+  str = str.replace(/<br\s*\/?>/gi, ' ');
+  // Strip remaining tags
+  str = str.replace(/<[^>]+>/g, '');
+  // Clean up any stray spaces before punctuation
+  str = str.replace(/\s+([.,;:!?])/g, '$1');
+  return str.replace(/\s+/g, ' ').trim();
 }
 
 // ---------------------------------------------------------------------------
@@ -61,7 +138,9 @@ function toStr(v: unknown): string {
 }
 
 function mapRaw(r: RawFeedItem): FeedProduct | null {
-  const sku = toStr(r.sku || r.vendorCode || r.vendor_code || r.code || r.productId || r.product_id || r.id || r['@_id']);
+  const sku = toStr(
+    r.sku || r.vendorCode || r.vendor_code || r.code || r.productId || r.product_id || r.id || r['@_id'],
+  );
   const name = toStr(r.name || r.title);
   if (!sku || !name) return null;
 
@@ -75,7 +154,7 @@ function mapRaw(r: RawFeedItem): FeedProduct | null {
   return {
     sku,
     name,
-    description: toStr(r.description),
+    description: cleanFeedDescription(toStr(r.description)),
     price: displayPrice,
     rrp,
     thumbUrl,

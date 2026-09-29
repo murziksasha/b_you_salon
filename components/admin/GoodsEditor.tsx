@@ -26,6 +26,7 @@ import { ProductMediaEditor } from './ProductMediaEditor';
 import { StickySaveBar } from './StickySaveBar';
 import { PriceHistory } from './PriceHistory';
 import { RelatedProductsPicker } from './RelatedProductsPicker';
+import { RichTextField } from './RichTextField';
 
 type ListMode = 'grouped' | 'flat';
 
@@ -1188,14 +1189,14 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
               /shop.
             </span>
           </label>
-          <label>
-            Опис
-            <textarea
-              rows={3}
-              value={editing.description}
-              onChange={e => setEditing({ ...editing, description: e.target.value })}
+          <div className='admin-field'>
+            <RichTextField
+              label='Опис'
+              value={editing.description || ''}
+              onChange={val => setEditing({ ...editing, description: val })}
+              rows={4}
             />
-          </label>
+          </div>
           <label className='admin-check admin-goods-publish'>
             <input
               type='checkbox'

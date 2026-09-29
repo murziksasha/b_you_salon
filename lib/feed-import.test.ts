@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildCharacteristics,
+  cleanFeedDescription,
+  decodeHtmlEntities,
   detectFeedFormat,
   parseLivestaJson,
   parseLivestaXml,
+  stripHtmlToPlainText,
   type FeedProduct,
 } from './feed-import';
 
@@ -245,6 +248,32 @@ describe('feed-import', () => {
         netVolume: '30',
         unit: 'мл',
       });
+    });
+  });
+
+  describe('cleanFeedDescription & stripHtmlToPlainText', () => {
+    it('decodes escaped HTML entities including nested ones', () => {
+      expect(decodeHtmlEntities('&lt;p&gt;Hello &amp;amp; World&lt;/p&gt;')).toBe('<p>Hello & World</p>');
+    });
+
+    it('strips doctype, head, style, and script tags and retains safe HTML', () => {
+      const dirty = `&lt;!DOCTYPE html&gt;&lt;html dir=&quot;ltr&quot;&gt;&lt;head&gt;&lt;style type=&quot;text/css&quot;&gt;body{color:red;}&lt;/style&gt;&lt;/head&gt;&lt;body&gt;&lt;p&gt;Бальзам з екстрактом &lt;b&gt;каштана&lt;/b&gt;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;`;
+      const cleaned = cleanFeedDescription(dirty);
+      expect(cleaned).toBe('<p>Бальзам з екстрактом <b>каштана</b>.</p>');
+      expect(cleaned).not.toContain('DOCTYPE');
+      expect(cleaned).not.toContain('style');
+      expect(cleaned).not.toContain('color:red');
+    });
+
+    it('handles plain text gracefully', () => {
+      expect(cleanFeedDescription('Простий опис товару')).toBe('Простий опис товару');
+      expect(cleanFeedDescription('')).toBe('');
+      expect(cleanFeedDescription(null)).toBe('');
+    });
+
+    it('converts HTML to clean plain text for card previews', () => {
+      const html = '<p>Бальзам з екстрактом <b>кінського каштана</b>.</p><p>Другий абзац.</p>';
+      expect(stripHtmlToPlainText(html)).toBe('Бальзам з екстрактом кінського каштана. Другий абзац.');
     });
   });
 });
