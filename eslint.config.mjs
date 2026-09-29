@@ -17,6 +17,7 @@ const config = [
       'node_modules/**',
       '.next/**',
       'dist/**',
+      'coverage/**',
       'mailer/**',
       'public/**',
       'mcps/**',
@@ -26,12 +27,15 @@ const config = [
     ],
   },
   {
+    files: ['**/*.cjs'],
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
+  {
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-unused-vars': [
-        'warn',
-        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
-      ],
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       'react/no-danger': 'off',
     },
   },

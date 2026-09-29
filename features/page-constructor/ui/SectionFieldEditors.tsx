@@ -2,9 +2,9 @@
 
 import type { PhoneEntry, Section, SiteData, SocialLink } from '@/lib/types';
 import { createId } from '@/lib/id';
-import { showToast } from '../AdminToast';
-import { ImageField } from '../ImageField';
-import { RichTextField } from '../RichTextField';
+import { showToast } from '@/components/admin/AdminToast';
+import { ImageField } from '@/components/admin/ImageField';
+import { RichTextField } from '@/components/admin/RichTextField';
 
 export const SOCIAL_TYPES = [
   { type: 'viber', icon: '/img/icons/viber.svg' },
@@ -21,12 +21,7 @@ export interface SectionFieldEditorsProps {
   settings: SiteData['settings'];
 }
 
-export function SectionFieldEditors({
-  section,
-  index,
-  patchSection,
-  settings,
-}: SectionFieldEditorsProps) {
+export function SectionFieldEditors({ section, index, patchSection, settings }: SectionFieldEditorsProps) {
   return (
     <>
       {section.type === 'hero' ? (
@@ -36,13 +31,13 @@ export function SectionFieldEditors({
             <textarea
               rows={2}
               value={section.titleHtml}
-              onChange={(e) => patchSection(index, { titleHtml: e.target.value })}
+              onChange={e => patchSection(index, { titleHtml: e.target.value })}
             />
           </label>
           <RichTextField
             label='Заголовок (rich text)'
             value={section.titleHtml || ''}
-            onChange={(html) => patchSection(index, { titleHtml: html })}
+            onChange={html => patchSection(index, { titleHtml: html })}
             rows={3}
             hint='Жирний / курсив / посилання. На сайті HTML санітизується.'
           />
@@ -51,7 +46,7 @@ export function SectionFieldEditors({
             <textarea
               rows={4}
               value={(section.aboutLines || []).join('\n')}
-              onChange={(e) =>
+              onChange={e =>
                 patchSection(index, {
                   aboutLines: e.target.value.split('\n'),
                 })
@@ -62,7 +57,7 @@ export function SectionFieldEditors({
             Заголовок форми
             <input
               value={section.callbackTitleHtml || section.callbackTitle || ''}
-              onChange={(e) =>
+              onChange={e =>
                 patchSection(index, {
                   callbackTitle: e.target.value,
                   callbackTitleHtml: e.target.value,
@@ -75,14 +70,14 @@ export function SectionFieldEditors({
               Текст кнопки
               <input
                 value={section.callbackButtonText || ''}
-                onChange={(e) => patchSection(index, { callbackButtonText: e.target.value })}
+                onChange={e => patchSection(index, { callbackButtonText: e.target.value })}
               />
             </label>
             <label className='admin-grow'>
               Placeholder телефону
               <input
                 value={section.callbackPlaceholder || ''}
-                onChange={(e) => patchSection(index, { callbackPlaceholder: e.target.value })}
+                onChange={e => patchSection(index, { callbackPlaceholder: e.target.value })}
               />
             </label>
           </div>
@@ -90,15 +85,15 @@ export function SectionFieldEditors({
             Активний slug у навігації послуг
             <input
               value={section.activeServiceSlug || ''}
-              onChange={(e) => patchSection(index, { activeServiceSlug: e.target.value })}
+              onChange={e => patchSection(index, { activeServiceSlug: e.target.value })}
               placeholder='напр. phones'
             />
           </label>
           <ImageField
             value={section.image}
             alt={section.imageAlt}
-            onChange={(url) => patchSection(index, { image: url })}
-            onAltChange={(imageAlt) => patchSection(index, { imageAlt })}
+            onChange={url => patchSection(index, { image: url })}
+            onAltChange={imageAlt => patchSection(index, { imageAlt })}
             preset='hero'
           />
         </>
@@ -108,35 +103,28 @@ export function SectionFieldEditors({
         <>
           <label>
             Заголовок
-            <input value={section.title} onChange={(e) => patchSection(index, { title: e.target.value })} />
+            <input value={section.title} onChange={e => patchSection(index, { title: e.target.value })} />
           </label>
           <label>
             Intro
-            <input
-              value={section.intro || ''}
-              onChange={(e) => patchSection(index, { intro: e.target.value })}
-            />
+            <input value={section.intro || ''} onChange={e => patchSection(index, { intro: e.target.value })} />
           </label>
           <label>
             Пункти (через ;)
             <textarea
               rows={3}
               value={section.items.join('; ')}
-              onChange={(e) =>
+              onChange={e =>
                 patchSection(index, {
                   items: e.target.value
                     .split(';')
-                    .map((s) => s.trim())
+                    .map(s => s.trim())
                     .filter(Boolean),
                 })
               }
             />
           </label>
-          <ImageField
-            value={section.image}
-            onChange={(url) => patchSection(index, { image: url })}
-            preset='default'
-          />
+          <ImageField value={section.image} onChange={url => patchSection(index, { image: url })} preset='default' />
         </>
       ) : null}
 
@@ -148,7 +136,7 @@ export function SectionFieldEditors({
               <ImageField
                 label='Іконка'
                 value={item.icon}
-                onChange={(url) => {
+                onChange={url => {
                   const items = [...(section.items || [])];
                   items[i] = { ...items[i], icon: url };
                   patchSection(index, { items });
@@ -159,7 +147,7 @@ export function SectionFieldEditors({
                 Текст (HTML)
                 <input
                   value={item.textHtml}
-                  onChange={(e) => {
+                  onChange={e => {
                     const items = [...(section.items || [])];
                     items[i] = { ...items[i], textHtml: e.target.value };
                     patchSection(index, { items });
@@ -198,17 +186,11 @@ export function SectionFieldEditors({
         <>
           <label>
             Заголовок (HTML)
-            <input
-              value={section.titleHtml || ''}
-              onChange={(e) => patchSection(index, { titleHtml: e.target.value })}
-            />
+            <input value={section.titleHtml || ''} onChange={e => patchSection(index, { titleHtml: e.target.value })} />
           </label>
           <label>
             Subtitle
-            <input
-              value={section.subtitle || ''}
-              onChange={(e) => patchSection(index, { subtitle: e.target.value })}
-            />
+            <input value={section.subtitle || ''} onChange={e => patchSection(index, { subtitle: e.target.value })} />
           </label>
           <div className='admin-subhead'>Посилання</div>
           {(section.items || []).map((item, i) => (
@@ -217,7 +199,7 @@ export function SectionFieldEditors({
                 Назва
                 <input
                   value={item.label}
-                  onChange={(e) => {
+                  onChange={e => {
                     const items = [...(section.items || [])];
                     items[i] = { ...items[i], label: e.target.value };
                     patchSection(index, { items });
@@ -228,7 +210,7 @@ export function SectionFieldEditors({
                 Посилання
                 <input
                   value={item.href}
-                  onChange={(e) => {
+                  onChange={e => {
                     const items = [...(section.items || [])];
                     items[i] = { ...items[i], href: e.target.value };
                     patchSection(index, { items });
@@ -237,7 +219,7 @@ export function SectionFieldEditors({
               </label>
               <ImageField
                 value={item.image}
-                onChange={(url) => {
+                onChange={url => {
                   const items = [...(section.items || [])];
                   items[i] = { ...items[i], image: url };
                   patchSection(index, { items });
@@ -278,19 +260,19 @@ export function SectionFieldEditors({
             Кнопка «більше»
             <input
               value={section.moreReviewsButtonText || ''}
-              onChange={(e) => patchSection(index, { moreReviewsButtonText: e.target.value })}
+              onChange={e => patchSection(index, { moreReviewsButtonText: e.target.value })}
             />
           </label>
           <div className='admin-subhead'>Зображення відгуків</div>
           <p className='admin-hint'>
-            Слайдер фіксує розмір по найбільшому скріну. Краще однаковий кадр (орієнтир —
-            найвищий, напр. з відповіддю власника).
+            Слайдер фіксує розмір по найбільшому скріну. Краще однаковий кадр (орієнтир — найвищий, напр. з відповіддю
+            власника).
           </p>
           {(section.images || []).map((img, i) => (
             <div key={i} className='admin-nested-card'>
               <ImageField
                 value={img}
-                onChange={(url) => {
+                onChange={url => {
                   const imgs = [...(section.images || [])];
                   imgs[i] = url;
                   patchSection(index, { images: imgs });
@@ -326,13 +308,13 @@ export function SectionFieldEditors({
         <>
           <label>
             Заголовок
-            <input value={section.title} onChange={(e) => patchSection(index, { title: e.target.value })} />
+            <input value={section.title} onChange={e => patchSection(index, { title: e.target.value })} />
           </label>
           <label>
             Invite text
             <input
               value={section.inviteText || ''}
-              onChange={(e) => patchSection(index, { inviteText: e.target.value })}
+              onChange={e => patchSection(index, { inviteText: e.target.value })}
             />
           </label>
           <label>
@@ -340,28 +322,25 @@ export function SectionFieldEditors({
             <textarea
               rows={2}
               value={section.addressHtml || ''}
-              onChange={(e) => patchSection(index, { addressHtml: e.target.value })}
+              onChange={e => patchSection(index, { addressHtml: e.target.value })}
             />
           </label>
           <label>
             Email
-            <input
-              value={section.email || ''}
-              onChange={(e) => patchSection(index, { email: e.target.value })}
-            />
+            <input value={section.email || ''} onChange={e => patchSection(index, { email: e.target.value })} />
           </label>
           <label>
             Map embed URL
             <input
               value={section.mapEmbedUrl || ''}
-              onChange={(e) => patchSection(index, { mapEmbedUrl: e.target.value })}
+              onChange={e => patchSection(index, { mapEmbedUrl: e.target.value })}
             />
           </label>
           <label className='admin-check'>
             <input
               type='checkbox'
               checked={Boolean(section.intentChooser)}
-              onChange={(e) => patchSection(index, { intentChooser: e.target.checked })}
+              onChange={e => patchSection(index, { intentChooser: e.target.checked })}
             />
             Вибір запис / товари (головна)
           </label>
@@ -383,18 +362,15 @@ export function SectionFieldEditors({
                     fromSettings.push({ ...settings.headerPhone });
                   }
                   for (const p of settings.phones || []) {
-                    if (!fromSettings.some((x) => x.tel === p.tel)) fromSettings.push({ ...p });
+                    if (!fromSettings.some(x => x.tel === p.tel)) fromSettings.push({ ...p });
                   }
                   patchSection(index, {
                     phones: fromSettings,
                     email: section.email || settings.email,
                     mapEmbedUrl: section.mapEmbedUrl || settings.mapEmbedUrl,
-                    social: section.social?.length
-                      ? section.social
-                      : structuredClone(settings.social || []),
+                    social: section.social?.length ? section.social : structuredClone(settings.social || []),
                     addressHtml:
-                      section.addressHtml ||
-                      [settings.address, settings.addressNote].filter(Boolean).join('<br/>'),
+                      section.addressHtml || [settings.address, settings.addressNote].filter(Boolean).join('<br/>'),
                   });
                   showToast('Підтягнуто з Налаштувань', 'info');
                 }}
@@ -415,7 +391,8 @@ export function SectionFieldEditors({
             </div>
           </div>
           <p className='admin-hint admin-mb'>
-            Якщо список порожній — на сайті покажуться телефони з Налаштувань. Картки людей (Наталія / Ірина) живуть у полі people секції і більше не зникають при збереженні.
+            Якщо список порожній — на сайті покажуться телефони з Налаштувань. Картки людей (Наталія / Ірина) живуть у
+            полі people секції і більше не зникають при збереженні.
           </p>
           {(section.phones || []).map((phone, pi) => (
             <div key={pi} className='admin-nested-card'>
@@ -424,7 +401,7 @@ export function SectionFieldEditors({
                   Відображення
                   <input
                     value={phone.display}
-                    onChange={(e) => {
+                    onChange={e => {
                       const phones = [...(section.phones || [])];
                       phones[pi] = { ...phones[pi], display: e.target.value };
                       patchSection(index, { phones });
@@ -435,7 +412,7 @@ export function SectionFieldEditors({
                   tel:
                   <input
                     value={phone.tel}
-                    onChange={(e) => {
+                    onChange={e => {
                       const phones = [...(section.phones || [])];
                       phones[pi] = { ...phones[pi], tel: e.target.value };
                       patchSection(index, { phones });
@@ -486,9 +463,9 @@ export function SectionFieldEditors({
                   <select
                     className='admin-select'
                     value={link.type}
-                    onChange={(e) => {
+                    onChange={e => {
                       const type = e.target.value;
-                      const preset = SOCIAL_TYPES.find((p) => p.type === type);
+                      const preset = SOCIAL_TYPES.find(p => p.type === type);
                       const social = [...(section.social || [])];
                       social[si] = {
                         ...social[si],
@@ -498,7 +475,7 @@ export function SectionFieldEditors({
                       patchSection(index, { social });
                     }}
                   >
-                    {SOCIAL_TYPES.map((p) => (
+                    {SOCIAL_TYPES.map(p => (
                       <option key={p.type} value={p.type}>
                         {p.type}
                       </option>
@@ -509,7 +486,7 @@ export function SectionFieldEditors({
                   URL
                   <input
                     value={link.url}
-                    onChange={(e) => {
+                    onChange={e => {
                       const social = [...(section.social || [])];
                       social[si] = { ...social[si], url: e.target.value };
                       patchSection(index, { social });
@@ -538,23 +515,21 @@ export function SectionFieldEditors({
             Заголовок
             <input
               value={section.titleHtml || section.title || ''}
-              onChange={(e) =>
-                patchSection(index, { title: e.target.value, titleHtml: e.target.value })
-              }
+              onChange={e => patchSection(index, { title: e.target.value, titleHtml: e.target.value })}
             />
           </label>
           <label>
             Текст кнопки
             <input
               value={section.buttonText || ''}
-              onChange={(e) => patchSection(index, { buttonText: e.target.value })}
+              onChange={e => patchSection(index, { buttonText: e.target.value })}
             />
           </label>
           <label>
             Placeholder телефону
             <input
               value={section.placeholder || ''}
-              onChange={(e) => patchSection(index, { placeholder: e.target.value })}
+              onChange={e => patchSection(index, { placeholder: e.target.value })}
             />
           </label>
         </>
@@ -564,17 +539,11 @@ export function SectionFieldEditors({
         <>
           <label>
             Заголовок
-            <input
-              value={section.title || ''}
-              onChange={(e) => patchSection(index, { title: e.target.value })}
-            />
+            <input value={section.title || ''} onChange={e => patchSection(index, { title: e.target.value })} />
           </label>
           <label>
             Підзаголовок
-            <input
-              value={section.subtitle || ''}
-              onChange={(e) => patchSection(index, { subtitle: e.target.value })}
-            />
+            <input value={section.subtitle || ''} onChange={e => patchSection(index, { subtitle: e.target.value })} />
           </label>
         </>
       ) : null}
@@ -584,78 +553,59 @@ export function SectionFieldEditors({
           <p className='admin-hint'>Ліва половина — магазин, права — салон.</p>
           <label>
             Kicker
-            <input
-              value={section.kicker || ''}
-              onChange={(e) => patchSection(index, { kicker: e.target.value })}
-            />
+            <input value={section.kicker || ''} onChange={e => patchSection(index, { kicker: e.target.value })} />
           </label>
           <label>
             Заголовок
-            <input
-              value={section.title || ''}
-              onChange={(e) => patchSection(index, { title: e.target.value })}
-            />
+            <input value={section.title || ''} onChange={e => patchSection(index, { title: e.target.value })} />
           </label>
           <label>
             Підзаголовок
-            <input
-              value={section.subtitle || ''}
-              onChange={(e) => patchSection(index, { subtitle: e.target.value })}
-            />
+            <input value={section.subtitle || ''} onChange={e => patchSection(index, { subtitle: e.target.value })} />
           </label>
           <ImageField
             value={section.image}
             alt={section.imageAlt}
-            onChange={(url) => patchSection(index, { image: url })}
-            onAltChange={(imageAlt) => patchSection(index, { imageAlt })}
+            onChange={url => patchSection(index, { image: url })}
+            onAltChange={imageAlt => patchSection(index, { imageAlt })}
             preset='hero'
           />
-          {(['left', 'right'] as const).map((side) => (
+          {(['left', 'right'] as const).map(side => (
             <div key={side} className='admin-nested-card'>
               <div className='admin-subhead'>{side === 'left' ? 'Ліва (магазин)' : 'Права (салон)'}</div>
               <label>
                 Label
                 <input
                   value={section[side].label}
-                  onChange={(e) =>
-                    patchSection(index, { [side]: { ...section[side], label: e.target.value } })
-                  }
+                  onChange={e => patchSection(index, { [side]: { ...section[side], label: e.target.value } })}
                 />
               </label>
               <label>
                 Title
                 <input
                   value={section[side].title}
-                  onChange={(e) =>
-                    patchSection(index, { [side]: { ...section[side], title: e.target.value } })
-                  }
+                  onChange={e => patchSection(index, { [side]: { ...section[side], title: e.target.value } })}
                 />
               </label>
               <label>
                 Subtitle
                 <input
                   value={section[side].subtitle}
-                  onChange={(e) =>
-                    patchSection(index, { [side]: { ...section[side], subtitle: e.target.value } })
-                  }
+                  onChange={e => patchSection(index, { [side]: { ...section[side], subtitle: e.target.value } })}
                 />
               </label>
               <label>
                 href
                 <input
                   value={section[side].href}
-                  onChange={(e) =>
-                    patchSection(index, { [side]: { ...section[side], href: e.target.value } })
-                  }
+                  onChange={e => patchSection(index, { [side]: { ...section[side], href: e.target.value } })}
                 />
               </label>
               <label>
                 CTA
                 <input
                   value={section[side].cta}
-                  onChange={(e) =>
-                    patchSection(index, { [side]: { ...section[side], cta: e.target.value } })
-                  }
+                  onChange={e => patchSection(index, { [side]: { ...section[side], cta: e.target.value } })}
                 />
               </label>
             </div>
@@ -670,9 +620,7 @@ export function SectionFieldEditors({
             <select
               className='admin-select'
               value={section.side}
-              onChange={(e) =>
-                patchSection(index, { side: e.target.value === 'right' ? 'right' : 'left' })
-              }
+              onChange={e => patchSection(index, { side: e.target.value === 'right' ? 'right' : 'left' })}
             >
               <option value='left'>Ліва (магазин)</option>
               <option value='right'>Права (салон)</option>
@@ -680,28 +628,21 @@ export function SectionFieldEditors({
           </label>
           <label>
             Заголовок
-            <input value={section.title} onChange={(e) => patchSection(index, { title: e.target.value })} />
+            <input value={section.title} onChange={e => patchSection(index, { title: e.target.value })} />
           </label>
           <label>
             Підзаголовок
-            <input
-              value={section.subtitle}
-              onChange={(e) => patchSection(index, { subtitle: e.target.value })}
-            />
+            <input value={section.subtitle} onChange={e => patchSection(index, { subtitle: e.target.value })} />
           </label>
           <label>
             href
-            <input value={section.href} onChange={(e) => patchSection(index, { href: e.target.value })} />
+            <input value={section.href} onChange={e => patchSection(index, { href: e.target.value })} />
           </label>
           <label>
             CTA
-            <input value={section.cta} onChange={(e) => patchSection(index, { cta: e.target.value })} />
+            <input value={section.cta} onChange={e => patchSection(index, { cta: e.target.value })} />
           </label>
-          <ImageField
-            value={section.image}
-            onChange={(url) => patchSection(index, { image: url })}
-            preset='hero'
-          />
+          <ImageField value={section.image} onChange={url => patchSection(index, { image: url })} preset='hero' />
         </>
       ) : null}
 
@@ -709,17 +650,11 @@ export function SectionFieldEditors({
         <>
           <label>
             Заголовок
-            <input
-              value={section.title || ''}
-              onChange={(e) => patchSection(index, { title: e.target.value })}
-            />
+            <input value={section.title || ''} onChange={e => patchSection(index, { title: e.target.value })} />
           </label>
           <label>
             Категорія (порожньо = усі)
-            <input
-              value={section.category || ''}
-              onChange={(e) => patchSection(index, { category: e.target.value })}
-            />
+            <input value={section.category || ''} onChange={e => patchSection(index, { category: e.target.value })} />
           </label>
         </>
       ) : null}
@@ -728,19 +663,14 @@ export function SectionFieldEditors({
         <>
           <label>
             Заголовок
-            <input
-              value={section.title || ''}
-              onChange={(e) => patchSection(index, { title: e.target.value })}
-            />
+            <input value={section.title || ''} onChange={e => patchSection(index, { title: e.target.value })} />
           </label>
           <label>
             Джерело
             <select
               className='admin-select'
               value={section.source}
-              onChange={(e) =>
-                patchSection(index, { source: e.target.value === 'manual' ? 'manual' : 'catalog' })
-              }
+              onChange={e => patchSection(index, { source: e.target.value === 'manual' ? 'manual' : 'catalog' })}
             >
               <option value='catalog'>Каталог послуг</option>
               <option value='manual'>Вручну</option>
@@ -748,10 +678,7 @@ export function SectionFieldEditors({
           </label>
           <label>
             Категорія каталогу
-            <input
-              value={section.category || ''}
-              onChange={(e) => patchSection(index, { category: e.target.value })}
-            />
+            <input value={section.category || ''} onChange={e => patchSection(index, { category: e.target.value })} />
           </label>
         </>
       ) : null}
@@ -760,16 +687,13 @@ export function SectionFieldEditors({
         <>
           <label>
             Заголовок
-            <input
-              value={section.title || ''}
-              onChange={(e) => patchSection(index, { title: e.target.value })}
-            />
+            <input value={section.title || ''} onChange={e => patchSection(index, { title: e.target.value })} />
           </label>
           {(section.images || []).map((img, i) => (
             <ImageField
               key={i}
               value={img}
-              onChange={(url) => {
+              onChange={url => {
                 const images = [...(section.images || [])];
                 images[i] = url;
                 patchSection(index, { images });
@@ -790,7 +714,7 @@ export function SectionFieldEditors({
         <RichTextField
           label='HTML'
           value={section.html || ''}
-          onChange={(html) => patchSection(index, { html })}
+          onChange={html => patchSection(index, { html })}
           rows={8}
         />
       ) : null}

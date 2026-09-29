@@ -3,9 +3,9 @@
 import type React from 'react';
 import type { Product } from '@/lib/types';
 import { DEFAULT_CATEGORY } from '@/lib/shop-catalog';
-import { ProductMediaEditor } from '../ProductMediaEditor';
-import { RelatedProductsPicker } from '../RelatedProductsPicker';
-import { PriceHistory } from '../PriceHistory';
+import { ProductMediaEditor } from '@/components/admin/ProductMediaEditor';
+import { RelatedProductsPicker } from '@/components/admin/RelatedProductsPicker';
+import { PriceHistory } from '@/components/admin/PriceHistory';
 
 export interface ProductEditCardProps {
   editing: Product;
@@ -28,7 +28,7 @@ export function ProductEditCard({
   saving,
   saveProduct,
 }: ProductEditCardProps) {
-  const isExisting = goods.some((g) => g.id === editing.id);
+  const isExisting = goods.some(g => g.id === editing.id);
 
   return (
     <div
@@ -43,7 +43,7 @@ export function ProductEditCard({
         <input
           ref={titleInputRef}
           value={editing.title}
-          onChange={(e) => setEditing({ ...editing, title: e.target.value })}
+          onChange={e => setEditing({ ...editing, title: e.target.value })}
         />
       </label>
       <label>
@@ -53,7 +53,7 @@ export function ProductEditCard({
           min={0}
           step={1}
           value={Number.isFinite(editing.price) ? editing.price : 0}
-          onChange={(e) => {
+          onChange={e => {
             const raw = e.target.value;
             if (raw === '') {
               setEditing({ ...editing, price: 0 });
@@ -68,7 +68,7 @@ export function ProductEditCard({
         Код товару
         <input
           value={editing.code || ''}
-          onChange={(e) => setEditing({ ...editing, code: e.target.value })}
+          onChange={e => setEditing({ ...editing, code: e.target.value })}
           placeholder='Напр. SKU-12, АКБ/01…'
           autoComplete='off'
         />
@@ -78,7 +78,7 @@ export function ProductEditCard({
       </label>
       <ProductMediaEditor
         product={editing}
-        onChange={(patch) => setEditing({ ...editing, ...patch })}
+        onChange={patch => setEditing({ ...editing, ...patch })}
         disabled={saving}
       />
       <label>
@@ -86,20 +86,19 @@ export function ProductEditCard({
         <input
           list='goods-category-suggestions'
           value={editing.category || ''}
-          onChange={(e) => setEditing({ ...editing, category: e.target.value })}
+          onChange={e => setEditing({ ...editing, category: e.target.value })}
           placeholder={`Напр. Телефони, ТВ… (порожньо = ${DEFAULT_CATEGORY})`}
         />
         <datalist id='goods-category-suggestions'>
           {categorySuggestions
-            .filter((cat) => cat !== DEFAULT_CATEGORY)
-            .map((cat) => (
+            .filter(cat => cat !== DEFAULT_CATEGORY)
+            .map(cat => (
               <option key={cat} value={cat} />
             ))}
           <option value={DEFAULT_CATEGORY} />
         </datalist>
         <span className='admin-hint'>
-          Опційно. Порожнє поле = «{DEFAULT_CATEGORY}». Однакова назва об’єднує товари в групу в
-          адмінці та на /shop.
+          Опційно. Порожнє поле = «{DEFAULT_CATEGORY}». Однакова назва об’єднує товари в групу в адмінці та на /shop.
         </span>
       </label>
       <label>
@@ -107,14 +106,14 @@ export function ProductEditCard({
         <textarea
           rows={3}
           value={editing.description}
-          onChange={(e) => setEditing({ ...editing, description: e.target.value })}
+          onChange={e => setEditing({ ...editing, description: e.target.value })}
         />
       </label>
       <label className='admin-check admin-goods-publish'>
         <input
           type='checkbox'
           checked={editing.visible}
-          onChange={(e) => setEditing({ ...editing, visible: e.target.checked })}
+          onChange={e => setEditing({ ...editing, visible: e.target.checked })}
         />
         <span>
           <strong>Опубліковано</strong>
@@ -128,7 +127,7 @@ export function ProductEditCard({
         <input
           type='checkbox'
           checked={editing.inStock !== false}
-          onChange={(e) => setEditing({ ...editing, inStock: e.target.checked })}
+          onChange={e => setEditing({ ...editing, inStock: e.target.checked })}
         />
         В наявності
       </label>
@@ -136,7 +135,7 @@ export function ProductEditCard({
         Бейдж (hit / sale / new)
         <input
           value={editing.badge || ''}
-          onChange={(e) => setEditing({ ...editing, badge: e.target.value })}
+          onChange={e => setEditing({ ...editing, badge: e.target.value })}
           placeholder='hit, sale…'
         />
       </label>
@@ -144,7 +143,7 @@ export function ProductEditCard({
         Промо-текст
         <input
           value={editing.promoText || ''}
-          onChange={(e) => setEditing({ ...editing, promoText: e.target.value })}
+          onChange={e => setEditing({ ...editing, promoText: e.target.value })}
           placeholder='Короткий рядок під назвою'
         />
       </label>
@@ -152,7 +151,7 @@ export function ProductEditCard({
         <input
           type='checkbox'
           checked={Boolean(editing.sortPin)}
-          onChange={(e) => setEditing({ ...editing, sortPin: e.target.checked })}
+          onChange={e => setEditing({ ...editing, sortPin: e.target.checked })}
         />
         Закріпити на початку каталогу
       </label>
@@ -160,9 +159,7 @@ export function ProductEditCard({
         products={goods}
         currentId={editing.id}
         value={editing.relatedIds || []}
-        onChange={(ids) =>
-          setEditing({ ...editing, relatedIds: ids.length ? ids : undefined })
-        }
+        onChange={ids => setEditing({ ...editing, relatedIds: ids.length ? ids : undefined })}
       />
       <PriceHistory productId={editing.id} />
       <div className='admin-row'>
@@ -180,7 +177,7 @@ export function ProductEditCard({
           Скасувати
         </button>
         {(() => {
-          const idx = goods.findIndex((g) => g.id === editing.id);
+          const idx = goods.findIndex(g => g.id === editing.id);
           if (idx < 0) return null;
           return (
             <>

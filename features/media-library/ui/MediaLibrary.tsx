@@ -1,29 +1,14 @@
 'use client';
 
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type DragEvent as ReactDragEvent,
-} from 'react';
+import { useCallback, useEffect, useRef, useState, type DragEvent as ReactDragEvent } from 'react';
 import { uploadImage } from '@/lib/admin/uploadImage';
 import { parseRetryAfterSeconds, rateLimitMessage } from '@/lib/admin/rateLimitUi';
 import { reorderItems } from '@/lib/admin/reorder';
-import {
-  IMAGE_PRESETS,
-  IMAGE_PRESET_IDS,
-  type ImagePresetId,
-} from '@/lib/image-presets';
-import {
-  MEDIA_PURPOSE_IDS,
-  MEDIA_PURPOSES,
-  purposeFromPreset,
-  type MediaPurpose,
-} from '@/lib/media-purpose';
+import { IMAGE_PRESETS, IMAGE_PRESET_IDS, type ImagePresetId } from '@/lib/image-presets';
+import { MEDIA_PURPOSE_IDS, MEDIA_PURPOSES, purposeFromPreset, type MediaPurpose } from '@/lib/media-purpose';
 import type { MediaKind } from '@/lib/media-index';
 import type { MediaRef } from '@/lib/media-usage';
-import { showToast } from './AdminToast';
+import { showToast } from '@/components/admin/AdminToast';
 
 const MEDIA_NAMES_MIME = 'application/x-media-names';
 
@@ -149,9 +134,7 @@ export function MediaLibrary() {
     setUploadPurpose(purposeFromPreset(preset));
   }, [preset]);
 
-  const displayItems = orphanOnly
-    ? items.filter((i) => !i.usedBy || i.usedBy.length === 0)
-    : items;
+  const displayItems = orphanOnly ? items.filter(i => !i.usedBy || i.usedBy.length === 0) : items;
 
   async function replaceInPlace(name: string, file: File) {
     const fd = new FormData();
@@ -172,14 +155,17 @@ export function MediaLibrary() {
   }
 
   async function bulkFillAltFromName() {
-    const targets = displayItems.filter((i) => !i.alt?.trim());
+    const targets = displayItems.filter(i => !i.alt?.trim());
     if (!targets.length) {
       showToast('Усі alt уже заповнені', 'info');
       return;
     }
     let n = 0;
     for (const item of targets) {
-      const alt = item.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim();
+      const alt = item.name
+        .replace(/\.[^.]+$/, '')
+        .replace(/[-_]+/g, ' ')
+        .trim();
       try {
         const res = await fetch('/api/media', {
           method: 'PATCH',
@@ -196,7 +182,7 @@ export function MediaLibrary() {
   }
 
   async function purgeOrphans() {
-    const orphans = items.filter((i) => !i.usedBy || i.usedBy.length === 0).map((i) => i.name);
+    const orphans = items.filter(i => !i.usedBy || i.usedBy.length === 0).map(i => i.name);
     if (!orphans.length) {
       showToast('Немає невикористаних файлів', 'info');
       return;
@@ -220,8 +206,7 @@ export function MediaLibrary() {
     }
   }
 
-  const uploadFolderId =
-    folder !== 'all' && folder !== 'root' ? folder : '';
+  const uploadFolderId = folder !== 'all' && folder !== 'root' ? folder : '';
 
   async function onUpload(file: File | null) {
     if (!file) return;
@@ -238,11 +223,7 @@ export function MediaLibrary() {
         return;
       }
       const dim = width && height ? ` · ${width}×${height}` : '';
-      const fmt = url.endsWith('.webp')
-        ? 'JPEG → WebP'
-        : url.endsWith('.png')
-          ? 'PNG'
-          : 'OK';
+      const fmt = url.endsWith('.webp') ? 'JPEG → WebP' : url.endsWith('.png') ? 'PNG' : 'OK';
       showToast(`Завантажено (${fmt}${dim})`, 'success');
       await load();
     } finally {
@@ -287,7 +268,7 @@ export function MediaLibrary() {
         return;
       }
       showToast('Видалено', 'success');
-      setSelected((prev) => {
+      setSelected(prev => {
         if (!prev.has(name)) return prev;
         const next = new Set(prev);
         next.delete(name);
@@ -343,11 +324,7 @@ export function MediaLibrary() {
   }
 
   async function deleteFolder(id: string, label: string) {
-    if (
-      !confirm(
-        `Видалити папку «${label}»? Файли залишаться в «Без папки» (URL не зміняться).`,
-      )
-    ) {
+    if (!confirm(`Видалити папку «${label}»? Файли залишаться в «Без папки» (URL не зміняться).`)) {
       return;
     }
     try {
@@ -411,15 +388,14 @@ export function MediaLibrary() {
     const unique = [...new Set(names.filter(Boolean))];
     if (unique.length === 0) return;
 
-    const normalizedTarget =
-      targetFolderId === 'root' || targetFolderId === '__root' ? '' : targetFolderId;
+    const normalizedTarget = targetFolderId === 'root' || targetFolderId === '__root' ? '' : targetFolderId;
 
-    const alreadyThere = unique.every((name) => {
-      const item = items.find((i) => i.name === name);
+    const alreadyThere = unique.every(name => {
+      const item = items.find(i => i.name === name);
       const current = item?.folderId || '';
       return current === normalizedTarget;
     });
-    if (alreadyThere && unique.every((n) => items.some((i) => i.name === n))) {
+    if (alreadyThere && unique.every(n => items.some(i => i.name === n))) {
       showToast('Уже в цій папці', 'info');
       return;
     }
@@ -445,10 +421,7 @@ export function MediaLibrary() {
       }
       const json = (await res.json()) as { moved?: number };
       const n = json.moved ?? unique.length;
-      showToast(
-        n === 1 ? 'Переміщено 1 файл' : `Переміщено ${n} файлів`,
-        'success',
-      );
+      showToast(n === 1 ? 'Переміщено 1 файл' : `Переміщено ${n} файлів`, 'success');
       setSelected(new Set());
       await load();
     } catch {
@@ -459,9 +432,8 @@ export function MediaLibrary() {
   }
 
   async function persistOrder(nextItems: MediaItem[]) {
-    const orderedNames = nextItems.map((i) => i.name);
-    const reorderFolderId =
-      folder === 'all' ? '' : folder === 'root' ? '' : folder;
+    const orderedNames = nextItems.map(i => i.name);
+    const reorderFolderId = folder === 'all' ? '' : folder === 'root' ? '' : folder;
     try {
       const res = await fetch('/api/media', {
         method: 'PATCH',
@@ -487,7 +459,7 @@ export function MediaLibrary() {
   }
 
   function toggleSelect(name: string) {
-    setSelected((prev) => {
+    setSelected(prev => {
       const next = new Set(prev);
       if (next.has(name)) next.delete(name);
       else next.add(name);
@@ -496,7 +468,7 @@ export function MediaLibrary() {
   }
 
   function selectAllVisible() {
-    setSelected(new Set(items.map((i) => i.name)));
+    setSelected(new Set(items.map(i => i.name)));
   }
 
   function clearSelection() {
@@ -524,10 +496,7 @@ export function MediaLibrary() {
     }
 
     // Folder move: selected set if this card is selected, else single file
-    const names =
-      selected.has(item.name) && selected.size > 0
-        ? [...selected]
-        : [item.name];
+    const names = selected.has(item.name) && selected.size > 0 ? [...selected] : [item.name];
     setDragMoveActive(true);
     setDragIndex(null);
     e.dataTransfer.effectAllowed = 'move';
@@ -557,7 +526,7 @@ export function MediaLibrary() {
   function onFolderDragLeave(e: ReactDragEvent, targetId: string) {
     const related = e.relatedTarget as Node | null;
     if (related && (e.currentTarget as HTMLElement).contains(related)) return;
-    setFolderDropTarget((cur) => (cur === targetId ? null : cur));
+    setFolderDropTarget(cur => (cur === targetId ? null : cur));
   }
 
   function onFolderDrop(e: ReactDragEvent, targetId: string) {
@@ -594,20 +563,20 @@ export function MediaLibrary() {
             folderDropTarget === 'root' ? ' is-drop-target' : ''
           }`}
           onClick={() => setFolder('root')}
-          onDragOver={(e) => onFolderDragOver(e, 'root')}
-          onDragLeave={(e) => onFolderDragLeave(e, 'root')}
-          onDrop={(e) => onFolderDrop(e, 'root')}
+          onDragOver={e => onFolderDragOver(e, 'root')}
+          onDragLeave={e => onFolderDragLeave(e, 'root')}
+          onDrop={e => onFolderDrop(e, 'root')}
         >
           <span>Без папки</span>
           <span className='admin-folder-count'>{counts.root}</span>
         </button>
-        {folders.map((f) => (
+        {folders.map(f => (
           <div
             key={f.id}
             className={`admin-folder-row${folderDropTarget === f.id ? ' is-drop-target' : ''}`}
-            onDragOver={(e) => onFolderDragOver(e, f.id)}
-            onDragLeave={(e) => onFolderDragLeave(e, f.id)}
-            onDrop={(e) => onFolderDrop(e, f.id)}
+            onDragOver={e => onFolderDragOver(e, f.id)}
+            onDragLeave={e => onFolderDragLeave(e, f.id)}
+            onDrop={e => onFolderDrop(e, f.id)}
           >
             <button
               type='button'
@@ -615,9 +584,9 @@ export function MediaLibrary() {
                 folderDropTarget === f.id ? ' is-drop-target' : ''
               }`}
               onClick={() => setFolder(f.id)}
-              onDragOver={(e) => onFolderDragOver(e, f.id)}
-              onDragLeave={(e) => onFolderDragLeave(e, f.id)}
-              onDrop={(e) => onFolderDrop(e, f.id)}
+              onDragOver={e => onFolderDragOver(e, f.id)}
+              onDragLeave={e => onFolderDragLeave(e, f.id)}
+              onDrop={e => onFolderDrop(e, f.id)}
             >
               <span title={f.label}>{f.label}</span>
               <span className='admin-folder-count'>{f.count}</span>
@@ -646,9 +615,9 @@ export function MediaLibrary() {
         <div className='admin-folder-create'>
           <input
             value={newFolderLabel}
-            onChange={(e) => setNewFolderLabel(e.target.value)}
+            onChange={e => setNewFolderLabel(e.target.value)}
             placeholder='Нова папка…'
-            onKeyDown={(e) => {
+            onKeyDown={e => {
               if (e.key === 'Enter') {
                 e.preventDefault();
                 void createFolder();
@@ -660,8 +629,8 @@ export function MediaLibrary() {
           </button>
         </div>
         <p className='admin-hint' style={{ marginBottom: 0 }}>
-          Віртуальні папки: URL файлів не змінюються. Перетягніть файл на папку,
-          використайте виділення або кнопку «Мета».
+          Віртуальні папки: URL файлів не змінюються. Перетягніть файл на папку, використайте виділення або кнопку
+          «Мета».
         </p>
       </aside>
 
@@ -715,7 +684,7 @@ export function MediaLibrary() {
           >
             Усі ролі
           </button>
-          {MEDIA_PURPOSE_IDS.map((id) => (
+          {MEDIA_PURPOSE_IDS.map(id => (
             <button
               key={id}
               type='button'
@@ -734,7 +703,7 @@ export function MediaLibrary() {
           <button
             type='button'
             className={`admin-btn admin-btn--secondary${orphanOnly ? ' is-active' : ''}`}
-            onClick={() => setOrphanOnly((v) => !v)}
+            onClick={() => setOrphanOnly(v => !v)}
           >
             Лише невикористані
           </button>
@@ -749,7 +718,7 @@ export function MediaLibrary() {
             type='file'
             accept='image/*,video/*'
             hidden
-            onChange={(e) => {
+            onChange={e => {
               const f = e.target.files?.[0];
               if (f && replaceTarget) void replaceInPlace(replaceTarget, f);
               setReplaceTarget(null);
@@ -760,12 +729,12 @@ export function MediaLibrary() {
             Розмір
             <select
               value={preset}
-              onChange={(e) => setPreset(e.target.value as ImagePresetId)}
+              onChange={e => setPreset(e.target.value as ImagePresetId)}
               disabled={uploading}
               aria-label='Пресет розміру зображення'
               title={IMAGE_PRESETS[preset].description}
             >
-              {IMAGE_PRESET_IDS.map((id) => (
+              {IMAGE_PRESET_IDS.map(id => (
                 <option key={id} value={id}>
                   {IMAGE_PRESETS[id].label}
                 </option>
@@ -776,11 +745,11 @@ export function MediaLibrary() {
             Роль
             <select
               value={uploadPurpose}
-              onChange={(e) => setUploadPurpose(e.target.value as MediaPurpose)}
+              onChange={e => setUploadPurpose(e.target.value as MediaPurpose)}
               disabled={uploading}
               aria-label='Роль для нового файлу'
             >
-              {MEDIA_PURPOSE_IDS.map((id) => (
+              {MEDIA_PURPOSE_IDS.map(id => (
                 <option key={id} value={id}>
                   {MEDIA_PURPOSES[id].label}
                 </option>
@@ -789,11 +758,7 @@ export function MediaLibrary() {
           </label>
           <label className='admin-inline-label'>
             Сортування
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value as SortMode)}
-              aria-label='Сортування'
-            >
+            <select value={sort} onChange={e => setSort(e.target.value as SortMode)} aria-label='Сортування'>
               <option value='mtime'>Новіші спочатку</option>
               <option value='name'>За назвою</option>
               <option value='manual'>Вручну (DnD)</option>
@@ -803,7 +768,7 @@ export function MediaLibrary() {
             Теги
             <input
               value={tagsInput}
-              onChange={(e) => setTagsInput(e.target.value)}
+              onChange={e => setTagsInput(e.target.value)}
               placeholder='tv, coffee…'
               disabled={uploading}
             />
@@ -816,15 +781,13 @@ export function MediaLibrary() {
               accept='image/jpeg,image/png,image/webp,image/gif'
               hidden
               disabled={uploading}
-              onChange={(e) => void onUpload(e.target.files?.[0] ?? null)}
+              onChange={e => void onUpload(e.target.files?.[0] ?? null)}
             />
           </label>
         </div>
 
         {sort === 'manual' && folder === 'all' ? (
-          <p className='admin-hint admin-mb'>
-            Для ручного порядку оберіть папку (або «Без папки») зліва.
-          </p>
+          <p className='admin-hint admin-mb'>Для ручного порядку оберіть папку (або «Без папки») зліва.</p>
         ) : null}
 
         <div className='admin-toolbar admin-mb'>
@@ -833,7 +796,7 @@ export function MediaLibrary() {
             className='admin-grow'
             placeholder='Пошук за назвою / тегами…'
             value={q}
-            onChange={(e) => setQ(e.target.value)}
+            onChange={e => setQ(e.target.value)}
             aria-label='Пошук медіа'
           />
           <button type='button' className='admin-btn admin-btn--secondary' onClick={() => void load()}>
@@ -842,11 +805,7 @@ export function MediaLibrary() {
         </div>
 
         {selectedCount > 0 ? (
-          <div
-            className='admin-media-bulk-bar admin-mb'
-            role='region'
-            aria-label='Дії з виділеними файлами'
-          >
+          <div className='admin-media-bulk-bar admin-mb' role='region' aria-label='Дії з виділеними файлами'>
             <span className='admin-media-bulk-count' aria-live='polite'>
               Обрано {selectedCount}
             </span>
@@ -854,12 +813,12 @@ export function MediaLibrary() {
               Папка
               <select
                 value={bulkFolderId}
-                onChange={(e) => setBulkFolderId(e.target.value)}
+                onChange={e => setBulkFolderId(e.target.value)}
                 disabled={moving}
                 aria-label='Цільова папка для переміщення'
               >
                 <option value=''>Без папки</option>
-                {folders.map((f) => (
+                {folders.map(f => (
                   <option key={f.id} value={f.id}>
                     {f.label}
                   </option>
@@ -882,12 +841,7 @@ export function MediaLibrary() {
             >
               Обрати всі видимі
             </button>
-            <button
-              type='button'
-              className='admin-btn admin-btn--secondary'
-              disabled={moving}
-              onClick={clearSelection}
-            >
+            <button type='button' className='admin-btn admin-btn--secondary' disabled={moving} onClick={clearSelection}>
               Зняти виділення
             </button>
           </div>
@@ -910,14 +864,14 @@ export function MediaLibrary() {
                   isSelected ? ' is-checked' : ''
                 }`}
                 draggable={editing !== item.name}
-                onDragStart={(e) => onCardDragStart(e, item, index)}
+                onDragStart={e => onCardDragStart(e, item, index)}
                 onDragEnd={onCardDragEnd}
-                onDragOver={(e) => {
+                onDragOver={e => {
                   if (!canDnD || dragIndex == null) return;
                   e.preventDefault();
                   setDragOverIndex(index);
                 }}
-                onDrop={(e) => {
+                onDrop={e => {
                   if (dragIndex == null) return;
                   e.preventDefault();
                   onReorder(dragIndex, index);
@@ -925,7 +879,7 @@ export function MediaLibrary() {
                   setDragOverIndex(null);
                 }}
               >
-                <label className='admin-media-check' onClick={(e) => e.stopPropagation()}>
+                <label className='admin-media-check' onClick={e => e.stopPropagation()}>
                   <input
                     type='checkbox'
                     checked={isSelected}
@@ -963,7 +917,7 @@ export function MediaLibrary() {
                           ? `Focus ${item.focusX}% ${item.focusY}%`
                           : undefined
                     }
-                    onClick={(e) => {
+                    onClick={e => {
                       if (editing !== item.name) return;
                       const rect = e.currentTarget.getBoundingClientRect();
                       const x = Math.round(((e.clientX - rect.left) / rect.width) * 100);
@@ -978,32 +932,22 @@ export function MediaLibrary() {
                   <span title={item.name}>{item.name}</span>
                   <span>
                     {item.kind === 'video' ? 'Відео · ' : ''}
-                    {MEDIA_PURPOSES[item.purpose]?.label || item.purpose} ·{' '}
-                    {formatBytes(item.size)}
+                    {MEDIA_PURPOSES[item.purpose]?.label || item.purpose} · {formatBytes(item.size)}
                   </span>
                   {item.usedBy && item.usedBy.length > 0 ? (
-                    <span
-                      className='admin-media-usage'
-                      title={item.usageTooltip || ''}
-                    >
-                      🔗 {item.usedBy.length}{' '}
-                      {item.usedBy.length === 1 ? 'посилання' : 'посилань'}
+                    <span className='admin-media-usage' title={item.usageTooltip || ''}>
+                      🔗 {item.usedBy.length} {item.usedBy.length === 1 ? 'посилання' : 'посилань'}
                     </span>
                   ) : null}
-                  {item.tags?.length ? (
-                    <span className='admin-media-tags'>{item.tags.join(', ')}</span>
-                  ) : null}
+                  {item.tags?.length ? <span className='admin-media-tags'>{item.tags.join(', ')}</span> : null}
                 </div>
 
                 {editing === item.name ? (
                   <div className='admin-media-edit'>
                     <label className='admin-inline-label'>
                       Роль
-                      <select
-                        value={editPurpose}
-                        onChange={(e) => setEditPurpose(e.target.value as MediaPurpose)}
-                      >
-                        {MEDIA_PURPOSE_IDS.map((id) => (
+                      <select value={editPurpose} onChange={e => setEditPurpose(e.target.value as MediaPurpose)}>
+                        {MEDIA_PURPOSE_IDS.map(id => (
                           <option key={id} value={id}>
                             {MEDIA_PURPOSES[id].label}
                           </option>
@@ -1012,12 +956,9 @@ export function MediaLibrary() {
                     </label>
                     <label className='admin-inline-label'>
                       Папка
-                      <select
-                        value={editFolderId}
-                        onChange={(e) => setEditFolderId(e.target.value)}
-                      >
+                      <select value={editFolderId} onChange={e => setEditFolderId(e.target.value)}>
                         <option value=''>Без папки</option>
-                        {folders.map((f) => (
+                        {folders.map(f => (
                           <option key={f.id} value={f.id}>
                             {f.label}
                           </option>
@@ -1026,11 +967,11 @@ export function MediaLibrary() {
                     </label>
                     <label className='admin-inline-label'>
                       Теги
-                      <input value={editTags} onChange={(e) => setEditTags(e.target.value)} />
+                      <input value={editTags} onChange={e => setEditTags(e.target.value)} />
                     </label>
                     <label className='admin-inline-label'>
                       Alt
-                      <input value={editAlt} onChange={(e) => setEditAlt(e.target.value)} />
+                      <input value={editAlt} onChange={e => setEditAlt(e.target.value)} />
                     </label>
                     <label className='admin-inline-label'>
                       Focus X%
@@ -1039,7 +980,7 @@ export function MediaLibrary() {
                         min={0}
                         max={100}
                         value={editFocusX}
-                        onChange={(e) => setEditFocusX(e.target.value)}
+                        onChange={e => setEditFocusX(e.target.value)}
                       />
                     </label>
                     <label className='admin-inline-label'>
@@ -1049,22 +990,14 @@ export function MediaLibrary() {
                         min={0}
                         max={100}
                         value={editFocusY}
-                        onChange={(e) => setEditFocusY(e.target.value)}
+                        onChange={e => setEditFocusY(e.target.value)}
                       />
                     </label>
                     <div className='admin-row'>
-                      <button
-                        type='button'
-                        className='admin-btn'
-                        onClick={() => void saveEdit(item.name)}
-                      >
+                      <button type='button' className='admin-btn' onClick={() => void saveEdit(item.name)}>
                         OK
                       </button>
-                      <button
-                        type='button'
-                        className='admin-btn admin-btn--secondary'
-                        onClick={() => setEditing(null)}
-                      >
+                      <button type='button' className='admin-btn admin-btn--secondary' onClick={() => setEditing(null)}>
                         Скасувати
                       </button>
                     </div>
@@ -1104,18 +1037,14 @@ export function MediaLibrary() {
                         disabled={Boolean(item.usedBy?.length)}
                         title={
                           item.usageTooltip ||
-                          (item.usedBy?.length
-                            ? 'Файл використовується на сайті'
-                            : 'Видалити файл')
+                          (item.usedBy?.length ? 'Файл використовується на сайті' : 'Видалити файл')
                         }
                         onClick={() => void remove(item.name, item.usageTooltip)}
                       >
                         Видалити
                       </button>
                     </div>
-                    <span className='admin-hint admin-media-folder-hint'>
-                      Папка змінюється тут
-                    </span>
+                    <span className='admin-hint admin-media-folder-hint'>Папка змінюється тут</span>
                   </div>
                 )}
               </div>

@@ -4,7 +4,7 @@ import type React from 'react';
 import type { Page } from '@/lib/types';
 import type { PageDiffLine } from '@/lib/page-draft';
 import { publishedPage } from '@/lib/page-draft';
-import { showToast } from '../AdminToast';
+import { showToast } from '@/components/admin/AdminToast';
 
 export interface PageDiffRevisionsProps {
   diffLines: PageDiffLine[];
@@ -46,8 +46,7 @@ export function PageDiffRevisions({
                     </span>
                   </>
                 )}
-                {line.kind === 'changed' &&
-                (line.field === 'Назва' || line.field === 'Meta description') ? (
+                {line.kind === 'changed' && (line.field === 'Назва' || line.field === 'Meta description') ? (
                   <button
                     type='button'
                     className='admin-linkish'
@@ -77,14 +76,8 @@ export function PageDiffRevisions({
               </li>
             ))}
           </ul>
-          {diffLines.length > 24 ? (
-            <p className='admin-hint'>…і ще {diffLines.length - 24}</p>
-          ) : null}
-          <button
-            type='button'
-            className='admin-btn admin-btn--secondary admin-btn--sm'
-            onClick={resetToLive}
-          >
+          {diffLines.length > 24 ? <p className='admin-hint'>…і ще {diffLines.length - 24}</p> : null}
+          <button type='button' className='admin-btn admin-btn--secondary admin-btn--sm' onClick={resetToLive}>
             Скинути редактор до live
           </button>
         </div>
@@ -98,7 +91,7 @@ export function PageDiffRevisions({
         <div className='admin-revisions'>
           <h3 className='admin-h3'>Історія</h3>
           <ul className='admin-checklist'>
-            {revisions.slice(0, 8).map((r) => (
+            {revisions.slice(0, 8).map(r => (
               <li key={r.id}>
                 <button
                   type='button'

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { uploadImage, type UploadImageOptions } from '@/lib/admin/uploadImage';
 import type { ImagePresetId } from '@/lib/image-presets';
 import { purposeFromPreset, type MediaPurpose } from '@/lib/media-purpose';
-import { showToast } from './AdminToast';
+import { showToast } from '@/components/admin/AdminToast';
 import { MediaPicker } from './MediaPicker';
 
 interface ImageFieldProps {
@@ -45,8 +45,7 @@ export function ImageField({
   const [busy, setBusy] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  const resolvedPurpose: MediaPurpose =
-    purpose || purposeFromPreset(preset ? String(preset) : undefined);
+  const resolvedPurpose: MediaPurpose = purpose || purposeFromPreset(preset ? String(preset) : undefined);
 
   async function handleFile(file: File) {
     setBusy(true);
@@ -82,7 +81,7 @@ export function ImageField({
     <div className='admin-image-field'>
       <label>
         {label} (URL)
-        <input value={value} onChange={(e) => onChange(e.target.value)} disabled={busy} />
+        <input value={value} onChange={e => onChange(e.target.value)} disabled={busy} />
       </label>
       <div className='admin-row admin-image-actions'>
         <label className='admin-btn admin-btn--secondary' style={{ cursor: busy ? 'wait' : 'pointer' }}>
@@ -92,7 +91,7 @@ export function ImageField({
             accept='image/jpeg,image/png,image/webp,image/gif'
             hidden
             disabled={busy}
-            onChange={async (e) => {
+            onChange={async e => {
               const file = e.target.files?.[0];
               e.target.value = '';
               if (!file) return;
@@ -114,7 +113,7 @@ export function ImageField({
       {onAltChange ? (
         <label>
           Alt текст
-          <input value={alt || ''} onChange={(e) => onAltChange(e.target.value)} />
+          <input value={alt || ''} onChange={e => onAltChange(e.target.value)} />
         </label>
       ) : null}
       {value ? (
@@ -130,7 +129,7 @@ export function ImageField({
           onClose={() => setPickerOpen(false)}
           purpose={resolvedPurpose}
           preset={preset}
-          onSelect={(item) => {
+          onSelect={item => {
             onChange(item.url);
             if (onAltChange && item.alt) onAltChange(item.alt);
           }}

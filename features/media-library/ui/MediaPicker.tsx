@@ -2,15 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { uploadImage, uploadVideo } from '@/lib/admin/uploadImage';
-import {
-  MEDIA_PURPOSE_IDS,
-  MEDIA_PURPOSES,
-  purposeFromPreset,
-  type MediaPurpose,
-} from '@/lib/media-purpose';
+import { MEDIA_PURPOSE_IDS, MEDIA_PURPOSES, purposeFromPreset, type MediaPurpose } from '@/lib/media-purpose';
 import type { MediaKind } from '@/lib/media-index';
 import type { ImagePresetId } from '@/lib/image-presets';
-import { showToast } from './AdminToast';
+import { showToast } from '@/components/admin/AdminToast';
 
 export type MediaPickerItem = {
   name: string;
@@ -57,11 +52,7 @@ export function MediaPicker({
   folderId: folderProp,
 }: MediaPickerProps) {
   const defaultPurpose: MediaPurpose | 'all' =
-    purposeProp !== 'all'
-      ? purposeProp
-      : preset
-        ? purposeFromPreset(String(preset))
-        : 'all';
+    purposeProp !== 'all' ? purposeProp : preset ? purposeFromPreset(String(preset)) : 'all';
 
   const [items, setItems] = useState<MediaPickerItem[]>([]);
   const [folders, setFolders] = useState<FolderRow[]>([]);
@@ -127,7 +118,7 @@ export function MediaPicker({
   }, [open, onClose]);
 
   function toggleSelect(item: MediaPickerItem) {
-    setSelectedMap((prev) => {
+    setSelectedMap(prev => {
       if (prev[item.name]) {
         const next = { ...prev };
         delete next[item.name];
@@ -149,8 +140,7 @@ export function MediaPicker({
     try {
       const uploadPurpose: MediaPurpose =
         purpose !== 'all' ? purpose : purposeFromPreset(preset ? String(preset) : undefined);
-      const uploadFolder =
-        folder !== 'all' && folder !== 'root' ? folder : undefined;
+      const uploadFolder = folder !== 'all' && folder !== 'root' ? folder : undefined;
       const wantVideo = kind === 'video';
 
       const uploaded: MediaPickerItem[] = [];
@@ -191,7 +181,7 @@ export function MediaPicker({
       await load();
 
       if (multiple) {
-        setSelectedMap((prev) => {
+        setSelectedMap(prev => {
           const next = { ...prev };
           for (const item of uploaded) next[item.name] = item;
           return next;
@@ -225,7 +215,7 @@ export function MediaPicker({
               ? 'Вибір зображень'
               : 'Вибір зображення'
         }
-        onClick={(e) => e.stopPropagation()}
+        onClick={e => e.stopPropagation()}
       >
         <div className='admin-modal__head'>
           <h2 className='admin-h2' style={{ margin: 0 }}>
@@ -244,14 +234,10 @@ export function MediaPicker({
         <div className='admin-toolbar admin-mb'>
           <label className='admin-inline-label'>
             Папка
-            <select
-              value={folder}
-              onChange={(e) => setFolder(e.target.value)}
-              aria-label='Папка'
-            >
+            <select value={folder} onChange={e => setFolder(e.target.value)} aria-label='Папка'>
               <option value='all'>Усі</option>
               <option value='root'>Без папки</option>
-              {folders.map((f) => (
+              {folders.map(f => (
                 <option key={f.id} value={f.id}>
                   {f.label} ({f.count})
                 </option>
@@ -262,11 +248,11 @@ export function MediaPicker({
             Роль
             <select
               value={purpose}
-              onChange={(e) => setPurpose(e.target.value as MediaPurpose | 'all')}
+              onChange={e => setPurpose(e.target.value as MediaPurpose | 'all')}
               aria-label='Роль медіа'
             >
               <option value='all'>Усі</option>
-              {MEDIA_PURPOSE_IDS.map((id) => (
+              {MEDIA_PURPOSE_IDS.map(id => (
                 <option key={id} value={id}>
                   {MEDIA_PURPOSES[id].label}
                 </option>
@@ -276,11 +262,7 @@ export function MediaPicker({
           {kindProp === 'all' ? (
             <label className='admin-inline-label'>
               Тип
-              <select
-                value={kind}
-                onChange={(e) => setKind(e.target.value as MediaKind | 'all')}
-                aria-label='Тип медіа'
-              >
+              <select value={kind} onChange={e => setKind(e.target.value as MediaKind | 'all')} aria-label='Тип медіа'>
                 <option value='all'>Усі</option>
                 <option value='image'>Фото</option>
                 <option value='video'>Відео</option>
@@ -292,7 +274,7 @@ export function MediaPicker({
             className='admin-grow'
             placeholder='Пошук…'
             value={q}
-            onChange={(e) => setQ(e.target.value)}
+            onChange={e => setQ(e.target.value)}
             aria-label='Пошук медіа'
           />
           <button type='button' className='admin-btn admin-btn--secondary' onClick={() => void load()}>
@@ -311,15 +293,14 @@ export function MediaPicker({
               multiple={multiple && kind !== 'video'}
               hidden
               disabled={uploading}
-              onChange={(e) => void onUploadFiles(e.target.files)}
+              onChange={e => void onUploadFiles(e.target.files)}
             />
           </label>
         </div>
 
         {multiple ? (
           <p className='admin-hint admin-mb'>
-            Клікніть по {kind === 'video' ? 'відео' : 'фото'}, щоб вибрати кілька, потім натисніть
-            «Додати».
+            Клікніть по {kind === 'video' ? 'відео' : 'фото'}, щоб вибрати кілька, потім натисніть «Додати».
           </p>
         ) : null}
 
@@ -327,15 +308,14 @@ export function MediaPicker({
         {!loading && items.length === 0 ? <p className='admin-hint'>Немає файлів.</p> : null}
 
         <div className='admin-media-grid admin-media-grid--picker'>
-          {items.map((item) => {
+          {items.map(item => {
             const isSelected = Boolean(selectedMap[item.name]);
             return (
               <button
                 key={item.name}
                 type='button'
                 className={
-                  'admin-media-card admin-media-card--pick' +
-                  (isSelected ? ' admin-media-card--selected' : '')
+                  'admin-media-card admin-media-card--pick' + (isSelected ? ' admin-media-card--selected' : '')
                 }
                 aria-pressed={multiple ? isSelected : undefined}
                 onClick={() => {
@@ -370,12 +350,7 @@ export function MediaPicker({
             <button type='button' className='admin-btn admin-btn--secondary' onClick={onClose}>
               Скасувати
             </button>
-            <button
-              type='button'
-              className='admin-btn'
-              disabled={selectedCount === 0}
-              onClick={confirmMany}
-            >
+            <button type='button' className='admin-btn' disabled={selectedCount === 0} onClick={confirmMany}>
               Додати{selectedCount > 0 ? ` (${selectedCount})` : ''}
             </button>
           </div>
