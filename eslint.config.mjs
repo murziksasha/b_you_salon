@@ -11,7 +11,6 @@ const compat = new FlatCompat({
 
 /** @type {import('eslint').Linter.Config[]} */
 const config = [
-  ...compat.extends('next/core-web-vitals', 'next/typescript'),
   {
     ignores: [
       'node_modules/**',
@@ -24,8 +23,10 @@ const config = [
       'next-env.d.ts',
       '**/*.test.ts',
       '**/*.test.tsx',
+      'ecosystem.config.cjs',
     ],
   },
+  ...compat.extends('next/core-web-vitals', 'next/typescript'),
   {
     files: ['**/*.cjs'],
     rules: {
