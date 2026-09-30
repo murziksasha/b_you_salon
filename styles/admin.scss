@@ -3296,7 +3296,9 @@ kbd {
   color: var(--admin-ink);
   cursor: pointer;
   text-align: left;
-  transition: border-color 0.15s ease, outline 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    outline 0.15s ease;
 
   &:hover {
     border-color: var(--admin-gold);

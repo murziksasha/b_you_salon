@@ -1178,15 +1178,11 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
             disabled={saving}
           />
           <div>
-            <label htmlFor='goods-editing-category'>
-              Категорія (група на сайті)
-            </label>
+            <label htmlFor='goods-editing-category'>Категорія (група на сайті)</label>
             <CategorySelectDropdown
               id='goods-editing-category'
               value={editing.category || ''}
-              onChange={(cat) =>
-                setEditing({ ...editing, category: cat === DEFAULT_CATEGORY ? '' : cat })
-              }
+              onChange={cat => setEditing({ ...editing, category: cat === DEFAULT_CATEGORY ? '' : cat })}
               categories={categorySuggestions}
               counts={categoryCounts}
               disabled={saving}
