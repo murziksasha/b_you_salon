@@ -58,6 +58,8 @@ export interface Product {
   id: string;
   title: string;
   description: string;
+  /** Free-text characteristics: one "Key: Value" per line. Rendered as a table on the product detail page. */
+  characteristics?: string;
   price: number;
   image: string;
   images?: string[];

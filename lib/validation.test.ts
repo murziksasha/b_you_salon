@@ -26,16 +26,14 @@ describe('parseSiteData', () => {
     expect(result.success).toBe(false);
   });
 
-
   it('keeps contacts people / findTitle / intentChooser after parse', () => {
     const result = parseSiteData(defaultSiteData);
     expect(result.success).toBe(true);
     if (!result.success) return;
-    const home = result.data.pages.find((p) => p.id === 'home');
-    const contacts = home?.sections.find((s) => s.type === 'contacts') as
-      | { people?: { id: string }[]; findTitle?: string; intentChooser?: boolean }
-      | undefined;
-    expect(contacts?.people?.map((p) => p.id)).toEqual(['natalia', 'iryna']);
+    const home = result.data.pages.find(p => p.id === 'home');
+    const contacts = home?.sections.find(s => s.type === 'contacts') as
+      { people?: { id: string }[]; findTitle?: string; intentChooser?: boolean } | undefined;
+    expect(contacts?.people?.map(p => p.id)).toEqual(['natalia', 'iryna']);
     expect(contacts?.findTitle).toBeTruthy();
     expect(contacts?.intentChooser).toBe(true);
   });
@@ -54,6 +52,17 @@ describe('parseSiteData', () => {
     const goods = [{ ...defaultSiteData.goods[0], title: 'x'.repeat(400) }];
     const result = parseSiteData({ ...defaultSiteData, goods });
     expect(result.success).toBe(false);
+  });
+
+  it('accepts catalogs with over 500 products', () => {
+    const base = defaultSiteData.goods[0];
+    const goods = Array.from({ length: 1200 }, (_, i) => ({
+      ...base,
+      id: `p-${i}`,
+      title: `Product ${i}`,
+    }));
+    const result = parseSiteData({ ...defaultSiteData, goods });
+    expect(result.success).toBe(true);
   });
 });
 

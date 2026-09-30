@@ -20,16 +20,13 @@ import {
   type VisibilityFilter,
 } from '@/lib/shop-catalog';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  formatUsageTooltip,
-  planProductMediaPurge,
-  PRODUCT_PLACEHOLDER_IMAGE,
-} from '@/lib/media-usage';
+import { formatUsageTooltip, planProductMediaPurge, PRODUCT_PLACEHOLDER_IMAGE } from '@/lib/media-usage';
 import { showToast } from './AdminToast';
 import { ProductMediaEditor } from './ProductMediaEditor';
 import { StickySaveBar } from './StickySaveBar';
 import { PriceHistory } from './PriceHistory';
 import { RelatedProductsPicker } from './RelatedProductsPicker';
+import { RichTextField } from './RichTextField';
 import { CategorySelectDropdown } from './CategorySelectDropdown';
 
 type ListMode = 'grouped' | 'flat';
@@ -85,6 +82,19 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
   const titleInputRef = useRef<HTMLInputElement>(null);
   const prevEditingId = useRef<string | null>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
+  const [feedModalOpen, setFeedModalOpen] = useState(false);
+  const [feedUrl, setFeedUrl] = useState('');
+  const [feedImporting, setFeedImporting] = useState(false);
+  const [downloadLocalImages, setDownloadLocalImages] = useState(false);
+  const [feedProgress, setFeedProgress] = useState<{
+    stage: 'idle' | 'status' | 'progress' | 'done' | 'error';
+    current: number;
+    total: number;
+    percent: number;
+    message: string;
+    created: number;
+    updated: number;
+  } | null>(null);
 
   useUnsavedGuard(dirty || Boolean(editing));
 
@@ -93,7 +103,7 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
     if (typeof window === 'undefined') return;
     const id = new URLSearchParams(window.location.search).get('edit');
     if (!id) return;
-    const product = initialData.goods.find((g) => g.id === id);
+    const product = initialData.goods.find(g => g.id === id);
     if (product) setEditing(product);
   }, [initialData.goods]);
 
@@ -157,7 +167,7 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
 
   const counts = useMemo(() => {
     const all = data.goods.length;
-    const visible = data.goods.filter((g) => g.visible).length;
+    const visible = data.goods.filter(g => g.visible).length;
     return { all, visible, hidden: all - visible };
   }, [data.goods]);
 
@@ -165,15 +175,15 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
   const categorySuggestions = useMemo(() => collectCategories(data.goods), [data.goods]);
 
   const categoryChipStats = useMemo(() => {
-    return categorySuggestions.map((cat) => {
+    return categorySuggestions.map(cat => {
       const items =
         cat === DEFAULT_CATEGORY
-          ? data.goods.filter((g) => isDefaultCategory(g))
-          : data.goods.filter((g) => (g.category || '').trim() === cat);
+          ? data.goods.filter(g => isDefaultCategory(g))
+          : data.goods.filter(g => (g.category || '').trim() === cat);
       return {
         cat,
         total: items.length,
-        visible: items.filter((g) => g.visible).length,
+        visible: items.filter(g => g.visible).length,
       };
     });
   }, [data.goods, categorySuggestions]);
@@ -187,12 +197,7 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
   }, [categoryChipStats]);
 
   const filtersActive = useMemo(() => {
-    return (
-      Boolean(query.trim()) ||
-      visibility !== 'all' ||
-      Boolean(categoryFilter.trim()) ||
-      viewSort !== 'manual'
-    );
+    return Boolean(query.trim()) || visibility !== 'all' || Boolean(categoryFilter.trim()) || viewSort !== 'manual';
   }, [query, visibility, categoryFilter, viewSort]);
 
   function resetFilters() {
@@ -209,14 +214,14 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
       visibility,
       category: categoryFilter || undefined,
     });
-    return list.map((g) => ({
+    return list.map(g => ({
       product: g,
-      index: data.goods.findIndex((item) => item.id === g.id),
+      index: data.goods.findIndex(item => item.id === g.id),
     }));
   }, [data.goods, query, viewSort, visibility, categoryFilter]);
 
   const groups = useMemo(() => {
-    const products = filtered.map((f) => f.product);
+    const products = filtered.map(f => f.product);
     return groupProductsByCategory(products);
   }, [filtered]);
 
@@ -233,12 +238,15 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
   }
 
   const selectedIds = useMemo(
-    () => Object.entries(selected).filter(([, v]) => v).map(([id]) => id),
+    () =>
+      Object.entries(selected)
+        .filter(([, v]) => v)
+        .map(([id]) => id),
     [selected],
   );
 
   function toggleSelect(id: string) {
-    setSelected((prev) => ({ ...prev, [id]: !prev[id] }));
+    setSelected(prev => ({ ...prev, [id]: !prev[id] }));
   }
 
   function selectAllFiltered() {
@@ -259,7 +267,7 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
     const set = new Set(selectedIds);
     setData({
       ...data,
-      goods: data.goods.map((g) => (set.has(g.id) ? mutator(g) : g)),
+      goods: data.goods.map(g => (set.has(g.id) ? mutator(g) : g)),
     });
     setDirty(true);
     showToast(msg, 'success');
@@ -268,7 +276,7 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
   function exportCsv() {
     const rows = [
       ['id', 'code', 'title', 'price', 'category', 'visible', 'inStock', 'badge', 'promoText', 'description'],
-      ...data.goods.map((g) => [
+      ...data.goods.map(g => [
         g.id,
         g.code || '',
         g.title,
@@ -281,9 +289,7 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
         (g.description || '').replace(/\r?\n/g, ' '),
       ]),
     ];
-    const csv = rows
-      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','))
-      .join('\n');
+    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -296,7 +302,10 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
 
   async function importCsv(file: File) {
     const text = await file.text();
-    const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).filter(Boolean);
+    const lines = text
+      .replace(/^\uFEFF/, '')
+      .split(/\r?\n/)
+      .filter(Boolean);
     if (lines.length < 2) {
       showToast('Порожній CSV', 'error');
       return;
@@ -320,7 +329,7 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
       out.push(cur);
       return out;
     }
-    const header = parseLine(lines[0]).map((h) => h.trim().toLowerCase());
+    const header = parseLine(lines[0]).map(h => h.trim().toLowerCase());
     const idx = (name: string) => header.indexOf(name);
     const iCode = idx('code');
     const iTitle = idx('title');
@@ -347,8 +356,8 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
       const price = Number(cols[iPrice] || 0) || 0;
       const code = iCode >= 0 ? (cols[iCode] || '').trim() : '';
       const id = iId >= 0 ? (cols[iId] || '').trim() : '';
-      let found = id ? goods.findIndex((g) => g.id === id) : -1;
-      if (found < 0 && code) found = goods.findIndex((g) => (g.code || '') === code);
+      let found = id ? goods.findIndex(g => g.id === id) : -1;
+      if (found < 0 && code) found = goods.findIndex(g => (g.code || '') === code);
       const patch: Partial<Product> = {
         title,
         price,
@@ -382,6 +391,125 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
     showToast(`Імпорт: +${created} нових, ${updated} оновлено. Збережіть.`, 'success');
   }
 
+  async function importFeed() {
+    const url = feedUrl.trim();
+    if (!url) return;
+    setFeedImporting(true);
+    setFeedProgress({
+      stage: 'status',
+      current: 0,
+      total: 0,
+      percent: 0,
+      message: 'Зʼєднання із сервером…',
+      created: 0,
+      updated: 0,
+    });
+    try {
+      const res = await fetch('/api/import-feed', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'text/event-stream',
+        },
+        body: JSON.stringify({ url, stream: true, downloadImages: downloadLocalImages }),
+      });
+
+      if (!res.ok) {
+        const errJson = (await res.json().catch(() => ({}))) as { error?: string };
+        showToast(errJson.error || `Помилка імпорту (${res.status})`, 'error');
+        setFeedProgress(null);
+        return;
+      }
+
+      const reader = res.body?.getReader();
+      if (!reader) {
+        showToast('Помилка відкриття потоку даних', 'error');
+        setFeedProgress(null);
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith('data:')) continue;
+          try {
+            const evt = JSON.parse(trimmed.replace(/^data:\s*/, ''));
+            if (evt.type === 'status') {
+              setFeedProgress(prev => ({
+                stage: 'status',
+                current: prev?.current || 0,
+                total: prev?.total || 0,
+                percent: prev?.percent || 0,
+                created: prev?.created || 0,
+                updated: prev?.updated || 0,
+                message: evt.message || '',
+              }));
+            } else if (evt.type === 'start') {
+              setFeedProgress({
+                stage: 'progress',
+                current: 0,
+                total: evt.total,
+                percent: 0,
+                created: 0,
+                updated: 0,
+                message: evt.message || `Знайдено ${evt.total} товарів`,
+              });
+            } else if (evt.type === 'progress') {
+              setFeedProgress({
+                stage: 'progress',
+                current: evt.current,
+                total: evt.total,
+                percent: evt.percent,
+                created: evt.created,
+                updated: evt.updated,
+                message: evt.message || `Опрацьовано ${evt.current} із ${evt.total}`,
+              });
+            } else if (evt.type === 'done') {
+              setFeedProgress({
+                stage: 'done',
+                current: evt.total,
+                total: evt.total,
+                percent: 100,
+                created: evt.created,
+                updated: evt.updated,
+                message: evt.message || 'Імпорт успішно завершено!',
+              });
+              showToast(`Імпорт успішний: +${evt.created} нових, ${evt.updated} оновлено!`, 'success');
+              setTimeout(() => {
+                setFeedModalOpen(false);
+                setFeedUrl('');
+                setFeedProgress(null);
+                window.location.reload();
+              }, 1400);
+            } else if (evt.type === 'error') {
+              showToast(evt.error || 'Помилка імпорту', 'error');
+              setFeedProgress(null);
+              setFeedImporting(false);
+              return;
+            }
+          } catch {
+            // non-fatal parse frame
+          }
+        }
+      }
+    } catch {
+      showToast('Мережева помилка при імпорті фіду', 'error');
+      setFeedProgress(null);
+    } finally {
+      setFeedImporting(false);
+    }
+  }
+
   async function saveProduct() {
     if (!editing) return;
     const codeTrimmed = (editing.code || '').trim();
@@ -389,14 +517,12 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
       showToast('Код товару: мінімум 2 символи (або залиште порожнім)', 'error');
       return;
     }
-    const prev = data.goods.find((g) => g.id === editing.id);
+    const prev = data.goods.find(g => g.id === editing.id);
     if (prev && prev.price > 0 && editing.price > 0) {
       const delta = Math.abs(editing.price - prev.price) / prev.price;
       if (delta >= 0.2) {
         if (
-          !confirm(
-            `Ціна змінюється на ${Math.round(delta * 100)}% (${prev.price} → ${editing.price}). Підтвердити?`,
-          )
+          !confirm(`Ціна змінюється на ${Math.round(delta * 100)}% (${prev.price} → ${editing.price}). Підтвердити?`)
         ) {
           return;
         }
@@ -407,16 +533,14 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
       const issues = productPublishIssues(editing);
       if (issues.length) {
         if (
-          !confirm(
-            `Чекліст опублікованого товару:\n· ${issues.join('\n· ')}\n\nВсе одно зберегти як опублікований?`,
-          )
+          !confirm(`Чекліст опублікованого товару:\n· ${issues.join('\n· ')}\n\nВсе одно зберегти як опублікований?`)
         ) {
           return;
         }
       }
     }
     const goods = [...data.goods];
-    const idx = goods.findIndex((g) => g.id === editing.id);
+    const idx = goods.findIndex(g => g.id === editing.id);
     const stamped: Product = {
       ...editing,
       category: normalizeCategoryInput(editing.category),
@@ -433,10 +557,10 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
   }
 
   async function deleteProduct(id: string) {
-    const product = data.goods.find((g) => g.id === id);
+    const product = data.goods.find(g => g.id === id);
     if (!product) return;
 
-    const nextGoods = data.goods.filter((g) => g.id !== id);
+    const nextGoods = data.goods.filter(g => g.id !== id);
     const nextData: SiteData = { ...data, goods: nextGoods };
     const plan = planProductMediaPurge(product, nextData);
 
@@ -449,7 +573,7 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
       plan.retained.length
         ? `Залишаться (використовуються деінде): ${plan.retained.length}\n${plan.retained
             .slice(0, 4)
-            .map((r) => `· ${r.name}: ${formatUsageTooltip(r.refs)}`)
+            .map(r => `· ${r.name}: ${formatUsageTooltip(r.refs)}`)
             .join('\n')}`
         : '',
       '',
@@ -480,11 +604,7 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
         error?: string;
       };
       if (!res.ok) {
-        showToast(
-          json.error ||
-            'Товар видалено, але файли медіа не вдалося прибрати — перевірте Медіатеку',
-          'error',
-        );
+        showToast(json.error || 'Товар видалено, але файли медіа не вдалося прибрати — перевірте Медіатеку', 'error');
         return;
       }
       const deleted = json.deleted?.length || 0;
@@ -496,10 +616,7 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
           skipped || failed ? 'info' : 'success',
         );
       } else {
-        showToast(
-          deleted ? `Товар і ${deleted} файл(ів) медіа видалено` : 'Товар видалено',
-          'success',
-        );
+        showToast(deleted ? `Товар і ${deleted} файл(ів) медіа видалено` : 'Товар видалено', 'success');
       }
     } catch {
       showToast('Товар видалено, мережева помилка при очищенні медіа', 'error');
@@ -509,9 +626,58 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
   function toggleVisible(id: string) {
     setData({
       ...data,
-      goods: data.goods.map((g) => (g.id === id ? { ...g, visible: !g.visible } : g)),
+      goods: data.goods.map(g => (g.id === id ? { ...g, visible: !g.visible } : g)),
     });
     setDirty(true);
+  }
+
+  async function setAllVisibility(visible: boolean) {
+    const total = data.goods.length;
+    if (total === 0) return;
+
+    const confirmText = visible
+      ? `Опублікувати всі ${total} товарів на сайті?`
+      : `Приховати всі ${total} товарів на сайті?\n\nТовари не видаляються, а лише приховуються від відвідувачів сайту.`;
+
+    if (!confirm(confirmText)) return;
+
+    const nextGoods = data.goods.map(g => ({ ...g, visible }));
+    const nextData: SiteData = { ...data, goods: nextGoods };
+    setData(nextData);
+    setDirty(true);
+    showToast(
+      visible ? `Усі товари (${total}) увімкнено. Зберігаємо…` : `Усі товари (${total}) приховано. Зберігаємо…`,
+      'info',
+    );
+    await save(nextData);
+  }
+
+  async function toggleGroupVisibility(groupKey: string, visible: boolean) {
+    const isUncat = groupKey === UNCATEGORIZED_KEY;
+    const targetProducts = data.goods.filter(g =>
+      isUncat ? isDefaultCategory(g) : (g.category || '').trim() === groupKey,
+    );
+    if (!targetProducts.length) return;
+
+    const label = isUncat ? DEFAULT_CATEGORY : groupKey;
+    const confirmText = visible
+      ? `Опублікувати всі ${targetProducts.length} товарів у категорії «${label}»?`
+      : `Приховати всі ${targetProducts.length} товарів у категорії «${label}»?\n\nТовари не видаляються.`;
+
+    if (!confirm(confirmText)) return;
+
+    const targetIds = new Set(targetProducts.map(p => p.id));
+    const nextGoods = data.goods.map(g => (targetIds.has(g.id) ? { ...g, visible } : g));
+    const nextData: SiteData = { ...data, goods: nextGoods };
+    setData(nextData);
+    setDirty(true);
+    showToast(
+      visible
+        ? `Категорія «${label}»: ${targetProducts.length} товарів увімкнено. Зберігаємо…`
+        : `Категорія «${label}»: ${targetProducts.length} товарів приховано. Зберігаємо…`,
+      'info',
+    );
+    await save(nextData);
   }
 
   function duplicateProduct(product: Product) {
@@ -530,15 +696,15 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
 
   function reorderById(fromId: string, toId: string) {
     if (fromId === toId) return;
-    const from = data.goods.findIndex((g) => g.id === fromId);
-    const to = data.goods.findIndex((g) => g.id === toId);
+    const from = data.goods.findIndex(g => g.id === fromId);
+    const to = data.goods.findIndex(g => g.id === toId);
     if (from < 0 || to < 0) return;
     setData({ ...data, goods: reorderItems(data.goods, from, to) });
     markOrderDirty();
   }
 
   function moveProduct(id: string, dir: -1 | 1) {
-    const index = data.goods.findIndex((g) => g.id === id);
+    const index = data.goods.findIndex(g => g.id === id);
     if (index < 0) return;
     const next = moveByDir(data.goods, index, dir);
     if (next === data.goods) return;
@@ -564,10 +730,7 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
     if (categoryFilter === fromKey) {
       setCategoryFilter(normalizeCategoryInput(nextName) ?? DEFAULT_CATEGORY);
     }
-    showToast(
-      `Категорію перейменовано: ${normalizeCategoryInput(nextName) ?? DEFAULT_CATEGORY}`,
-      'success',
-    );
+    showToast(`Категорію перейменовано: ${normalizeCategoryInput(nextName) ?? DEFAULT_CATEGORY}`, 'success');
   }
 
   function renderProductRow(product: Product, index: number) {
@@ -581,13 +744,13 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
         className={`admin-goods-row admin-section-item${isHidden ? ' is-hidden-section' : ''}${
           isDragging ? ' is-dragging' : ''
         }${isDrop ? ' is-drop-target' : ''}`}
-        onDragOver={(e) => {
+        onDragOver={e => {
           if (!canReorder || !dragId) return;
           e.preventDefault();
           e.dataTransfer.dropEffect = 'move';
           setDragOverId(product.id);
         }}
-        onDrop={(e) => {
+        onDrop={e => {
           e.preventDefault();
           const fromId = e.dataTransfer.getData('text/plain') || dragId;
           if (fromId) reorderById(fromId, product.id);
@@ -603,7 +766,7 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
           aria-label={canReorder ? 'Перемістити товар' : blockReason || 'Порядок недоступний'}
           aria-disabled={!canReorder}
           draggable={canReorder}
-          onDragStart={(e) => {
+          onDragStart={e => {
             if (!canReorder) {
               e.preventDefault();
               return;
@@ -616,7 +779,7 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
             setDragId(null);
             setDragOverId(null);
           }}
-          onKeyDown={(e) => {
+          onKeyDown={e => {
             if (!canReorder) return;
             if (e.key === 'ArrowUp') {
               e.preventDefault();
@@ -649,16 +812,12 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
           <div className='admin-goods-row__title'>
             {product.title}
             {product.badge ? <span className='admin-goods-pill admin-goods-pill--badge'>{product.badge}</span> : null}
-            {product.inStock === false ? (
-              <span className='admin-goods-pill admin-goods-pill--muted'>немає</span>
-            ) : null}
+            {product.inStock === false ? <span className='admin-goods-pill admin-goods-pill--muted'>немає</span> : null}
           </div>
           <div className='admin-goods-row__sub'>
             <span className='admin-goods-row__price'>{product.price} ₴</span>
             {product.code ? <span className='admin-goods-row__code'>{product.code}</span> : null}
-            <span
-              className={`admin-goods-pill${isDefaultCategory(product) ? ' admin-goods-pill--muted' : ''}`}
-            >
+            <span className={`admin-goods-pill${isDefaultCategory(product) ? ' admin-goods-pill--muted' : ''}`}>
               {displayCategory(product)}
             </span>
           </div>
@@ -731,11 +890,7 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
           <button type='button' className='admin-btn admin-btn--secondary' onClick={exportCsv}>
             CSV ↓
           </button>
-          <button
-            type='button'
-            className='admin-btn admin-btn--secondary'
-            onClick={() => csvInputRef.current?.click()}
-          >
+          <button type='button' className='admin-btn admin-btn--secondary' onClick={() => csvInputRef.current?.click()}>
             CSV ↑
           </button>
           <input
@@ -743,12 +898,33 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
             type='file'
             accept='.csv,text/csv'
             hidden
-            onChange={(e) => {
+            onChange={e => {
               const f = e.target.files?.[0];
               if (f) void importCsv(f);
               e.target.value = '';
             }}
           />
+          <button type='button' className='admin-btn admin-btn--secondary' onClick={() => setFeedModalOpen(true)}>
+            Фід ↑
+          </button>
+          <button
+            type='button'
+            className='admin-btn admin-btn--secondary'
+            disabled={saving}
+            title='Опублікувати всі товари каталогу на сайті'
+            onClick={() => void setAllVisibility(true)}
+          >
+            Показати всі
+          </button>
+          <button
+            type='button'
+            className='admin-btn admin-btn--secondary'
+            disabled={saving}
+            title='Приховати всі товари на сайті (без видалення)'
+            onClick={() => void setAllVisibility(false)}
+          >
+            Приховати всі
+          </button>
           {dirty ? <span className='admin-dirty'>Є незбережені зміни · Ctrl+S</span> : null}
         </div>
 
@@ -766,14 +942,14 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
             <button
               type='button'
               className='admin-btn admin-btn--secondary admin-btn--sm'
-              onClick={() => applyBulk((p) => ({ ...p, visible: true }), 'Опубліковано')}
+              onClick={() => applyBulk(p => ({ ...p, visible: true }), 'Опубліковано')}
             >
               Опублікувати
             </button>
             <button
               type='button'
               className='admin-btn admin-btn--secondary admin-btn--sm'
-              onClick={() => applyBulk((p) => ({ ...p, visible: false }), 'Приховано')}
+              onClick={() => applyBulk(p => ({ ...p, visible: false }), 'Приховано')}
             >
               Приховати
             </button>
@@ -781,17 +957,14 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
               className='admin-field-sm'
               placeholder='Категорія bulk'
               value={bulkCategory}
-              onChange={(e) => setBulkCategory(e.target.value)}
+              onChange={e => setBulkCategory(e.target.value)}
               list='goods-category-suggestions'
             />
             <button
               type='button'
               className='admin-btn admin-btn--secondary admin-btn--sm'
               onClick={() =>
-                applyBulk(
-                  (p) => ({ ...p, category: normalizeCategoryInput(bulkCategory) }),
-                  'Категорію змінено',
-                )
+                applyBulk(p => ({ ...p, category: normalizeCategoryInput(bulkCategory) }), 'Категорію змінено')
               }
             >
               Категорія
@@ -801,7 +974,7 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
               style={{ width: 72 }}
               placeholder='% ±'
               value={bulkPct}
-              onChange={(e) => setBulkPct(e.target.value)}
+              onChange={e => setBulkPct(e.target.value)}
               title='Напр. 10 або -5'
             />
             <button
@@ -814,7 +987,7 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
                   return;
                 }
                 applyBulk(
-                  (p) => ({
+                  p => ({
                     ...p,
                     price: Math.max(0, Math.round(p.price * (1 + pct / 100))),
                   }),
@@ -830,7 +1003,7 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
               onClick={() => {
                 if (!confirm(`Видалити ${selectedIds.length} товар(ів)? (медіа не чиститься bulk)`)) return;
                 const set = new Set(selectedIds);
-                setData({ ...data, goods: data.goods.filter((g) => !set.has(g.id)) });
+                setData({ ...data, goods: data.goods.filter(g => !set.has(g.id)) });
                 setDirty(true);
                 clearSelection();
                 showToast('Видалено зі списку — збережіть', 'success');
@@ -847,13 +1020,13 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
             type='search'
             placeholder='Пошук: назва, код, категорія…'
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={e => setQuery(e.target.value)}
             aria-label='Пошук товарів'
           />
           <select
             className='admin-select admin-field-sm'
             value={visibility}
-            onChange={(e) => setVisibility(e.target.value as VisibilityFilter)}
+            onChange={e => setVisibility(e.target.value as VisibilityFilter)}
             aria-label='Фільтр видимості'
           >
             <option value='all'>Усі ({counts.all})</option>
@@ -863,11 +1036,11 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
           <select
             className='admin-select admin-field-sm'
             value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
+            onChange={e => setCategoryFilter(e.target.value)}
             aria-label='Фільтр категорії'
           >
             <option value=''>Усі категорії</option>
-            {categorySuggestions.map((cat) => (
+            {categorySuggestions.map(cat => (
               <option key={cat} value={cat}>
                 {cat}
               </option>
@@ -876,10 +1049,10 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
           <select
             className='admin-select admin-field-sm'
             value={viewSort}
-            onChange={(e) => setViewSort(e.target.value as ProductSort)}
+            onChange={e => setViewSort(e.target.value as ProductSort)}
             aria-label='Сортування списку'
           >
-            {PRODUCT_SORT_OPTIONS.map((opt) => (
+            {PRODUCT_SORT_OPTIONS.map(opt => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>
@@ -925,8 +1098,7 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
             {categoryChipStats.map(({ cat, total, visible }) => {
               const filterValue = cat === DEFAULT_CATEGORY ? DEFAULT_CATEGORY : cat;
               const isActive =
-                categoryFilter === filterValue ||
-                (cat === DEFAULT_CATEGORY && categoryFilter === UNCATEGORIZED_KEY);
+                categoryFilter === filterValue || (cat === DEFAULT_CATEGORY && categoryFilter === UNCATEGORIZED_KEY);
               return (
                 <button
                   key={cat}
@@ -944,13 +1116,13 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
 
       {blockReason ? (
         <p className='admin-hint admin-goods-reorder-hint admin-mb' role='status'>
-          Порядок каталогу (⠿ / ↑↓): <strong>заблоковано</strong> — {blockReason}. Сортування списку вище —
-          лише для перегляду.
+          Порядок каталогу (⠿ / ↑↓): <strong>заблоковано</strong> — {blockReason}. Сортування списку вище — лише для
+          перегляду.
         </p>
       ) : (
         <p className='admin-hint admin-mb'>
-          Перетягуйте ⠿ або стрілки ↑↓ на handle, щоб задати порядок на сайті. Після зміни натисніть «Зберегти
-          всі». Групи = категорії вітрини.
+          Перетягуйте ⠿ або стрілки ↑↓ на handle, щоб задати порядок на сайті. Після зміни натисніть «Зберегти всі».
+          Групи = категорії вітрини.
         </p>
       )}
 
@@ -961,13 +1133,13 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
           className='admin-card admin-form admin-form--editing admin-mb-lg'
           tabIndex={-1}
         >
-          <h3>{data.goods.some((g) => g.id === editing.id) ? 'Редагувати товар' : 'Новий товар'}</h3>
+          <h3>{data.goods.some(g => g.id === editing.id) ? 'Редагувати товар' : 'Новий товар'}</h3>
           <label>
             Назва
             <input
               ref={titleInputRef}
               value={editing.title}
-              onChange={(e) => setEditing({ ...editing, title: e.target.value })}
+              onChange={e => setEditing({ ...editing, title: e.target.value })}
             />
           </label>
           <label>
@@ -977,7 +1149,7 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
               min={0}
               step={1}
               value={Number.isFinite(editing.price) ? editing.price : 0}
-              onChange={(e) => {
+              onChange={e => {
                 const raw = e.target.value;
                 if (raw === '') {
                   setEditing({ ...editing, price: 0 });
@@ -992,7 +1164,7 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
             Код товару
             <input
               value={editing.code || ''}
-              onChange={(e) => setEditing({ ...editing, code: e.target.value })}
+              onChange={e => setEditing({ ...editing, code: e.target.value })}
               placeholder='Напр. SKU-12, АКБ/01…'
               autoComplete='off'
             />
@@ -1002,41 +1174,37 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
           </label>
           <ProductMediaEditor
             product={editing}
-            onChange={(patch) => setEditing({ ...editing, ...patch })}
+            onChange={patch => setEditing({ ...editing, ...patch })}
             disabled={saving}
           />
           <div>
-            <label htmlFor='goods-editing-category'>
-              Категорія (група на сайті)
-            </label>
+            <label htmlFor='goods-editing-category'>Категорія (група на сайті)</label>
             <CategorySelectDropdown
               id='goods-editing-category'
               value={editing.category || ''}
-              onChange={(cat) =>
-                setEditing({ ...editing, category: cat === DEFAULT_CATEGORY ? '' : cat })
-              }
+              onChange={cat => setEditing({ ...editing, category: cat === DEFAULT_CATEGORY ? '' : cat })}
               categories={categorySuggestions}
               counts={categoryCounts}
               disabled={saving}
             />
             <span className='admin-hint'>
-              Опційно. Порожнє поле = «{DEFAULT_CATEGORY}». Однакова назва об’єднує товари в групу в
-              адмінці та на /shop.
+              Опційно. Порожнє поле = «{DEFAULT_CATEGORY}». Однакова назва об’єднує товари в групу в адмінці та на
+              /shop.
             </span>
           </div>
-          <label>
-            Опис
-            <textarea
-              rows={3}
-              value={editing.description}
-              onChange={(e) => setEditing({ ...editing, description: e.target.value })}
+          <div className='admin-field'>
+            <RichTextField
+              label='Опис'
+              value={editing.description || ''}
+              onChange={val => setEditing({ ...editing, description: val })}
+              rows={4}
             />
-          </label>
+          </div>
           <label className='admin-check admin-goods-publish'>
             <input
               type='checkbox'
               checked={editing.visible}
-              onChange={(e) => setEditing({ ...editing, visible: e.target.checked })}
+              onChange={e => setEditing({ ...editing, visible: e.target.checked })}
             />
             <span>
               <strong>Опубліковано</strong>
@@ -1050,7 +1218,7 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
             <input
               type='checkbox'
               checked={editing.inStock !== false}
-              onChange={(e) => setEditing({ ...editing, inStock: e.target.checked })}
+              onChange={e => setEditing({ ...editing, inStock: e.target.checked })}
             />
             В наявності
           </label>
@@ -1058,7 +1226,7 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
             Бейдж (hit / sale / new)
             <input
               value={editing.badge || ''}
-              onChange={(e) => setEditing({ ...editing, badge: e.target.value })}
+              onChange={e => setEditing({ ...editing, badge: e.target.value })}
               placeholder='hit, sale…'
             />
           </label>
@@ -1066,7 +1234,7 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
             Промо-текст
             <input
               value={editing.promoText || ''}
-              onChange={(e) => setEditing({ ...editing, promoText: e.target.value })}
+              onChange={e => setEditing({ ...editing, promoText: e.target.value })}
               placeholder='Короткий рядок під назвою'
             />
           </label>
@@ -1074,7 +1242,7 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
             <input
               type='checkbox'
               checked={Boolean(editing.sortPin)}
-              onChange={(e) => setEditing({ ...editing, sortPin: e.target.checked })}
+              onChange={e => setEditing({ ...editing, sortPin: e.target.checked })}
             />
             Закріпити на початку каталогу
           </label>
@@ -1082,9 +1250,7 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
             products={data.goods}
             currentId={editing.id}
             value={editing.relatedIds || []}
-            onChange={(ids) =>
-              setEditing({ ...editing, relatedIds: ids.length ? ids : undefined })
-            }
+            onChange={ids => setEditing({ ...editing, relatedIds: ids.length ? ids : undefined })}
           />
           <PriceHistory productId={editing.id} />
           <div className='admin-row'>
@@ -1102,7 +1268,7 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
               Скасувати
             </button>
             {(() => {
-              const idx = data.goods.findIndex((g) => g.id === editing.id);
+              const idx = data.goods.findIndex(g => g.id === editing.id);
               if (idx < 0) return null;
               return (
                 <>
@@ -1137,7 +1303,7 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
 
         {listMode === 'flat'
           ? filtered.map(({ product, index }) => renderProductRow(product, index))
-          : groups.map((group) => {
+          : groups.map(group => {
               const isCollapsed = Boolean(collapsed[group.key]);
               return (
                 <section key={group.key} className='admin-goods-group'>
@@ -1146,7 +1312,7 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
                       type='button'
                       className='admin-goods-group__toggle'
                       aria-expanded={!isCollapsed}
-                      onClick={() => setCollapsed((c) => ({ ...c, [group.key]: !c[group.key] }))}
+                      onClick={() => setCollapsed(c => ({ ...c, [group.key]: !c[group.key] }))}
                     >
                       <span aria-hidden>{isCollapsed ? '▸' : '▾'}</span>
                       {renamingKey === group.key ? (
@@ -1154,9 +1320,9 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
                           className='admin-goods-group__rename'
                           value={renameValue}
                           autoFocus
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => setRenameValue(e.target.value)}
-                          onKeyDown={(e) => {
+                          onClick={e => e.stopPropagation()}
+                          onChange={e => setRenameValue(e.target.value)}
+                          onKeyDown={e => {
                             e.stopPropagation();
                             if (e.key === 'Enter') {
                               e.preventDefault();
@@ -1193,22 +1359,33 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
                       type='button'
                       className='admin-btn admin-btn--secondary admin-btn--sm'
                       onClick={() => {
-                        const filterValue =
-                          group.key === UNCATEGORIZED_KEY ? DEFAULT_CATEGORY : group.key;
+                        const filterValue = group.key === UNCATEGORIZED_KEY ? DEFAULT_CATEGORY : group.key;
                         const active =
                           categoryFilter === filterValue ||
-                          (group.key === UNCATEGORIZED_KEY &&
-                            categoryFilter === UNCATEGORIZED_KEY);
+                          (group.key === UNCATEGORIZED_KEY && categoryFilter === UNCATEGORIZED_KEY);
                         setCategoryFilter(active ? '' : filterValue);
                       }}
                     >
                       Фільтр
                     </button>
+                    <button
+                      type='button'
+                      className='admin-btn admin-btn--secondary admin-btn--sm'
+                      disabled={saving}
+                      title={
+                        group.visibleCount < group.total
+                          ? `Опублікувати всі ${group.total} товарів категорії «${group.label}»`
+                          : `Приховати всі ${group.total} товарів категорії «${group.label}» (без видалення)`
+                      }
+                      onClick={() => void toggleGroupVisibility(group.key, group.visibleCount < group.total)}
+                    >
+                      {group.visibleCount < group.total ? 'Показати групу' : 'Приховати групу'}
+                    </button>
                   </header>
                   {!isCollapsed ? (
                     <div className='admin-goods-group__body'>
-                      {group.products.map((product) => {
-                        const index = data.goods.findIndex((g) => g.id === product.id);
+                      {group.products.map(product => {
+                        const index = data.goods.findIndex(g => g.id === product.id);
                         return renderProductRow(product, index);
                       })}
                     </div>
@@ -1217,6 +1394,137 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
               );
             })}
       </div>
+      {feedModalOpen ? (
+        <div className='admin-modal-backdrop' onClick={() => !feedImporting && setFeedModalOpen(false)}>
+          <div className='admin-modal' onClick={e => e.stopPropagation()}>
+            <div className='admin-modal__head'>
+              <h3 style={{ margin: 0, fontSize: '1rem' }}>Імпорт фіду (XML / JSON)</h3>
+            </div>
+            <p className='admin-hint' style={{ marginTop: 0, marginBottom: 10 }}>
+              Введіть URL фіду Livesta. Нові товари стартують приховані; наявні (за кодом SKU) оновлюють ціну, назву,
+              фото.
+            </p>
+            <input
+              className='admin-field'
+              type='url'
+              placeholder='https://livesta.ua/index.php?route=api/products'
+              value={feedUrl}
+              disabled={feedImporting}
+              onChange={e => setFeedUrl(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !feedImporting) void importFeed();
+                if (e.key === 'Escape' && !feedImporting) setFeedModalOpen(false);
+              }}
+              autoFocus
+            />
+
+            <label
+              className='admin-check'
+              style={{
+                marginTop: 10,
+                fontSize: '0.85rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                cursor: feedImporting ? 'default' : 'pointer',
+              }}
+            >
+              <input
+                type='checkbox'
+                checked={downloadLocalImages}
+                disabled={feedImporting}
+                onChange={e => setDownloadLocalImages(e.target.checked)}
+              />
+              Завантажувати всі оригінали фото на сервер (повільніше)
+            </label>
+
+            {feedProgress ? (
+              <div
+                className='admin-feed-progress'
+                style={{
+                  marginTop: 14,
+                  padding: '10px 12px',
+                  background: 'rgba(0, 0, 0, 0.03)',
+                  borderRadius: 8,
+                  border: '1px solid var(--color-admin-border, #e5e7eb)',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    fontSize: '0.85rem',
+                    marginBottom: 6,
+                    fontWeight: 500,
+                  }}
+                >
+                  <span>{feedProgress.message}</span>
+                  <span style={{ fontWeight: 600 }}>{feedProgress.total > 0 ? `${feedProgress.percent}%` : ''}</span>
+                </div>
+                <div
+                  style={{
+                    width: '100%',
+                    height: 8,
+                    backgroundColor: 'rgba(0, 0, 0, 0.08)',
+                    borderRadius: 4,
+                    overflow: 'hidden',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${feedProgress.percent}%`,
+                      height: '100%',
+                      backgroundColor: 'var(--color-accent, #b39369)',
+                      borderRadius: 4,
+                      transition: 'width 0.2s ease',
+                    }}
+                  />
+                </div>
+                {feedProgress.total > 0 ? (
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      fontSize: '0.75rem',
+                      marginTop: 6,
+                      opacity: 0.75,
+                    }}
+                  >
+                    <span>
+                      Товарів: {feedProgress.current} / {feedProgress.total}
+                    </span>
+                    <span>
+                      +{feedProgress.created} нових · {feedProgress.updated} оновлено
+                    </span>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            <div className='admin-modal__foot'>
+              <button
+                type='button'
+                className='admin-btn'
+                disabled={feedImporting || !feedUrl.trim()}
+                onClick={() => void importFeed()}
+              >
+                {feedImporting ? 'Імпортується…' : 'Імпортувати'}
+              </button>
+              <button
+                type='button'
+                className='admin-btn admin-btn--secondary'
+                disabled={feedImporting}
+                onClick={() => {
+                  setFeedModalOpen(false);
+                  setFeedProgress(null);
+                }}
+              >
+                Скасувати
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -1,11 +1,4 @@
-import type {
-  Page,
-  Product,
-  SalonService,
-  Section,
-  SiteData,
-  SiteSettings,
-} from './types';
+import type { Page, Product, SalonService, Section, SiteData, SiteSettings } from './types';
 
 const PHONE_1 = { display: '063 128 45 51', tel: '+380631284551' };
 const PHONE_2 = { display: '097 703 62 83', tel: '+380977036283' };
@@ -134,8 +127,7 @@ const CONTACTS: Section = {
   visible: true,
   title: 'Контакти',
   inviteText: 'Завітайте або залиште номер — передзвонимо.',
-  addressHtml:
-    'Адресу уточнюйте за телефоном.<br/>Салон — праворуч, магазин косметики — ліворуч.',
+  addressHtml: 'Адресу уточнюйте за телефоном.<br/>Салон — праворуч, магазин косметики — ліворуч.',
   phones: [PHONE_1, PHONE_2],
   email: '',
   social: SOCIAL,
@@ -173,8 +165,7 @@ export const SALON_SERVICES: SalonService[] = [
     title: 'Манікюр',
     slug: 'manicure',
     category: 'Нігті',
-    description:
-      'Класичний і апаратний манікюр, покриття, укріплення. Підберемо форму і відтінок під ваш ритм.',
+    description: 'Класичний і апаратний манікюр, покриття, укріплення. Підберемо форму і відтінок під ваш ритм.',
     priceFrom: 500,
     priceNote: 'від',
     durationMin: 60,
@@ -342,17 +333,29 @@ const HOME: Page = {
             { display: '050 544 37 19', tel: '+380505443719' },
           ],
           social: [
-            { id: 'iryna-telegram', type: 'telegram', url: 'https://t.me/+380936327224', icon: '/img/icons/telegram.svg' },
-            { id: 'iryna-viber', type: 'viber', url: 'viber://chat?number=+380936327224', icon: '/img/icons/viber.svg' },
-            { id: 'iryna-instagram', type: 'instagram', url: 'https://www.instagram.com/iriska_livesta/', icon: '/img/icons/instagram.svg' },
+            {
+              id: 'iryna-telegram',
+              type: 'telegram',
+              url: 'https://t.me/+380936327224',
+              icon: '/img/icons/telegram.svg',
+            },
+            {
+              id: 'iryna-viber',
+              type: 'viber',
+              url: 'viber://chat?number=+380936327224',
+              icon: '/img/icons/viber.svg',
+            },
+            {
+              id: 'iryna-instagram',
+              type: 'instagram',
+              url: 'https://www.instagram.com/iriska_livesta/',
+              icon: '/img/icons/instagram.svg',
+            },
           ],
         },
       ],
       findTitle: 'Знаходимся м. Чорноморськ, вул. Вишнева, 4',
-      findLines: [
-        'Пн–Сб 09:00–18:00',
-        'У неділю та в інший зручний час — запис за домовленістю.',
-      ],
+      findLines: ['Пн–Сб 09:00–18:00', 'У неділю та в інший зручний час — запис за домовленістю.'],
     },
   ],
 };
@@ -404,10 +407,7 @@ const SALON: Page = {
         },
       ],
       findTitle: 'Знаходимся м. Чорноморськ, вул. Вишнева, 4',
-      findLines: [
-        'Пн–Сб 09:00–18:00',
-        'У неділю та в інший зручний час — запис за домовленістю.',
-      ],
+      findLines: ['Пн–Сб 09:00–18:00', 'У неділю та в інший зручний час — запис за домовленістю.'],
     },
   ],
 };
@@ -449,9 +449,24 @@ const SHOP: Page = {
             { display: '050 544 37 19', tel: '+380505443719' },
           ],
           social: [
-            { id: 'iryna-telegram', type: 'telegram', url: 'https://t.me/+380936327224', icon: '/img/icons/telegram.svg' },
-            { id: 'iryna-viber', type: 'viber', url: 'viber://chat?number=+380936327224', icon: '/img/icons/viber.svg' },
-            { id: 'iryna-instagram', type: 'instagram', url: 'https://www.instagram.com/iriska_livesta/', icon: '/img/icons/instagram.svg' },
+            {
+              id: 'iryna-telegram',
+              type: 'telegram',
+              url: 'https://t.me/+380936327224',
+              icon: '/img/icons/telegram.svg',
+            },
+            {
+              id: 'iryna-viber',
+              type: 'viber',
+              url: 'viber://chat?number=+380936327224',
+              icon: '/img/icons/viber.svg',
+            },
+            {
+              id: 'iryna-instagram',
+              type: 'instagram',
+              url: 'https://www.instagram.com/iriska_livesta/',
+              icon: '/img/icons/instagram.svg',
+            },
           ],
         },
       ],
@@ -460,10 +475,7 @@ const SHOP: Page = {
         { display: '050 544 37 19', tel: '+380505443719' },
       ],
       findTitle: 'Знаходимся м. Чорноморськ, вул. Вишнева, 4',
-      findLines: [
-        'Пн–Сб 09:00–18:00',
-        'Магазин косметики — ліворуч від входу.',
-      ],
+      findLines: ['Пн–Сб 09:00–18:00', 'Магазин косметики — ліворуч від входу.'],
     },
   ],
 };
@@ -622,7 +634,7 @@ export const defaultSiteData: SiteData = {
     { id: 'mh-all', label: 'Каталог', href: '/shop', visible: true },
     { id: 'mh-cart', label: 'Кошик', href: '/cart', visible: true },
   ],
-  servicesNav: SALON_SERVICES.map((s) => ({
+  servicesNav: SALON_SERVICES.map(s => ({
     id: `nav-${s.slug}`,
     label: s.title,
     href: `/salon/${s.slug}`,

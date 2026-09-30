@@ -157,7 +157,7 @@ async function main() {
   console.log(`Done. processed=${processed} skipped=${skipped} renames=${renames.length} dryRun=${dryRun}`);
 }
 
-main().catch((e) => {
+main().catch(e => {
   console.error(e);
   process.exit(1);
 });

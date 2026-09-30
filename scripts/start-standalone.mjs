@@ -89,4 +89,4 @@ const child = spawn(process.execPath, ['server.js'], {
   stdio: 'inherit',
 });
 
-child.on('exit', (code) => process.exit(code ?? 0));
+child.on('exit', code => process.exit(code ?? 0));

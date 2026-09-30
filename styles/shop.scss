@@ -366,7 +366,7 @@
     top: 8px;
     left: 8px;
     z-index: 1;
-    font-size: 0.72rem;
+    font-size: 1.15rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.03em;
@@ -397,7 +397,7 @@
     right: 8px;
     z-index: 1;
     text-align: center;
-    font-size: 0.75rem;
+    font-size: 1.15rem;
     font-weight: 600;
     padding: 4px 8px;
     border-radius: 6px;
@@ -449,8 +449,8 @@
   }
 
   &__desc {
-    font-size: 1.3rem;
-    line-height: 1.4;
+    font-size: 1.35rem;
+    line-height: 1.45;
     color: var(--by-muted, #b8a99a);
     margin: 0 0 0.8rem;
     display: -webkit-box;
@@ -534,6 +534,7 @@
 
 .shop-detail__promo {
   margin: 0 0 8px;
+  font-size: 1.4rem;
   color: var(--by-gold, #c4a574);
   font-weight: 600;
 }
@@ -639,13 +640,13 @@
 
   &__code {
     margin: 0 0 10px;
-    font-size: 1rem;
+    font-size: 1.3rem;
     color: var(--by-muted, #b8a99a);
     word-break: break-word;
   }
 
   &__price {
-    font-size: 1.5rem;
+    font-size: 2.2rem;
     color: var(--by-blush, #e8a0bf);
     font-weight: 700;
     margin: 0 0 16px;
@@ -654,6 +655,29 @@
   &__desc {
     margin-bottom: 20px;
     color: var(--by-muted, #b8a99a);
+    font-size: 1.55rem;
+    line-height: 1.65;
+
+    p {
+      margin: 0 0 12px;
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+
+    ul, ol {
+      margin: 0 0 12px 20px;
+      padding: 0;
+    }
+
+    li {
+      margin-bottom: 4px;
+    }
+
+    b, strong {
+      color: var(--by-cream, #f5ede4);
+      font-weight: 600;
+    }
   }
 
   &__actions {
@@ -815,6 +839,35 @@
   &__title {
     margin-bottom: 1.6rem;
     font-size: 2.4rem;
+    color: var(--by-cream, #f5ede4);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Characteristics table (product detail page)
+// ---------------------------------------------------------------------------
+.shop-char-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.4rem 0;
+  font-size: 1.4rem;
+
+  th,
+  td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid rgba(255 255 255 / 0.12);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  th {
+    width: 40%;
+    color: var(--by-cream-muted, rgba(245 237 228 / 0.6));
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  td {
     color: var(--by-cream, #f5ede4);
   }
 }

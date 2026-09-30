@@ -1,11 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  authenticateLogin,
-  createSession,
-  destroySession,
-  getSessionClaims,
-  getSessionFingerprint,
-} from '@/lib/auth';
+import { authenticateLogin, createSession, destroySession, getSessionClaims, getSessionFingerprint } from '@/lib/auth';
 import { appendActivity } from '@/lib/admin-activity';
 import { markFingerprintRevoked, registerSession } from '@/lib/admin-sessions';
 import { assertAdminIp } from '@/lib/require-admin-ip';
@@ -37,10 +31,7 @@ export async function POST(request: NextRequest) {
     const totp = typeof body.totp === 'string' ? body.totp : '';
 
     if (!process.env.ADMIN_PASSWORD) {
-      return NextResponse.json(
-        { error: 'ADMIN_PASSWORD is not set in .env' },
-        { status: 503 },
-      );
+      return NextResponse.json({ error: 'ADMIN_PASSWORD is not set in .env' }, { status: 503 });
     }
 
     const auth = await authenticateLogin({ password, username });

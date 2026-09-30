@@ -11,10 +11,10 @@ docker compose up -d --build
 
 Сервіси (`docker-compose.yml`):
 
-| Service | Role |
-|---------|------|
+| Service                 | Role                                  |
+| ----------------------- | ------------------------------------- |
 | `next-app` (`byou-app`) | Next.js standalone (`node server.js`) |
-| `nginx` (`byou-nginx`) | reverse proxy + `/uploads` |
+| `nginx` (`byou-nginx`)  | reverse proxy + `/uploads`            |
 
 Локально за замовчуванням `NGINX_PORT=8080` → http://localhost:8080  
 Адмінка: http://localhost:8080/admin
@@ -67,14 +67,29 @@ npm run pm2:setup
 3. Запускає додаток через **pm2** (`ecosystem.config.cjs`, слухає `0.0.0.0` + `PORT` з `.env`)
 4. `pm2 save` + автозавантаження Windows (`pm2-windows-startup` або Task Scheduler → `pm2 resurrect`)
 
-| Команда | Дія |
-|---------|-----|
-| `npm run pm2:setup` | install/start + autostart |
-| `npm run update` | git pull + always-build + `pm2 restart byou` |
-| `npm run pm2:logs` | логи |
-| `npm run pm2:restart` | рестарт процесу (без pull/build) |
-| `npm run pm2:stop` | стоп |
-| `npm run start:prod` | foreground без pm2 (build-if-needed) |
+| Команда                  | Дія                                                                          |
+| ------------------------ | ---------------------------------------------------------------------------- |
+| `npm run prod:setup`     | Ініціалізувати виділену prod-директорію (`b_you_salon_prod`) на порті 3000   |
+| `npm run data:pull-prod` | Отримати свіжий бекап CMS (`site.json`) та `uploads` з prod у dev (безпечно) |
+| `npm run deploy:prod`    | Запушити зміни з dev та оновити/перезапустити prod-папку                     |
+| `npm run pm2:setup`      | install/start + autostart                                                    |
+| `npm run update`         | git pull + always-build + `pm2 restart byou`                                 |
+| `npm run pm2:logs`       | логи                                                                         |
+| `npm run pm2:restart`    | рестарт процесу (без pull/build)                                             |
+| `npm run pm2:stop`       | стоп                                                                         |
+| `npm run start:prod`     | foreground без pm2 (build-if-needed)                                         |
+
+### Розділення Dev та Prod на одному ноутбуці-сервері
+
+Щоб розробка не перетирала робочі дані клієнтів (заявки, сесії) і CMS-контент:
+
+1. **Dev-середовище**: робоча папка `b_you_salon`, порт **3001** (`npm run dev`).
+2. **Prod-середовище**: окрема папка `b_you_salon_prod`, порт **3000** (PM2 або `start:prod`).
+3. **Дані (`data/`)**:
+   - `data/*.json` не комітяться в git (ігноруються).
+   - `data/site.seed.json` зберігається в git як базовий шаблон.
+   - Для синхронізації актуального каталогу/сторінок у dev запустіть `npm run data:pull-prod`.
+   - Заявки клієнтів (`leads.json`) та замовлення (`orders.json`) залишаються чистими в dev.
 
 Після змін у коді на хості **не** робіть голий `git pull` + `pm2 restart`. `pm2:setup` / `start:prod` збирають **лише якщо** немає `.next/BUILD_ID`, тому старий бандл залишиться. Один крок:
 
@@ -250,11 +265,11 @@ curl -X POST -H "Authorization: Bearer $BACKUP_CRON_SECRET" http://localhost/api
 
 Любой удобный способ (выберите один):
 
-| Способ | Как |
-|--------|-----|
-| **Git** | `git clone <url> C:\apps\properservice` (default branch is **`dev`**) |
-| **Архив / USB** | скопировать папку проекта **без** обязательного `node_modules` (его поставите на месте) |
-| **Сетевой диск** | не рекомендуется как единственная копия (при отвале сети сайт упадёт) |
+| Способ           | Как                                                                                     |
+| ---------------- | --------------------------------------------------------------------------------------- |
+| **Git**          | `git clone <url> C:\apps\properservice` (default branch is **`dev`**)                   |
+| **Архив / USB**  | скопировать папку проекта **без** обязательного `node_modules` (его поставите на месте) |
+| **Сетевой диск** | не рекомендуется как единственная копия (при отвале сети сайт упадёт)                   |
 
 Рекомендуемый путь без пробелов, если возможно, например:
 
@@ -285,16 +300,16 @@ notepad .env
 
 Обязательно выставьте:
 
-| Переменная | Для хоста без HTTPS (LAN / Keen HTTP) |
-|------------|----------------------------------------|
-| `ADMIN_PASSWORD` | сильный пароль (не `changeme`) |
-| `SESSION_SECRET` | длинная случайная строка (`openssl rand -hex 32` или любой 64-hex) |
-| `COOKIE_SECURE` | **`false`** (иначе cookie админки не сохранятся по HTTP) |
-| `PORT` | `3000` (или другой свободный) |
-| `SITE_URL` | публичный URL, напр. `http://service.home:3000` или `http://192.168.1.50:3000` |
-| `DEPLOY_BRANCH` | **`dev`** (GitHub default; `npm run update` checkouts this branch) |
-| `SMTP_*` / `MAIL_*` | если нужны заявки на почту |
-| `ADMIN_IP_ALLOWLIST` | опционально: IP, с которых можно в `/admin` |
+| Переменная           | Для хоста без HTTPS (LAN / Keen HTTP)                                          |
+| -------------------- | ------------------------------------------------------------------------------ |
+| `ADMIN_PASSWORD`     | сильный пароль (не `changeme`)                                                 |
+| `SESSION_SECRET`     | длинная случайная строка (`openssl rand -hex 32` или любой 64-hex)             |
+| `COOKIE_SECURE`      | **`false`** (иначе cookie админки не сохранятся по HTTP)                       |
+| `PORT`               | `3000` (или другой свободный)                                                  |
+| `SITE_URL`           | публичный URL, напр. `http://service.home:3000` или `http://192.168.1.50:3000` |
+| `DEPLOY_BRANCH`      | **`dev`** (GitHub default; `npm run update` checkouts this branch)             |
+| `SMTP_*` / `MAIL_*`  | если нужны заявки на почту                                                     |
+| `ADMIN_IP_ALLOWLIST` | опционально: IP, с которых можно в `/admin`                                    |
 
 Без Docker переменная `NGINX_PORT` **не используется** — наружу идёт `PORT`.
 
@@ -410,33 +425,33 @@ Get-ScheduledTaskInfo -TaskName "ProperService-pm2"
 
 Планировщик заданий (GUI):
 
-1. `Win + R` → `taskschd.msc` → Enter  
-2. Библиотека планировщика → задача **`ProperService-pm2`**  
-3. Триггер: «При входе в систему», задержка 30 секунд  
-4. Действие: `powershell.exe ... -File "...\scripts\pm2-autostart.ps1"`  
-5. История: включить «Журнал всех заданий» при отладке  
+1. `Win + R` → `taskschd.msc` → Enter
+2. Библиотека планировщика → задача **`ProperService-pm2`**
+3. Триггер: «При входе в систему», задержка 30 секунд
+4. Действие: `powershell.exe ... -File "...\scripts\pm2-autostart.ps1"`
+5. История: включить «Журнал всех заданий» при отладке
 
 **Частые причины «после reboot нет сайта»:**
 
-| Причина | Что сделать |
-|---------|-------------|
-| Не вошли в учётку (экран входа) | Войти тем же user, что делал setup; или настроить автологин Windows |
-| Setup делали от Admin, а входите под другим user | setup + `pm2 save` **под тем user, под которым работаете** |
-| Задача не создана / LastTaskResult ≠ 0 | setup **от имени администратора**, смотреть `logs\pm2-autostart.log` |
-| Только `pm2 resurrect` без PATH | новый setup: autostart-скрипт сам добавляет Node в PATH |
-| Сон ноутбука | отключить сон при питании от сети |
+| Причина                                          | Что сделать                                                          |
+| ------------------------------------------------ | -------------------------------------------------------------------- |
+| Не вошли в учётку (экран входа)                  | Войти тем же user, что делал setup; или настроить автологин Windows  |
+| Setup делали от Admin, а входите под другим user | setup + `pm2 save` **под тем user, под которым работаете**           |
+| Задача не создана / LastTaskResult ≠ 0           | setup **от имени администратора**, смотреть `logs\pm2-autostart.log` |
+| Только `pm2 resurrect` без PATH                  | новый setup: autostart-скрипт сам добавляет Node в PATH              |
+| Сон ноутбука                                     | отключить сон при питании от сети                                    |
 
 #### 6.3. Ручная задача Планировщика (если setup не создал)
 
-1. `taskschd.msc` → Создать задачу…  
-2. Имя: `ProperService-pm2`  
-3. Триггер: **При входе в систему** (ваш пользователь), задержка 30 секунд.  
+1. `taskschd.msc` → Создать задачу…
+2. Имя: `ProperService-pm2`
+3. Триггер: **При входе в систему** (ваш пользователь), задержка 30 секунд.
 4. Действие → Запуск программы:
    - Программа: `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`
    - Аргументы: `-NoProfile -ExecutionPolicy Bypass -File "C:\apps\properservice\scripts\pm2-autostart.ps1"`
-   - «Рабочая папка»: `C:\apps\properservice`  
-5. Условия: снять «Запускать только при питании от электросети».  
-6. Параметры: при сбое — перезапуск через 1 минуту.  
+   - «Рабочая папка»: `C:\apps\properservice`
+5. Условия: снять «Запускать только при питании от электросети».
+6. Параметры: при сбое — перезапуск через 1 минуту.
 7. На вкладке «Общие»: «Выполнять с наивысшими правами».
 
 Перед этим один раз вручную:
@@ -556,15 +571,15 @@ robocopy "C:\apps\properservice\public\uploads" "D:\backups\ps-uploads" /MIR
 
 ### 11. Типовые проблемы
 
-| Симптом | Что проверить |
-|---------|----------------|
-| После reboot сайта нет | Вошли ли в Windows тем же user? `pm2 resurrect`, задача `ProperService-pm2` |
-| `pm2` not found | Node/npm PATH; новый терминал; `npm install -g pm2` |
-| С телефона не открывается | Firewall, IP ноутбука, `0.0.0.0` (ecosystem уже с `-H 0.0.0.0`), одна ли подсеть |
-| Админка «разлогинивает» | `COOKIE_SECURE=false` при HTTP; перезапуск pm2 после правки `.env` |
-| Старый дизайн/код после pull | Забыли `npm run update` (нужен `npm run build` перед `pm2:restart`) |
-| Ноут «уснул» | Питание / сон (шаг 1) |
-| Порт занят | `netstat -ano \| findstr :3000` или сменить `PORT` в `.env` и `pm2 delete` + `npm run pm2:setup` |
+| Симптом                      | Что проверить                                                                                    |
+| ---------------------------- | ------------------------------------------------------------------------------------------------ |
+| После reboot сайта нет       | Вошли ли в Windows тем же user? `pm2 resurrect`, задача `ProperService-pm2`                      |
+| `pm2` not found              | Node/npm PATH; новый терминал; `npm install -g pm2`                                              |
+| С телефона не открывается    | Firewall, IP ноутбука, `0.0.0.0` (ecosystem уже с `-H 0.0.0.0`), одна ли подсеть                 |
+| Админка «разлогинивает»      | `COOKIE_SECURE=false` при HTTP; перезапуск pm2 после правки `.env`                               |
+| Старый дизайн/код после pull | Забыли `npm run update` (нужен `npm run build` перед `pm2:restart`)                              |
+| Ноут «уснул»                 | Питание / сон (шаг 1)                                                                            |
+| Порт занят                   | `netstat -ano \| findstr :3000` или сменить `PORT` в `.env` и `pm2 delete` + `npm run pm2:setup` |
 
 ### 12. Быстрый чеклист «хост готов»
 
@@ -582,12 +597,12 @@ robocopy "C:\apps\properservice\public\uploads" "D:\backups\ps-uploads" /MIR
 
 ### 13. Чего **не** делать на dev-машине
 
-| Dev (эта машина) | Хост (ноутбук с сайтом) |
-|------------------|-------------------------|
-| `npm run dev`, правки кода, тесты | `npm run pm2:setup`, автозапуск |
-| Можно не ставить pm2 | pm2 обязателен для auto-restart |
-| Docker — по желанию | Docker не нужен для этого сценария |
-| `.env` dev | отдельный `.env` prod/LAN |
+| Dev (эта машина)                  | Хост (ноутбук с сайтом)            |
+| --------------------------------- | ---------------------------------- |
+| `npm run dev`, правки кода, тесты | `npm run pm2:setup`, автозапуск    |
+| Можно не ставить pm2              | pm2 обязателен для auto-restart    |
+| Docker — по желанию               | Docker не нужен для этого сценария |
+| `.env` dev                        | отдельный `.env` prod/LAN          |
 
 Итоговая команда **только на ноутбуке-хосте** после клонирования и настройки `.env`:
 
