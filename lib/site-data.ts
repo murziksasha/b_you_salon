@@ -38,8 +38,35 @@ export function withSiteDataLock<T>(fn: () => Promise<T>): Promise<T> {
   return withFileMutex(getDataFilePath(), fn);
 }
 
+/**
+ * In-memory cache keyed by file path + mtime + size. Invalidated on every save and whenever the
+ * file changes on disk (manual edits / restore). Callers get a deep clone, so mutating the
+ * result never corrupts the cache.
+ */
+let siteCache: { filePath: string; mtimeMs: number; size: number; data: SiteData } | null = null;
+
+export function invalidateSiteDataCache(): void {
+  siteCache = null;
+}
+
 async function readSiteDataUnlocked(): Promise<SiteData> {
   const filePath = getDataFilePath();
+  try {
+    const st = await fs.stat(filePath);
+    if (siteCache && siteCache.filePath === filePath && siteCache.mtimeMs === st.mtimeMs && siteCache.size === st.size) {
+      return structuredClone(siteCache.data);
+    }
+    const data = await readSiteDataFromDisk(filePath);
+    siteCache = { filePath, mtimeMs: st.mtimeMs, size: st.size, data: structuredClone(data) };
+    return data;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException)?.code !== 'ENOENT') throw err;
+    siteCache = null;
+    return readSiteDataFromDisk(filePath);
+  }
+}
+
+async function readSiteDataFromDisk(filePath: string): Promise<SiteData> {
   let raw: string;
   try {
     raw = await fs.readFile(filePath, 'utf-8');
@@ -94,6 +121,7 @@ export async function saveSiteData(data: SiteData): Promise<SiteData> {
 }
 
 async function saveSiteDataUnlocked(data: SiteData): Promise<SiteData> {
+  invalidateSiteDataCache();
   const filePath = getDataFilePath();
   await ensureDataDir(filePath);
 
@@ -125,6 +153,7 @@ async function saveSiteDataUnlocked(data: SiteData): Promise<SiteData> {
     updatedAt: new Date().toISOString(),
   };
   await atomicWriteJson(filePath, next);
+  invalidateSiteDataCache();
 
   // Rolling snapshots under data/backups (failures must not block save)
   if (process.env.AUTO_BACKUP !== 'false') {

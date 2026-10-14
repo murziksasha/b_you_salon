@@ -33,6 +33,22 @@ describe('site-data helpers', () => {
     15_000,
   );
 
+  it('cache returns clones and picks up external file changes', async () => {
+    const { getSiteData } = await import('./site-data');
+    const a = await getSiteData();
+    a.settings.title = 'mutated-in-memory';
+    const b = await getSiteData();
+    expect(b.settings.title).not.toBe('mutated-in-memory');
+
+    const file = path.join(tmpDir, 'site.json');
+    const raw = JSON.parse(await fs.readFile(file, 'utf-8'));
+    raw.settings.title = 'edited-on-disk-with-different-length';
+    await fs.writeFile(file, JSON.stringify(raw));
+    const later = new Date(Date.now() + 5000);
+    await fs.utimes(file, later, later);
+    expect((await getSiteData()).settings.title).toBe('edited-on-disk-with-different-length');
+  });
+
   it('createPage ensures unique slug and protect home delete', async () => {
     const { getSiteData, createPage, deletePage, saveSiteData } = await import('./site-data');
     const data = await getSiteData();
