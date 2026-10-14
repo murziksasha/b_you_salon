@@ -39,7 +39,13 @@ function cookieSecureEnabled(): boolean {
   return process.env.NODE_ENV === 'production';
 }
 
-export type LoginResult = { ok: true; claims: SessionClaims } | { ok: false; error: string };
+/**
+ * `userTotpSecret`: personal TOTP of the authenticated admins.json user (if configured).
+ * When absent, the login route falls back to the global secret (env/file) — transitional mode.
+ */
+export type LoginResult =
+  | { ok: true; claims: SessionClaims; userTotpSecret?: string }
+  | { ok: false; error: string };
 
 /**
  * Authenticate: multi-user (username+password against admins.json) OR legacy ADMIN_PASSWORD.
@@ -53,7 +59,11 @@ export async function authenticateLogin(input: { password: string; username?: st
     if (!user || !(await verifyPasswordHash(input.password, user.passwordHash))) {
       return { ok: false, error: 'Invalid credentials' };
     }
-    return { ok: true, claims: { username: user.username, role: user.role } };
+    return {
+      ok: true,
+      claims: { username: user.username, role: user.role },
+      ...(user.totp?.secret ? { userTotpSecret: user.totp.secret } : {}),
+    };
   }
 
   // Legacy single password (also works when multi-user exists if no username provided)

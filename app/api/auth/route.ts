@@ -40,7 +40,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: auth.error }, { status: 401 });
     }
 
-    const totpActive = await getTotpSecret();
+    // Personal TOTP wins; otherwise the global (env/file) secret applies (transitional mode).
+    const totpActive = auth.userTotpSecret
+      ? { secret: auth.userTotpSecret, source: 'user' as const }
+      : await getTotpSecret();
     if (totpActive) {
       if (!verifyTotp(totpActive.secret, totp)) {
         return NextResponse.json({ error: 'Invalid 2FA code', needTotp: true }, { status: 401 });

@@ -87,3 +87,30 @@ describe('admin user store', () => {
     expect(listed.find((u) => u.username === 'ira')?.grants).toEqual(['inbox', 'leads']);
   });
 });
+
+describe('personal totp storage', () => {
+  let tmp: string;
+  let prevDir: string | undefined;
+  beforeEach(async () => {
+    tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'byou-totp-'));
+    prevDir = process.env.DATA_DIR;
+    process.env.DATA_DIR = tmp;
+  });
+  afterEach(async () => {
+    if (prevDir === undefined) delete process.env.DATA_DIR;
+    else process.env.DATA_DIR = prevDir;
+    await fs.rm(tmp, { recursive: true, force: true });
+  });
+
+  it('stores per-user secret but never lists it', async () => {
+    const mod = await import('./admin-users');
+    await mod.createAdminUser({ username: 'bob', password: 'longenough', role: 'operator' });
+    expect(await mod.setUserTotp('bob', 'JBSWY3DPEHPK3PXP')).toEqual({ ok: true });
+    const listed = await mod.listAdminUsers();
+    expect(listed[0]).toMatchObject({ username: 'bob', totpEnabled: true });
+    expect(JSON.stringify(listed)).not.toContain('JBSWY3DPEHPK3PXP');
+    expect((await mod.getAdminUserByUsername('bob'))?.totp?.secret).toBe('JBSWY3DPEHPK3PXP');
+    await mod.setUserTotp('bob', null);
+    expect((await mod.listAdminUsers())[0].totpEnabled).toBe(false);
+  });
+});

@@ -21,6 +21,7 @@ type UserRow = {
   grants?: AdminCapability[];
   createdAt: string;
   disabled?: boolean;
+  totpEnabled?: boolean;
 };
 
 type SessionRow = {
@@ -203,6 +204,22 @@ export function UsersPanel() {
     await load();
   }
 
+  async function resetTotp(id: string) {
+    if (!confirm('Скинути 2FA цьому користувачу? Його сесії буде відкликано.')) return;
+    const res = await fetch('/api/users', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, resetTotp: true, confirmPassword: ownerPassword }),
+    });
+    if (!res.ok) {
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      showToast(json.error || 'Помилка', 'error');
+      return;
+    }
+    showToast('2FA скинуто', 'success');
+    await load();
+  }
+
   async function removeUser(id: string) {
     if (!confirm('Видалити користувача?')) return;
     const res = await fetch('/api/users', {
@@ -280,6 +297,7 @@ export function UsersPanel() {
                 <span className='admin-lead-meta'>
                   {u.role === 'owner' ? 'супер-адмін' : u.role}
                   {u.disabled ? ' · disabled' : ''}
+                  {u.totpEnabled ? ' · 2FA' : ' · без 2FA'}
                   {u.role !== 'owner' && u.grants?.length ? ` · ${u.grants.length} прав` : ''}
                 </span>
               </div>
@@ -291,6 +309,15 @@ export function UsersPanel() {
                 >
                   Права
                 </button>
+                {u.totpEnabled ? (
+                  <button
+                    type='button'
+                    className='admin-btn admin-btn--secondary admin-btn--sm'
+                    onClick={() => void resetTotp(u.id)}
+                  >
+                    Скинути 2FA
+                  </button>
+                ) : null}
                 <button
                   type='button'
                   className='admin-btn admin-btn--danger admin-btn--sm'

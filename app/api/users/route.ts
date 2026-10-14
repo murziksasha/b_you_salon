@@ -1,6 +1,13 @@
 import { NextResponse } from 'next/server';
 import { verifyCurrentUserPassword } from '@/lib/admin/reauth';
-import { createAdminUser, deleteAdminUser, listAdminUsers, updateAdminUser } from '@/lib/admin-users';
+import {
+  createAdminUser,
+  deleteAdminUser,
+  listAdminUsers,
+  setUserTotp,
+  updateAdminUser,
+} from '@/lib/admin-users';
+import { revokeSessionsByUsername } from '@/lib/admin-sessions';
 import { safeAudit } from '@/lib/api/audit';
 import { apiError, withAdmin } from '@/lib/api/handler';
 import { CreateUserSchema, DeleteUserSchema, UpdateUserSchema, reAuthPassword } from '@/lib/schemas/admin';

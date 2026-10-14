@@ -28,6 +28,8 @@ export const UpdateUserSchema = z.object({
   disabled: z.boolean().optional(),
   password: z.string().min(8).max(256).optional(),
   grants: z.array(CapabilitySchema).optional(),
+  /** Owner action: clear the target user's personal 2FA (lost device). */
+  resetTotp: z.boolean().optional(),
   ...ReAuth,
 });
 
