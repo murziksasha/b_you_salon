@@ -76,7 +76,10 @@ export function middleware(request: NextRequest) {
   }
 
   if (pathname === '/admin/login' || pathname.startsWith('/admin/login/')) {
-    return NextResponse.next();
+    // Never let a client-supplied x-admin-pathname reach the admin layout.
+    const loginHeaders = new Headers(request.headers);
+    loginHeaders.delete('x-admin-pathname');
+    return NextResponse.next({ request: { headers: loginHeaders } });
   }
 
   const session = request.cookies.get(SESSION_COOKIE)?.value;
