@@ -118,8 +118,7 @@ export async function getSessionClaims(): Promise<SessionClaims | null> {
   const parsed = await parseSession(value);
   if (!parsed.valid) return null;
   if (parsed.fingerprint && !(await isSessionAllowed(parsed.fingerprint))) return null;
-  return parsed.claims || { username: 'admin', role: 'legacy' };
-  return parsed.claims || { username: 'admin', role: 'operator' };
+  return parsed.claims || null;
 }
 
 export async function getSessionFingerprint(): Promise<string | null> {

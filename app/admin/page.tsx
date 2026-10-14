@@ -19,7 +19,7 @@ export default async function AdminDashboard() {
     Boolean(process.env.ADMIN_PASSWORD) &&
     process.env.ADMIN_PASSWORD !== 'changeme' &&
     (process.env.ADMIN_PASSWORD?.length ?? 0) >= 8;
-  const hasSessionSecret = Boolean(process.env.SESSION_SECRET);
+  const hasSessionSecret = (process.env.SESSION_SECRET?.length ?? 0) >= 32;
   const totp = await getTotpSecret();
 
   let openLeads = 0;
@@ -138,7 +138,7 @@ export default async function AdminDashboard() {
           </li>
           <li className={hasSessionSecret ? 'is-ok' : 'is-warn'}>
             {hasSessionSecret ? '✓' : '!'} SESSION_SECRET
-            {!hasSessionSecret ? ' — задайте окремий секрет для cookie' : ''}
+            {!hasSessionSecret ? ' — задайте окремий секрет для cookie (≥32 символи)' : ''}
           </li>
           <li className={cookieSecure === 'false' || cookieSecure === undefined ? 'is-ok' : 'is-info'}>
             COOKIE_SECURE={cookieSecure ?? '(auto)'}

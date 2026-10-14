@@ -9,6 +9,7 @@ import {
   type AdminRole,
 } from './admin-roles';
 import { getAdminUserByUsername, hasMultiUserMode } from './admin-users';
+import { isEnvLoginAllowed } from './admin/env-login';
 
 export type AdminAccess = {
   role: AdminRole | 'legacy';
@@ -34,9 +35,11 @@ export async function resolveAdminAccess(
         grants: [...capabilitiesFor(user.role, user.grants)],
       };
     }
-    if (cookieRole === 'owner' || cookieRole === 'legacy') {
+    // Deleted/disabled users lose access immediately. Only the env "admin" identity may
+    // fall back to its cookie role, and only while env-password login is allowed.
+    if (username === 'admin' && (cookieRole === 'owner' || cookieRole === 'legacy') && (await isEnvLoginAllowed())) {
       return {
-        username: username || 'admin',
+        username: 'admin',
         role: cookieRole,
         grants: [...capabilitiesFor(cookieRole)],
       };
