@@ -22,7 +22,7 @@ export const GET = withAdmin('users', null, async () => {
 });
 
 export const POST = withAdmin('users', CreateUserSchema, async ({ access, body }) => {
-  if (!await verifyCurrentUserPassword(access, reAuthPassword(body))) return reAuthFailed();
+  if (!(await verifyCurrentUserPassword(access, reAuthPassword(body)))) return reAuthFailed();
   const result = await createAdminUser({
     username: body.username,
     password: body.password,
@@ -39,7 +39,14 @@ export const POST = withAdmin('users', CreateUserSchema, async ({ access, body }
 });
 
 export const PATCH = withAdmin('users', UpdateUserSchema, async ({ access, body }) => {
-  if (!await verifyCurrentUserPassword(access, reAuthPassword(body))) return reAuthFailed();
+  if (!(await verifyCurrentUserPassword(access, reAuthPassword(body)))) return reAuthFailed();
+  if (body.resetTotp) {
+    const target = (await listAdminUsers()).find((u) => u.id === body.id);
+    if (!target) return apiError(404, 'not_found', 'Not found');
+    await setUserTotp(target.username, null);
+    await revokeSessionsByUsername(target.username).catch((err) => console.error('[users] revoke failed', err));
+    await safeAudit({ kind: 'security', message: `Скинуто 2FA: ${target.username}`, actor: access.username });
+  }
   const result = await updateAdminUser(body.id, {
     role: body.role,
     disabled: body.disabled,
@@ -54,7 +61,7 @@ export const PATCH = withAdmin('users', UpdateUserSchema, async ({ access, body 
 });
 
 export const DELETE = withAdmin('users', DeleteUserSchema, async ({ access, body }) => {
-  if (!await verifyCurrentUserPassword(access, reAuthPassword(body))) return reAuthFailed();
+  if (!(await verifyCurrentUserPassword(access, reAuthPassword(body)))) return reAuthFailed();
   const result = await deleteAdminUser(body.id);
   if ('error' in result) {
     return apiError(result.error === 'Not found' ? 404 : 400, 'invalid', result.error);

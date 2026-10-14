@@ -9,11 +9,14 @@ vi.mock('@/lib/admin-users', () => ({
   createAdminUser: vi.fn(async (u: { username: string; role: string }) => ({ id: '1', ...u })),
   updateAdminUser: vi.fn(async () => ({ ok: true })),
   deleteAdminUser: vi.fn(async () => ({ ok: true })),
+  setUserTotp: vi.fn(async () => ({ ok: true })),
 }));
+vi.mock('@/lib/admin-sessions', () => ({ revokeSessionsByUsername: vi.fn(async () => 0) }));
 
 import { requireAdminRole } from '@/lib/require-role';
 import { verifyCurrentUserPassword } from '@/lib/admin/reauth';
-import { DELETE, GET, POST } from './route';
+import { listAdminUsers, setUserTotp } from '@/lib/admin-users';
+import { DELETE, GET, PATCH, POST } from './route';
 
 const owner = { ok: true as const, username: 'owner', role: 'owner' as const, grants: [] };
 
@@ -59,5 +62,14 @@ describe('/api/users', () => {
 
   it('deletes a user', async () => {
     expect((await DELETE(req('DELETE', { id: 'u1', confirmPassword: 'pw' }))).status).toBe(200);
+  });
+
+  it('owner can reset a user 2FA', async () => {
+    vi.mocked(listAdminUsers).mockResolvedValue([
+      { id: 'u1', username: 'bob', role: 'operator', createdAt: '', totpEnabled: true },
+    ]);
+    const res = await PATCH(req('PATCH', { id: 'u1', resetTotp: true, confirmPassword: 'pw' }));
+    expect(res.status).toBe(200);
+    expect(setUserTotp).toHaveBeenCalledWith('bob', null);
   });
 });
