@@ -613,3 +613,14 @@ npm run pm2:setup
 ```
 
 Дальше — reboot-тест, firewall, KeenDNS (шаги 6–8).
+
+## Security migrations (improveFeat)
+
+Before each step: `npm run backup` (+ `npm run backup:offsite`).
+
+1. **SESSION_SECRET** — set >= 32 chars (`npm run rotate-secrets` or `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`). Without it production refuses to sign sessions. Temporary escape hatch: `ALLOW_LEGACY_SESSION_SECRET=true` (remove after 1–2 weeks). After deploy everybody logs in once again (old claim-less tokens are rejected).
+2. **TRUST_PROXY** — `true` when nginx/Docker proxy is in front (compose sets it), `false` when pm2 serves Next.js directly. With `false` + `ADMIN_IP_ALLOWLIST` the allowlist fails closed. Lockout recovery: clear `ADMIN_IP_ALLOWLIST` and restart.
+3. **Per-user 2FA** — `npm run migrate:totp` (dry-run report), `npm run migrate:totp -- --apply` (backup only). Each user enables 2FA in Settings → 2FA; owner can reset 2FA of a user in Users.
+4. **ADMIN_ENV_LOGIN** — keep `always` until your personal owner account (+2FA) works, then set `auto`. Recovery: `ADMIN_ENV_LOGIN=breakglass` + `ADMIN_BREAKGLASS=1`, restart (`npm run pm2:restart`), log in, fix, revert.
+5. **CSRF** — admin API rejects state-changing requests without same-origin `Origin`/`Referer` (`ADMIN_CSRF_CHECK=false` only for debugging).
+

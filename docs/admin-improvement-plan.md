@@ -37,6 +37,10 @@
 - [x] Процесні пакети: outcome/нотатка, assignee, publish gate, digest, metrics, catalog health, ops runbook
 - Див. також `docs/admin-guide.md`
 
+## Фаза 8 — Безпека і якість
+
+Див. `docs/fix-plan-improveFeat.md` (етапи 0–14) і PR `improveFeat`.
+
 ## Процеси (SOP)
 
 1. **Лід:** new → «Взяв у роботу» → called/waiting/snooze → close з **авто-outcome** (нотатка за бажанням; результат можна уточнити після закриття)
