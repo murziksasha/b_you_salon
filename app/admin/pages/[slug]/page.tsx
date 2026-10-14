@@ -1,6 +1,6 @@
 import { requirePageAccess } from '@/lib/admin/page-guard';
 import { AdminShell } from '@/components/admin/AdminShell';
-import { PageConstructor } from '@/components/admin/PageConstructor';
+import { PageConstructor } from '@/features/page-constructor';
 import { getSiteData } from '@/lib/site-data';
 import { notFound } from 'next/navigation';
 
