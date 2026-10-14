@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateLogin, createSession, destroySession, getSessionClaims, getSessionFingerprint } from '@/lib/auth';
 import { appendActivity } from '@/lib/admin-activity';
+import { hasMultiUserMode } from '@/lib/admin-users';
+import { isBreakglassActive } from '@/lib/admin/env-login';
+import { sendTelegramMessage } from '@/lib/notify';
 import { safeAudit } from '@/lib/api/audit';
 import { markFingerprintRevoked, registerSession } from '@/lib/admin-sessions';
 import { assertAdminIp } from '@/lib/require-admin-ip';
@@ -31,7 +34,7 @@ export async function POST(request: NextRequest) {
     const username = typeof body.username === 'string' ? body.username : '';
     const totp = typeof body.totp === 'string' ? body.totp : '';
 
-    if (!process.env.ADMIN_PASSWORD) {
+    if (!process.env.ADMIN_PASSWORD && !(await hasMultiUserMode())) {
       return NextResponse.json({ error: 'ADMIN_PASSWORD is not set in .env' }, { status: 503 });
     }
 
@@ -48,6 +51,13 @@ export async function POST(request: NextRequest) {
       if (!verifyTotp(totpActive.secret, totp)) {
         return NextResponse.json({ error: 'Invalid 2FA code', needTotp: true }, { status: 401 });
       }
+    }
+
+    if (auth.viaEnvPassword && isBreakglassActive()) {
+      await safeAudit({ kind: 'security', message: 'Break-glass вхід через ADMIN_PASSWORD', actor: 'admin' });
+      void sendTelegramMessage('⚠️ B_You: break-glass вхід в адмінку через ADMIN_PASSWORD').catch((err) =>
+        console.error('[auth] break-glass alert failed', err),
+      );
     }
 
     const sessionToken = await createSession(auth.claims);
