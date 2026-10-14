@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateLogin, createSession, destroySession, getSessionClaims, getSessionFingerprint } from '@/lib/auth';
 import { appendActivity } from '@/lib/admin-activity';
+import { safeAudit } from '@/lib/api/audit';
 import { markFingerprintRevoked, registerSession } from '@/lib/admin-sessions';
 import { assertAdminIp } from '@/lib/require-admin-ip';
 import { clientKey, rateLimit } from '@/lib/rate-limit';
@@ -64,8 +65,8 @@ export async function POST(request: NextRequest) {
         message: `Вхід: ${auth.claims.username}`,
         actor: auth.claims.username,
       });
-    } catch {
-      /* ignore activity errors */
+    } catch (err) {
+      console.error('[auth] session registration / audit failed', err);
     }
 
     return NextResponse.json({
@@ -100,20 +101,16 @@ export async function DELETE(_request: NextRequest) {
     if (fp) {
       try {
         await markFingerprintRevoked(fp);
-      } catch {
-        /* ignore */
+      } catch (err) {
+        console.error('[auth] failed to revoke session fingerprint', err);
       }
     }
     if (claims) {
-      try {
-        await appendActivity({
+      await safeAudit({
           kind: 'logout',
           message: `Вихід: ${claims.username}`,
           actor: claims.username,
         });
-      } catch {
-        /* ignore */
-      }
     }
   } catch {
     /* ignore */

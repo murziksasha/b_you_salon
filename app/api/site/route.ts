@@ -74,16 +74,16 @@ export async function PUT(request: NextRequest) {
 
     const saved = await saveSiteData(parsed.data);
     try {
-      const { appendActivity } = await import('@/lib/admin-activity');
+      const { safeAudit } = await import('@/lib/api/audit');
       const { getSessionClaims } = await import('@/lib/auth');
       const claims = await getSessionClaims();
-      await appendActivity({
+      await safeAudit({
         kind: 'site_save',
         message: force ? 'Збережено сайт (force overwrite)' : 'Збережено site.json',
         actor: claims?.username,
       });
-    } catch {
-      /* ignore */
+    } catch (err) {
+      console.error('[site] audit failed', err);
     }
     return NextResponse.json({ ok: true, updatedAt: saved.updatedAt });
   } catch {

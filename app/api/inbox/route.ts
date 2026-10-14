@@ -3,7 +3,7 @@ import { listLeads, updateLead, deleteLead } from '@/lib/leads';
 import { listOrders, updateOrder, deleteOrder } from '@/lib/orders';
 import { historyByPhone, mergeInbox } from '@/lib/inbox';
 import { isWorkflowStatus, resolveCloseOutcome, validateClosePatch } from '@/lib/workflow';
-import { appendActivity } from '@/lib/admin-activity';
+import { safeAudit } from '@/lib/api/audit';
 import { requireAdminRole } from '@/lib/require-role';
 import { toCsv } from '@/lib/csv';
 
@@ -108,29 +108,21 @@ export async function PATCH(request: NextRequest) {
     if (body.kind === 'lead') {
       const updated = await updateLead(body.id, patch);
       if (!updated) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-      try {
-        await appendActivity({
+      await safeAudit({
           kind: 'lead_status',
           message: `Заявка ${body.id.slice(0, 8)} → ${updated.status}`,
           actor: g.username,
         });
-      } catch {
-        /* ignore */
-      }
       return NextResponse.json({ ok: true, item: updated, kind: 'lead' });
     }
 
     const updated = await updateOrder(body.id, patch);
     if (!updated) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    try {
-      await appendActivity({
+    await safeAudit({
         kind: 'order_status',
         message: `Замовлення ${body.id.slice(0, 8)} → ${updated.status}`,
         actor: g.username,
       });
-    } catch {
-      /* ignore */
-    }
     return NextResponse.json({ ok: true, item: updated, kind: 'order' });
   } catch {
     return NextResponse.json({ error: 'Bad request' }, { status: 400 });

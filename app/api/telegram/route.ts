@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminRole } from '@/lib/require-role';
-import { appendActivity } from '@/lib/admin-activity';
+import { safeAudit } from '@/lib/api/audit';
 import { telegramBotToken, telegramCanSend, telegramLegacyChatId } from '@/lib/notify';
 import {
   createTelegramPairing,
@@ -71,15 +71,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'TELEGRAM_BOT_TOKEN не задано в .env' }, { status: 503 });
     }
     const pairing = await createTelegramPairing(g.username);
-    try {
-      await appendActivity({
+    await safeAudit({
         kind: 'security',
         message: 'Telegram: згенеровано код привʼязки',
         actor: g.username,
       });
-    } catch {
-      /* ignore */
-    }
     return NextResponse.json({ ok: true, pairing });
   }
 
@@ -88,15 +84,11 @@ export async function POST(request: NextRequest) {
       quietStart: body.quietStart,
       quietEnd: body.quietEnd,
     });
-    try {
-      await appendActivity({
+    await safeAudit({
         kind: 'settings',
         message: `Telegram тихі години ${settings.quietStart}–${settings.quietEnd} ${settings.timezone}`,
         actor: g.username,
       });
-    } catch {
-      /* ignore */
-    }
     return NextResponse.json({ ok: true, settings });
   }
 
@@ -105,15 +97,11 @@ export async function POST(request: NextRequest) {
     if (!result.ok) {
       return NextResponse.json({ error: result.error || 'Не вдалося увімкнути webhook' }, { status: 400 });
     }
-    try {
-      await appendActivity({
+    await safeAudit({
         kind: 'settings',
         message: `Telegram webhook: ${result.url}`,
         actor: g.username,
       });
-    } catch {
-      /* ignore */
-    }
     return NextResponse.json({ ok: true, webhook: result });
   }
 
@@ -122,15 +110,11 @@ export async function POST(request: NextRequest) {
     if (!result.ok) {
       return NextResponse.json({ error: result.error || 'Не вдалося вимкнути webhook' }, { status: 400 });
     }
-    try {
-      await appendActivity({
+    await safeAudit({
         kind: 'settings',
         message: 'Telegram webhook вимкнено (polling)',
         actor: g.username,
       });
-    } catch {
-      /* ignore */
-    }
     return NextResponse.json({ ok: true });
   }
 
@@ -139,15 +123,11 @@ export async function POST(request: NextRequest) {
     if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 });
     const ok = await revokeTelegramSubscriber(userId);
     if (!ok) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    try {
-      await appendActivity({
+    await safeAudit({
         kind: 'security',
         message: `Telegram: відкликано підписника ${userId}`,
         actor: g.username,
       });
-    } catch {
-      /* ignore */
-    }
     return NextResponse.json({ ok: true });
   }
 
