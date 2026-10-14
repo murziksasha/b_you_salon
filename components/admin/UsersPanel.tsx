@@ -156,7 +156,7 @@ export function UsersPanel() {
         password,
         role: roleFromPreset(preset),
         grants: preset === 'owner' ? undefined : grants,
-        ownerPassword,
+        confirmPassword: ownerPassword,
       }),
     });
     const json = (await res.json().catch(() => ({}))) as { error?: string };
@@ -190,7 +190,7 @@ export function UsersPanel() {
         grants: editPreset === 'owner' ? undefined : editGrants,
         disabled: editDisabled,
         password: editPassword || undefined,
-        ownerPassword,
+        confirmPassword: ownerPassword,
       }),
     });
     const json = (await res.json().catch(() => ({}))) as { error?: string };
@@ -208,7 +208,7 @@ export function UsersPanel() {
     const res = await fetch('/api/users', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, ownerPassword }),
+      body: JSON.stringify({ id, confirmPassword: ownerPassword }),
     });
     if (!res.ok) {
       const json = (await res.json().catch(() => ({}))) as { error?: string };
@@ -225,7 +225,7 @@ export function UsersPanel() {
     const res = await fetch('/api/sessions', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ all: true, ownerPassword }),
+      body: JSON.stringify({ all: true, confirmPassword: ownerPassword }),
     });
     const json = (await res.json().catch(() => ({}))) as { error?: string; revoked?: number };
     if (!res.ok) {
@@ -256,7 +256,7 @@ export function UsersPanel() {
       </p>
 
       <label className='admin-field admin-mb'>
-        Пароль власника (step-up для чутливих дій)
+        Ваш пароль (step-up для чутливих дій)
         <input
           type='password'
           className='admin-grow'

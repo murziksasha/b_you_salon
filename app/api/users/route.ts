@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { verifyPassword } from '@/lib/auth';
+import { verifyCurrentUserPassword } from '@/lib/admin/reauth';
 import { createAdminUser, deleteAdminUser, listAdminUsers, updateAdminUser } from '@/lib/admin-users';
 import { safeAudit } from '@/lib/api/audit';
 import { apiError, withAdmin } from '@/lib/api/handler';
@@ -7,7 +7,7 @@ import { CreateUserSchema, DeleteUserSchema, UpdateUserSchema, reAuthPassword } 
 
 export const dynamic = 'force-dynamic';
 
-const reAuthFailed = () => apiError(403, 'reauth_failed', 'Потрібен пароль власника');
+const reAuthFailed = () => apiError(403, 'reauth_failed', 'Потрібен ваш пароль');
 
 export const GET = withAdmin('users', null, async () => {
   const users = await listAdminUsers();
@@ -15,7 +15,7 @@ export const GET = withAdmin('users', null, async () => {
 });
 
 export const POST = withAdmin('users', CreateUserSchema, async ({ access, body }) => {
-  if (!verifyPassword(reAuthPassword(body))) return reAuthFailed();
+  if (!await verifyCurrentUserPassword(access, reAuthPassword(body))) return reAuthFailed();
   const result = await createAdminUser({
     username: body.username,
     password: body.password,
@@ -32,7 +32,7 @@ export const POST = withAdmin('users', CreateUserSchema, async ({ access, body }
 });
 
 export const PATCH = withAdmin('users', UpdateUserSchema, async ({ access, body }) => {
-  if (!verifyPassword(reAuthPassword(body))) return reAuthFailed();
+  if (!await verifyCurrentUserPassword(access, reAuthPassword(body))) return reAuthFailed();
   const result = await updateAdminUser(body.id, {
     role: body.role,
     disabled: body.disabled,
@@ -47,7 +47,7 @@ export const PATCH = withAdmin('users', UpdateUserSchema, async ({ access, body 
 });
 
 export const DELETE = withAdmin('users', DeleteUserSchema, async ({ access, body }) => {
-  if (!verifyPassword(reAuthPassword(body))) return reAuthFailed();
+  if (!await verifyCurrentUserPassword(access, reAuthPassword(body))) return reAuthFailed();
   const result = await deleteAdminUser(body.id);
   if ('error' in result) {
     return apiError(result.error === 'Not found' ? 404 : 400, 'invalid', result.error);

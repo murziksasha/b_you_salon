@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest, NextResponse } from 'next/server';
 
 vi.mock('@/lib/require-role', () => ({ requireAdminRole: vi.fn() }));
-vi.mock('@/lib/auth', () => ({ verifyPassword: vi.fn() }));
+vi.mock('@/lib/admin/reauth', () => ({ verifyCurrentUserPassword: vi.fn() }));
 vi.mock('@/lib/api/audit', () => ({ safeAudit: vi.fn() }));
 vi.mock('@/lib/admin-users', () => ({
   listAdminUsers: vi.fn(async () => []),
@@ -12,7 +12,7 @@ vi.mock('@/lib/admin-users', () => ({
 }));
 
 import { requireAdminRole } from '@/lib/require-role';
-import { verifyPassword } from '@/lib/auth';
+import { verifyCurrentUserPassword } from '@/lib/admin/reauth';
 import { DELETE, GET, POST } from './route';
 
 const owner = { ok: true as const, username: 'owner', role: 'owner' as const, grants: [] };
@@ -28,7 +28,7 @@ function req(method: string, body?: unknown) {
 describe('/api/users', () => {
   beforeEach(() => {
     vi.mocked(requireAdminRole).mockResolvedValue(owner);
-    vi.mocked(verifyPassword).mockReturnValue(true);
+    vi.mocked(verifyCurrentUserPassword).mockResolvedValue(true);
   });
 
   it('returns gate response when forbidden', async () => {
@@ -46,7 +46,7 @@ describe('/api/users', () => {
   });
 
   it('requires re-auth password', async () => {
-    vi.mocked(verifyPassword).mockReturnValue(false);
+    vi.mocked(verifyCurrentUserPassword).mockResolvedValue(false);
     const res = await POST(req('POST', { username: 'bob', password: 'longenough', confirmPassword: 'x' }));
     expect(res.status).toBe(403);
   });
@@ -54,7 +54,7 @@ describe('/api/users', () => {
   it('creates a user (ownerPassword alias accepted)', async () => {
     const res = await POST(req('POST', { username: 'bob', password: 'longenough', ownerPassword: 'pw' }));
     expect(res.status).toBe(200);
-    expect(verifyPassword).toHaveBeenCalledWith('pw');
+    expect(verifyCurrentUserPassword).toHaveBeenCalledWith(expect.objectContaining({ username: 'owner' }), 'pw');
   });
 
   it('deletes a user', async () => {

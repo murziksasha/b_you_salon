@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getSessionFingerprint, verifyPassword } from '@/lib/auth';
+import { getSessionFingerprint } from '@/lib/auth';
+import { verifyCurrentUserPassword } from '@/lib/admin/reauth';
 import { apiError, withAdmin } from '@/lib/api/handler';
 import { RevokeSessionsSchema, reAuthPassword } from '@/lib/schemas/admin';
 import { requireAdminRole } from '@/lib/require-role';
@@ -22,8 +23,8 @@ export async function GET() {
 }
 
 export const DELETE = withAdmin('security_owner', RevokeSessionsSchema, async ({ access, body }) => {
-  if (!verifyPassword(reAuthPassword(body))) {
-    return apiError(403, 'reauth_failed', 'Потрібен пароль власника');
+  if (!await verifyCurrentUserPassword(access, reAuthPassword(body))) {
+    return apiError(403, 'reauth_failed', 'Потрібен ваш пароль');
   }
   if (body.all) {
     const current = await getSessionFingerprint();

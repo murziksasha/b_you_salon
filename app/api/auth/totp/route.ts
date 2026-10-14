@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import QRCode from 'qrcode';
-import { getSession, verifyPassword } from '@/lib/auth';
+import { verifyCurrentUserPassword } from '@/lib/admin/reauth';
+import { requireAdminRole } from '@/lib/require-role';
 import {
   deleteAdminTotpSecret,
   readAdminTotpRecord,
   writeAdminTotpSecret,
 } from '@/lib/admin-totp';
-import { assertAdminIp } from '@/lib/require-admin-ip';
 import { clientKey, rateLimit } from '@/lib/rate-limit';
 import {
   buildOtpauthUrl,
@@ -20,16 +20,12 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+/** 2FA management requires the security_owner capability (not just any session). */
 async function requireAdminSession() {
-  const ipGate = await assertAdminIp();
-  if (!ipGate.ok) {
-    return { ok: false as const, response: NextResponse.json({ error: ipGate.error }, { status: ipGate.status }) };
-  }
-  const isAuthenticated = await getSession();
-  if (!isAuthenticated) {
-    return { ok: false as const, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
-  }
-  return { ok: true as const };
+  const gate = await requireAdminRole('security_owner');
+  if (!gate.ok) return { ok: false as const, response: gate.response };
+  const { ok: _ok, ...access } = gate;
+  return { ok: true as const, access };
 }
 
 function rateLimitTotp(request: NextRequest) {
@@ -76,10 +72,7 @@ export async function POST(request: NextRequest) {
   const action = typeof body.action === 'string' ? body.action : '';
   const password = typeof body.password === 'string' ? body.password : '';
 
-  if (!process.env.ADMIN_PASSWORD) {
-    return NextResponse.json({ error: 'ADMIN_PASSWORD is not set' }, { status: 503 });
-  }
-  if (!verifyPassword(password)) {
+  if (!(await verifyCurrentUserPassword(gate.access, password))) {
     return NextResponse.json({ error: 'Invalid password' }, { status: 401 });
   }
 
