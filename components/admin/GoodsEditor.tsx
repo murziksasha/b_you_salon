@@ -129,30 +129,16 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
           nextAttemptAt: string | null;
           skipDate: string | null;
           lastSuccessDate: string | null;
+          nextRun?: string;
         };
         setSchedEnabled(data.enabled);
         setSchedUrl(data.url);
         setSchedLastError(data.lastError);
         setSchedLastSuccess(data.lastSuccessAt);
-        // Compute next run label client-side
-        const now = new Date();
-        const kyivHour = parseInt(
-          now.toLocaleTimeString('en-GB', { timeZone: 'Europe/Kyiv', hour: '2-digit', hour12: false }),
-          10,
-        );
-        const after0400 = kyivHour >= 4;
-        const today = now.toLocaleDateString('sv-SE', { timeZone: 'Europe/Kyiv' });
-        if (!data.enabled) {
-          setSchedNextRun('Зупинено');
-        } else if (data.nextAttemptAt && new Date(data.nextAttemptAt) > now) {
-          const at = new Date(data.nextAttemptAt);
-          setSchedNextRun(
-            `Повтор о ${at.toLocaleTimeString('uk-UA', { timeZone: 'Europe/Kyiv', hour: '2-digit', minute: '2-digit' })}`,
-          );
-        } else if (after0400 && (data.skipDate === today || data.lastSuccessDate === today)) {
-          setSchedNextRun('Завтра 04:00 (Kyiv)');
+        if (data.nextRun) {
+          setSchedNextRun(data.nextRun);
         } else {
-          setSchedNextRun('Сьогодні 04:00 (Kyiv)');
+          setSchedNextRun(data.enabled ? 'Сьогодні 04:00 (Kyiv)' : 'Зупинено');
         }
       } catch {
         /* non-fatal */
@@ -576,26 +562,22 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
         showToast(err.error || 'Помилка збереження розкладу', 'error');
         return;
       }
-      const data = (await res.json()) as { enabled: boolean; skipDate: string | null; lastSuccessDate: string | null; nextAttemptAt: string | null };
+      const data = (await res.json()) as {
+        enabled: boolean;
+        skipDate: string | null;
+        lastSuccessDate: string | null;
+        nextAttemptAt: string | null;
+        lastError: string | null;
+        lastSuccessAt: string | null;
+        nextRun?: string;
+      };
       setSchedEnabled(data.enabled);
-      const now = new Date();
-      const today = now.toLocaleDateString('sv-SE', { timeZone: 'Europe/Kyiv' });
-      const kyivHour = parseInt(
-        now.toLocaleTimeString('en-GB', { timeZone: 'Europe/Kyiv', hour: '2-digit', hour12: false }),
-        10,
-      );
-      const after0400 = kyivHour >= 4;
-      if (!data.enabled) {
-        setSchedNextRun('Зупинено');
-      } else if (data.nextAttemptAt && new Date(data.nextAttemptAt) > now) {
-        const at = new Date(data.nextAttemptAt);
-        setSchedNextRun(
-          `Повтор о ${at.toLocaleTimeString('uk-UA', { timeZone: 'Europe/Kyiv', hour: '2-digit', minute: '2-digit' })}`,
-        );
-      } else if (after0400 && (data.skipDate === today || data.lastSuccessDate === today)) {
-        setSchedNextRun('Завтра 04:00 (Kyiv)');
+      setSchedLastError(data.lastError);
+      setSchedLastSuccess(data.lastSuccessAt);
+      if (data.nextRun) {
+        setSchedNextRun(data.nextRun);
       } else {
-        setSchedNextRun('Сьогодні 04:00 (Kyiv)');
+        setSchedNextRun(data.enabled ? 'Сьогодні 04:00 (Kyiv)' : 'Зупинено');
       }
       showToast(enable ? 'Розклад увімкнено' : 'Розклад зупинено', 'success');
     } catch {

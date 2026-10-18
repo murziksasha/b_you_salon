@@ -12,12 +12,44 @@ import {
 import { fetchAndStoreImage } from './fetch-remote-image';
 import type { Product } from './types';
 
+export class FeedFetchError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'FeedFetchError';
+  }
+}
+
+export class FeedParseError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'FeedParseError';
+  }
+}
+
+export class FeedImportConflictError extends Error {
+  constructor(message = 'Імпорт уже виконується. Зачекайте завершення або спробуйте пізніше.') {
+    super(message);
+    this.name = 'FeedImportConflictError';
+  }
+}
+
+export type RunFeedImportProgress = {
+  current: number;
+  total: number;
+  percent: number;
+  created: number;
+  updated: number;
+  message: string;
+};
+
 export type RunFeedImportOptions = {
   url: string;
   downloadImages: boolean;
   /** If provided, the import checks signal between batches and before save. */
   signal?: AbortSignal;
-  onProgress?: (current: number, total: number) => void;
+  onStatus?: (message: string) => void;
+  onStart?: (total: number) => void;
+  onProgress?: (progress: RunFeedImportProgress) => void;
 };
 
 export type RunFeedImportResult = {
@@ -26,6 +58,8 @@ export type RunFeedImportResult = {
   failed: number;
   format: string;
   aborted: boolean;
+  errors: string[];
+  total: number;
 };
 
 const FEED_TIMEOUT_MS = 30_000;
@@ -40,8 +74,11 @@ async function fetchFeed(url: string, signal?: AbortSignal): Promise<string> {
       signal: controller.signal,
       headers: { Accept: 'application/json, application/xml, text/xml, */*' },
     });
-    if (!res.ok) throw new Error(`Feed responded with ${res.status}`);
+    if (!res.ok) throw new FeedFetchError(`Feed responded with ${res.status}`);
     return await res.text();
+  } catch (err) {
+    if (err instanceof FeedFetchError) throw err;
+    throw new FeedFetchError(`Failed to fetch feed: ${err instanceof Error ? err.message : String(err)}`);
   } finally {
     clearTimeout(timer);
   }
@@ -79,44 +116,61 @@ export function isFeedImportRunning(): boolean {
   return Boolean(importLock().__byouFeedImportRunning);
 }
 
+export function acquireFeedImportLock(): boolean {
+  const lock = importLock();
+  if (lock.__byouFeedImportRunning) return false;
+  lock.__byouFeedImportRunning = true;
+  return true;
+}
+
+export function releaseFeedImportLock(): void {
+  importLock().__byouFeedImportRunning = false;
+}
+
 /**
  * Shared merge loop used by both the HTTP route and the background runner.
  * Throws on feed fetch/parse failure.
  * Returns aborted:true if the signal fired before save (catalog is NOT written).
  */
 export async function runFeedImport(opts: RunFeedImportOptions): Promise<RunFeedImportResult> {
-  const lock = importLock();
-  if (lock.__byouFeedImportRunning) {
-    return { created: 0, updated: 0, failed: 0, format: '', aborted: false };
+  if (!acquireFeedImportLock()) {
+    throw new FeedImportConflictError();
   }
-  lock.__byouFeedImportRunning = true;
   try {
     return await _run(opts);
   } finally {
-    lock.__byouFeedImportRunning = false;
+    releaseFeedImportLock();
   }
 }
 
 async function _run(opts: RunFeedImportOptions): Promise<RunFeedImportResult> {
-  const { url, downloadImages, signal, onProgress } = opts;
+  const { url, downloadImages, signal, onStatus, onStart, onProgress } = opts;
 
+  onStatus?.('Отримання фіду з віддаленого сервера…');
   const rawText = await fetchFeed(url, signal);
-  if (signal?.aborted) return { created: 0, updated: 0, failed: 0, format: '', aborted: true };
+  if (signal?.aborted) return { created: 0, updated: 0, failed: 0, format: '', aborted: true, errors: [], total: 0 };
 
+  onStatus?.('Аналіз товарів у фіді…');
   const format = detectFeedFormat(url, rawText);
   let feedProducts: FeedProduct[];
-  if (format === 'xml') {
-    feedProducts = parseLivestaXml(rawText);
-  } else {
-    const json = JSON.parse(rawText) as unknown;
-    feedProducts = parseLivestaJson(json);
+  try {
+    if (format === 'xml') {
+      feedProducts = parseLivestaXml(rawText);
+    } else {
+      const json = JSON.parse(rawText) as unknown;
+      feedProducts = parseLivestaJson(json);
+    }
+  } catch (err) {
+    throw new FeedParseError(`Failed to parse feed (${format}): ${err instanceof Error ? err.message : String(err)}`);
   }
 
   if (!feedProducts.length) {
-    throw new Error('Feed contains no parseable products');
+    throw new FeedParseError('Feed contains no parseable products');
   }
 
   const total = feedProducts.length;
+  onStart?.(total);
+
   const siteData = await getSiteData();
   const goods = [...siteData.goods];
   let created = 0;
@@ -126,7 +180,9 @@ async function _run(opts: RunFeedImportOptions): Promise<RunFeedImportResult> {
   const batchSize = downloadImages ? 5 : 50;
 
   for (let i = 0; i < total; i += batchSize) {
-    if (signal?.aborted) return { created, updated, failed: errors.length, format, aborted: true };
+    if (signal?.aborted) {
+      return { created, updated, failed: errors.length, format, aborted: true, errors, total };
+    }
 
     const chunk = feedProducts.slice(i, i + batchSize);
     await Promise.all(
@@ -171,13 +227,25 @@ async function _run(opts: RunFeedImportOptions): Promise<RunFeedImportResult> {
       }),
     );
 
-    onProgress?.(Math.min(i + batchSize, total), total);
+    const processed = Math.min(i + batchSize, total);
+    const percent = Math.round((processed / total) * 100);
+    onProgress?.({
+      current: processed,
+      total,
+      percent,
+      created,
+      updated,
+      message: `Опрацьовано ${processed} із ${total}`,
+    });
     await new Promise(r => setTimeout(r, 2));
   }
 
   // Final abort check before write
-  if (signal?.aborted) return { created, updated, failed: errors.length, format, aborted: true };
+  if (signal?.aborted) {
+    return { created, updated, failed: errors.length, format, aborted: true, errors, total };
+  }
 
+  onStatus?.('Збереження каталогу…');
   await saveSiteData({ ...siteData, goods });
-  return { created, updated, failed: errors.length, format, aborted: false };
+  return { created, updated, failed: errors.length, format, aborted: false, errors, total };
 }

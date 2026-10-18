@@ -4,7 +4,7 @@ import {
   isScheduleDue,
   kyivDate,
 } from './feed-schedule';
-import { runFeedImport, isFeedImportRunning } from './run-feed-import';
+import { runFeedImport, isFeedImportRunning, FeedImportConflictError } from './run-feed-import';
 
 const TICK_INTERVAL_MS = 30_000;
 
@@ -90,6 +90,10 @@ async function tick(): Promise<void> {
       /* non-fatal */
     }
   } catch (err) {
+    if (err instanceof FeedImportConflictError) {
+      // Shared import lock was held — skip tick silently without recording failure
+      return;
+    }
     // Failure — schedule retry
     const errMsg = err instanceof Error ? err.message : String(err);
     const nextAttemptAt = new Date(Date.now() + 15 * 60_000).toISOString();

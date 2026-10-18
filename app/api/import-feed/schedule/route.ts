@@ -5,6 +5,7 @@ import {
   saveFeedSchedule,
   applyContinue,
   applyStop,
+  nextRunLabel,
 } from '@/lib/feed-schedule';
 import { abortScheduledRun } from '@/lib/feed-schedule-runner';
 
@@ -13,7 +14,8 @@ export async function GET() {
   if (!g.ok) return g.response;
 
   const sched = await readFeedSchedule();
-  return NextResponse.json(sched);
+  const nextRun = nextRunLabel(sched, new Date());
+  return NextResponse.json({ ...sched, nextRun });
 }
 
 export async function PUT(request: NextRequest) {
@@ -47,5 +49,6 @@ export async function PUT(request: NextRequest) {
   }
 
   await saveFeedSchedule(sched);
-  return NextResponse.json(sched);
+  const nextRun = nextRunLabel(sched, new Date());
+  return NextResponse.json({ ...sched, nextRun });
 }

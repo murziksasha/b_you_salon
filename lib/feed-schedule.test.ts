@@ -1,4 +1,17 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
+
+vi.mock('fs', () => ({
+  promises: {
+    readFile: vi.fn(),
+  },
+}));
+
+vi.mock('./atomic-write', () => ({
+  atomicWriteJson: vi.fn().mockResolvedValue(undefined),
+}));
+
+import { promises as fs } from 'fs';
+import { atomicWriteJson } from './atomic-write';
 import {
   type FeedSchedule,
   DEFAULT_FEED_SCHEDULE,
@@ -7,16 +20,12 @@ import {
   applyStop,
   kyivDate,
   kyivIsAfter0400,
+  nextRunLabel,
+  stampManualSuccessIfNeeded,
 } from './feed-schedule';
 
-// Europe/Kyiv is UTC+3
 const D = (iso: string) => new Date(iso);
-// 2026-01-15 04:00 Kyiv = 2026-01-15 01:00 UTC
-const AT_0400 = D('2026-01-15T01:00:00.000Z');
-// 2026-01-15 03:59 Kyiv = 2026-01-15 00:59 UTC
-const BEFORE_0400 = D('2026-01-14T23:59:00.000Z'); // 01:59 UTC+2? Wait, Kyiv in winter is UTC+2
-// Actually Europe/Kyiv is UTC+2 in winter (no DST since 2014, stays at UTC+2 year-round)
-// 04:00 Kyiv winter = 02:00 UTC
+// Europe/Kyiv is UTC+2 in winter
 const AT_0400_CORRECT = D('2026-01-15T02:00:00.000Z');
 const BEFORE_0400_CORRECT = D('2026-01-15T01:59:00.000Z');
 const MIDDAY = D('2026-01-15T10:00:00.000Z'); // 12:00 Kyiv
@@ -25,7 +34,6 @@ const base: FeedSchedule = { ...DEFAULT_FEED_SCHEDULE, enabled: true };
 
 describe('kyivDate', () => {
   it('returns YYYY-MM-DD for a given UTC time in Kyiv TZ', () => {
-    // 2026-01-15 02:00 UTC = 2026-01-15 04:00 Kyiv
     expect(kyivDate(AT_0400_CORRECT)).toBe('2026-01-15');
   });
 });
@@ -74,7 +82,6 @@ describe('isScheduleDue', () => {
   });
 
   it('catch-up: true when process was down at 04:00 and today has not succeeded', () => {
-    // enabled, after 04:00, no success today, no skip => catch-up runs
     expect(isScheduleDue(base, MIDDAY)).toBe(true);
   });
 
@@ -102,5 +109,96 @@ describe('applyStop', () => {
     const result = applyStop({ ...base, lastSuccessDate: '2026-01-14' });
     expect(result.enabled).toBe(false);
     expect(result.lastSuccessDate).toBe('2026-01-14');
+  });
+});
+
+describe('nextRunLabel', () => {
+  it('returns Зупинено when disabled', () => {
+    expect(nextRunLabel({ ...base, enabled: false }, MIDDAY)).toBe('Зупинено');
+  });
+
+  it('returns Завтра 04:00 (Kyiv) when succeeded today', () => {
+    expect(nextRunLabel({ ...base, lastSuccessDate: '2026-01-15' }, MIDDAY)).toBe('Завтра 04:00 (Kyiv)');
+  });
+
+  it('returns Завтра 04:00 (Kyiv) when skipDate is today after 04:00', () => {
+    expect(nextRunLabel({ ...base, skipDate: '2026-01-15' }, MIDDAY)).toBe('Завтра 04:00 (Kyiv)');
+  });
+
+  it('returns Повтор when retry is scheduled in the future and today has not succeeded', () => {
+    const future = new Date(MIDDAY.getTime() + 10 * 60_000).toISOString();
+    const label = nextRunLabel({ ...base, nextAttemptAt: future }, MIDDAY);
+    expect(label).toContain('Повтор о');
+  });
+
+  it('prioritizes success today over any stale nextAttemptAt', () => {
+    const future = new Date(MIDDAY.getTime() + 10 * 60_000).toISOString();
+    expect(nextRunLabel({ ...base, lastSuccessDate: '2026-01-15', nextAttemptAt: future }, MIDDAY)).toBe(
+      'Завтра 04:00 (Kyiv)',
+    );
+  });
+
+  it('returns Сьогодні 04:00 (Kyiv) before 04:00', () => {
+    expect(nextRunLabel(base, BEFORE_0400_CORRECT)).toBe('Сьогодні 04:00 (Kyiv)');
+  });
+});
+
+describe('stampManualSuccessIfNeeded', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('stamps lastSuccessDate and clears lastError/nextAttemptAt after 04:00 when enabled', async () => {
+    vi.mocked(fs.readFile).mockResolvedValue(
+      JSON.stringify({
+        enabled: true,
+        lastError: 'Feed failed at 04:00',
+        lastErrorAt: '2026-01-15T02:00:00.000Z',
+        nextAttemptAt: '2026-01-15T02:15:00.000Z',
+      }),
+    );
+
+    const stamped = await stampManualSuccessIfNeeded(MIDDAY);
+    expect(stamped).toBe(true);
+    expect(atomicWriteJson).toHaveBeenCalledTimes(1);
+
+    const saved = vi.mocked(atomicWriteJson).mock.calls[0]?.[1] as FeedSchedule;
+    expect(saved.lastSuccessDate).toBe('2026-01-15');
+    expect(saved.lastSuccessAt).toBe(MIDDAY.toISOString());
+    expect(saved.lastError).toBeNull();
+    expect(saved.lastErrorAt).toBeNull();
+    expect(saved.nextAttemptAt).toBeNull();
+  });
+
+  it('does not stamp when before 04:00 (leaves morning job in place)', async () => {
+    vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify({ enabled: true }));
+
+    const stamped = await stampManualSuccessIfNeeded(BEFORE_0400_CORRECT);
+    expect(stamped).toBe(false);
+    expect(atomicWriteJson).not.toHaveBeenCalled();
+  });
+
+  it('does not stamp when schedule is disabled', async () => {
+    vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify({ enabled: false }));
+
+    const stamped = await stampManualSuccessIfNeeded(MIDDAY);
+    expect(stamped).toBe(false);
+    expect(atomicWriteJson).not.toHaveBeenCalled();
+  });
+
+  it('does not stamp when skipDate is today', async () => {
+    vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify({ enabled: true, skipDate: '2026-01-15' }));
+
+    const stamped = await stampManualSuccessIfNeeded(MIDDAY);
+    expect(stamped).toBe(false);
+    expect(atomicWriteJson).not.toHaveBeenCalled();
+  });
+
+  it('does not re-stamp if today has already succeeded', async () => {
+    vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify({ enabled: true, lastSuccessDate: '2026-01-15' }));
+
+    const stamped = await stampManualSuccessIfNeeded(MIDDAY);
+    expect(stamped).toBe(false);
+    expect(atomicWriteJson).not.toHaveBeenCalled();
   });
 });

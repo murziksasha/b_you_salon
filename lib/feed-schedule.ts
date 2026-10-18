@@ -104,21 +104,47 @@ export function applyStop(sched: FeedSchedule): FeedSchedule {
  */
 export function nextRunLabel(sched: FeedSchedule, now: Date): string {
   if (!sched.enabled) return 'Зупинено';
-  if (sched.nextAttemptAt) {
-    const at = new Date(sched.nextAttemptAt);
-    if (at > now) {
-      return `Повтор о ${at.toLocaleTimeString('uk-UA', { timeZone: 'Europe/Kyiv', hour: '2-digit', minute: '2-digit' })} (Kyiv)`;
-    }
-  }
   const today = kyivDate(now);
   const after0400 = kyivIsAfter0400(now);
   const skipped = sched.skipDate === today;
   const succeeded = sched.lastSuccessDate === today;
   if (after0400 && (skipped || succeeded)) {
-    // next run is tomorrow 04:00
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return `Завтра 04:00 (Kyiv) — ${kyivDate(tomorrow)}`;
+    return 'Завтра 04:00 (Kyiv)';
   }
-  return `Сьогодні 04:00 (Kyiv) — ${today}`;
+  if (sched.nextAttemptAt) {
+    const at = new Date(sched.nextAttemptAt);
+    if (at > now) {
+      return `Повтор о ${at.toLocaleTimeString('uk-UA', { timeZone: 'Europe/Kyiv', hour: '2-digit', minute: '2-digit' })}`;
+    }
+  }
+  return 'Сьогодні 04:00 (Kyiv)';
 }
+
+/**
+ * When a manual import succeeds:
+ * If schedule is enabled, Kyiv time is at or after 04:00, and skipDate is not today:
+ * stamp lastSuccessDate, lastSuccessAt, and clear lastError, lastErrorAt, nextAttemptAt.
+ * Retries stop.
+ */
+export async function stampManualSuccessIfNeeded(now: Date): Promise<boolean> {
+  try {
+    const sched = await readFeedSchedule();
+    if (!sched.enabled) return false;
+    if (!kyivIsAfter0400(now)) return false;
+    const today = kyivDate(now);
+    if (sched.skipDate === today) return false;
+    if (sched.lastSuccessDate === today) return false;
+    await saveFeedSchedule({
+      ...sched,
+      lastSuccessDate: today,
+      lastSuccessAt: now.toISOString(),
+      lastError: null,
+      lastErrorAt: null,
+      nextAttemptAt: null,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+

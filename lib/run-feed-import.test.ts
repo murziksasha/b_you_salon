@@ -10,7 +10,13 @@ vi.mock('./fetch-remote-image', () => ({
 }));
 
 import { getSiteData, saveSiteData } from './site-data';
-import { runFeedImport, isFeedImportRunning } from './run-feed-import';
+import {
+  runFeedImport,
+  isFeedImportRunning,
+  acquireFeedImportLock,
+  releaseFeedImportLock,
+  FeedImportConflictError,
+} from './run-feed-import';
 import type { SiteData, Product } from './types';
 
 const feedJson = JSON.stringify({
@@ -22,6 +28,7 @@ const feedJson = JSON.stringify({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  releaseFeedImportLock();
   global.fetch = vi.fn().mockResolvedValue({
     ok: true,
     text: async () => feedJson,
@@ -29,6 +36,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  releaseFeedImportLock();
   vi.restoreAllMocks();
 });
 
@@ -81,5 +89,61 @@ describe('runFeedImport', () => {
     });
     expect(result.aborted).toBe(true);
     expect(saveSiteData).not.toHaveBeenCalled();
+  });
+
+  it('acquires lock during run and releases lock after run', async () => {
+    vi.mocked(getSiteData).mockResolvedValue({ goods: [] } as unknown as SiteData);
+    vi.mocked(saveSiteData).mockResolvedValue(undefined as never);
+
+    expect(isFeedImportRunning()).toBe(false);
+    let wasRunningDuring = false;
+
+    await runFeedImport({
+      url: 'https://example.com/feed.json',
+      downloadImages: false,
+      onProgress: () => {
+        wasRunningDuring = isFeedImportRunning();
+      },
+    });
+
+    expect(wasRunningDuring).toBe(true);
+    expect(isFeedImportRunning()).toBe(false);
+  });
+
+  it('throws FeedImportConflictError when lock is already acquired', async () => {
+    acquireFeedImportLock();
+    expect(isFeedImportRunning()).toBe(true);
+
+    await expect(
+      runFeedImport({
+        url: 'https://example.com/feed.json',
+        downloadImages: false,
+      }),
+    ).rejects.toThrow(FeedImportConflictError);
+  });
+
+  it('invokes onStatus, onStart, and onProgress callbacks', async () => {
+    vi.mocked(getSiteData).mockResolvedValue({ goods: [] } as unknown as SiteData);
+    vi.mocked(saveSiteData).mockResolvedValue(undefined as never);
+
+    const statuses: string[] = [];
+    let startTotal = 0;
+    const progressList: number[] = [];
+
+    await runFeedImport({
+      url: 'https://example.com/feed.json',
+      downloadImages: false,
+      onStatus: s => statuses.push(s),
+      onStart: t => {
+        startTotal = t;
+      },
+      onProgress: p => progressList.push(p.current),
+    });
+
+    expect(statuses).toContain('Отримання фіду з віддаленого сервера…');
+    expect(statuses).toContain('Аналіз товарів у фіді…');
+    expect(statuses).toContain('Збереження каталогу…');
+    expect(startTotal).toBe(2);
+    expect(progressList).toContain(2);
   });
 });
