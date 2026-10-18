@@ -1,89 +1,56 @@
-# Agent Profile: Minimalist & B_You Super Feat Guidelines
+# B_You
 
-## Core Principles
+Marketing site for the B_You beauty studio: salon on the right, cosmetics shop on the left, one domain, one admin. File CMS. No database, no online payment, no slot calendar.
 
-- **No Fillers:** Skip "Sure," "I can help," or "As an AI."
-- **Directness:** Start answers immediately. No intros/outros.
-- **Precision:** Use fewest words possible.
-- **Formatting:** Use lists and bolding. No walls of text.
-- **UTF-8 Only:** Force **UTF-8** encoding for all file outputs/TSX writes; strictly avoid UTF-16.
-- **Language:** All code, comments, and technical documentation in **English**. UI strings follow project specs (Ukrainian).
+Stack: Next.js 15 App Router, React 19, TypeScript (`strict`, `verbatimModuleSyntax`), Sass, Zod, Vitest, Playwright. Dev server: `npm run dev` (port 3001).
 
-## Response Style
+## Commands
 
-- **Code:** Only code, no code explanation unless requested.
-- **Facts:** Single-sentence bullets.
-- **Opinion:** Only if prompted, then brief.
-- **Correction:** Fix and provide result. No apologies.
-- **No Emojis:** Do not include any emojis anywhere in responses.
+- `npm run typecheck` — `tsc --noEmit`
+- `npm run lint` — ESLint
+- `npm test` — Vitest. Scope with `npx vitest run lib/<module>.test.ts`
+- `npm run test:smoke` — Playwright smoke. Full e2e: `npm run test:e2e`
+- `npm run build` — production build. Use after routing, config, or shared-layout changes.
 
-## Token Saving Rules
+Shell is Windows PowerShell. Chain commands with `;`, not `&&`.
 
-1. Use contractions (it's, don't).
-2. Avoid repeating user prompt.
-3. Use markdown symbols (e.g., "->" instead of "leads to").
-4. Core logic first for complex tasks.
-5. Follow the **Decomposer** principle: split tasks into atomic changes (< 50 LOC) with `[D]` for dependencies and `[T]` for tests.
+## Layout
 
-## Build Discipline & Anti-Loop Rules
+- `app/` — routes and Route Handlers (`app/api/**/route.ts`)
+- `components/` — shared UI. `features/<slice>/` — vertical slices (ui + model)
+- `lib/` — domain logic, Zod, file I/O. Tests sit beside the module: `lib/<module>.test.ts`
+- `styles/` and `src/sass/` — global SCSS. No CSS Modules
+- `data/` — JSON journals. `public/uploads/` — media. Do not edit these unless the task is about that content
+- Deeper map: `docs/architecture.md`, product rules: `docs/SPECS.md`
 
-- If build fails, fix it directly without entering infinite repair loops.
-- **Circuit Breaker:** Max 2 automated fix attempts per failure. If an edit introduces syntax or parse errors twice, halt immediately, revert corrupted edits to git HEAD, and report instead of looping.
-- **No Polling Timers:** Never use `schedule` or timer loops to wait for background commands. Stop calling tools and wait for reactive system wakeup.
-- **Sync Command Execution:** Set `WaitMsBeforeAsync: 10000` on verification commands to avoid backgrounding.
-- **Scoped Verification:** Run targeted checks on modified packages/paths (`npm run typecheck`, `npm test -- <path>`), not root sweeps during iterations.
-- **Atomic Writes on Windows:** On Windows CRLF environments, prefer `write_to_file` over chained partial-line edits on large TSX files to avoid line duplication.
-- Don't stop at reporting errors; install missing deps and resolve TS/Vite issues before final response.
-- **Verification Offloading:** Delegate post-implementation test, lint, and fix cycles to a subagent to save main context tokens.
+## Conventions
 
-## Subagent Delegation
+- Code, comments, and technical docs in English. Public and admin UI strings in Ukrainian.
+- Named exports. Props typed. Type-only imports use `import type`. Path alias `@/*`.
+- Icons: named imports from `lucide-react`.
+- Client preferences: `localStorage` keys `byou-theme` and `byou-cookie-consent`. Admin does not use the public theme switch or cookie banner.
+- CMS HTML goes through `sanitizeHtml()` before `dangerouslySetInnerHTML`. JSON-LD and the theme/cookie boot scripts are not CMS HTML.
+- Validate request bodies and parsed files with Zod.
 
-- **Test & Lint Fixes:** Delegate all post-implementation test/lint runs and iterative error resolution to a subagent.
-- **Deep Research:** Use research subagents for large-scale codebase exploration or heavy documentation lookups.
-- **Compact Reporting:** Subagent returns only high-level status, modified files, and test results -> main agent continues without log pollution.
+## Persistence
 
----
+Single-instance file CMS. Writes go through `atomicWriteFile` / `atomicWriteJson` (`lib/atomic-write.ts`) inside `withFileMutex` (`lib/file-mutex.ts`). Temp file, then rename.
 
-## Tech Stack & Conventions
+`PUT /api/site` is an optimistic lock on `SiteData.updatedAt`. A stale client revision returns **409**.
 
-### Frontend
+Auth: timing-safe password, HMAC cookie `admin_session`, optional TOTP. Gate admin APIs with `require-role.ts`. Do not read, print, or commit `.env` or session secrets.
 
-- **Framework:** Next.js 15 (App Router), React 19.
-- **Styling:** SCSS (`sass`), CSS Modules, and global utility classes in `styles/`.
-- **Icons:** `lucide-react` (named imports).
-- **State Management:** React state, URL search params (`useSearchParams`), and native `localStorage` for client preferences (`byou-theme`, `byou-cookie-consent`).
-- **Component Pattern:** Named exports with explicit typed props (`export function Component(props: Props)` or `export const Component: React.FC<Props> = ...`).
-- **Type Imports:** Always use `import type` for type-only imports (`verbatimModuleSyntax: true`).
-- **Sanitization:** All CMS HTML strings pass through `sanitizeHtml()` before `dangerouslySetInnerHTML`.
+## Product boundaries
 
-### Backend
+Zones stay separate: `home` | `salon` | `shop`.
 
-- **Runtime:** Node.js Next.js Route Handlers (`app/api/**/route.ts`).
-- **Persistence:** File-based CMS storing JSON in `data/` (`site.json`, `leads.json`, `orders.json`, `media-index.json`).
-- **Atomic I/O:** All file writes MUST use `lib/atomic-write.ts` and `lib/file-mutex.ts` (write to temp file then rename).
-- **Validation:** Zod schemas (`zod`) for all incoming payloads and data model parsing.
-- **Authentication:** Timing-safe password verification, HMAC-signed session cookies (`admin_session`), optional TOTP 2FA (`qrcode`, `lib/totp.ts`).
-- **Image Processing:** `sharp` for automatic JPEG -> WebP conversion, dimension clamping, and preset optimization.
-- **Notifications:** `nodemailer` for SMTP mail, Telegram Bot API for internal operator queue.
-- **Error Handling:** Centralized error structures and typed responses with HTTP status codes.
+- Home does not sell. Services live on `/salon*`. Goods live on `/shop*`.
+- Cart icon only in the shop zone (`/shop`, `/store`, `/cart`), even when the cart count is above zero.
+- Salon CTA is booking (`POST /api/contact`, lead `source: booking`). Shop CTA is an order or a consult (`POST /api/orders`, `source: shop|consult`).
+- Prices on orders are taken on the server. `inStock === false` rejects the line.
 
----
+## Verify
 
-## Architecture: Domain-Driven (Backend)
+Run the checks that match the edit: a co-located Vitest file for `lib/` logic, `npm run typecheck` when types move, lint on touched files. Do not sweep the whole suite on every small iteration.
 
-### Module Structure
-
-Each backend domain module in `lib/` follows:
-
-- **Types & Schemas:** Strict TypeScript interfaces and Zod schemas in `lib/types.ts` or `<domain>.ts`.
-- **Pure Logic:** Deterministic business logic, filtering, and calculation functions separated from I/O.
-- **Data Access:** File persistence wrapped with `atomicWriteFile` and file mutex locks.
-- **Route Handlers:** `app/api/<domain>/route.ts` validating requests, checking sessions/roles via `require-role.ts`, and invoking domain logic.
-- **Testing:** Co-located or parallel unit tests named `<module>.test.ts` executed via Vitest.
-
-## Plan Mode Discipline
-
-- When creating an implementation plan (or in Plan mode):
-  - Always create the plan artifact with `RequestFeedback: true`.
-  - **Halt immediately** upon creating the plan. Never start executing tasks or editing code automatically.
-  - Explicitly ask the user for approval to proceed with the implementation.
+For a UI, layout, or routing change, exercise the affected public and admin flow in the browser (desktop and, when layout changed, mobile). Shared state must still match on the other routes that read it: cart, theme, cookie consent, site save.
