@@ -96,6 +96,15 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
     updated: number;
   } | null>(null);
 
+  const [schedEnabled, setSchedEnabled] = useState(false);
+  const [schedUrl, setSchedUrl] = useState('https://livesta.ua/index.php?route=api/products');
+  const [schedLastError, setSchedLastError] = useState<string | null>(null);
+  const [schedLastSuccess, setSchedLastSuccess] = useState<string | null>(null);
+  const [schedNextRun, setSchedNextRun] = useState<string>('');
+  const [schedUrlEditing, setSchedUrlEditing] = useState(false);
+  const [schedUrlDraft, setSchedUrlDraft] = useState('');
+  const [schedSaving, setSchedSaving] = useState(false);
+
   useUnsavedGuard(dirty || Boolean(editing));
 
   // Deep-link ?edit=productId
@@ -106,6 +115,50 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
     const product = initialData.goods.find(g => g.id === id);
     if (product) setEditing(product);
   }, [initialData.goods]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch('/api/import-feed/schedule');
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          enabled: boolean;
+          url: string;
+          lastError: string | null;
+          lastSuccessAt: string | null;
+          nextAttemptAt: string | null;
+          skipDate: string | null;
+          lastSuccessDate: string | null;
+        };
+        setSchedEnabled(data.enabled);
+        setSchedUrl(data.url);
+        setSchedLastError(data.lastError);
+        setSchedLastSuccess(data.lastSuccessAt);
+        // Compute next run label client-side
+        const now = new Date();
+        const kyivHour = parseInt(
+          now.toLocaleTimeString('en-GB', { timeZone: 'Europe/Kyiv', hour: '2-digit', hour12: false }),
+          10,
+        );
+        const after0400 = kyivHour >= 4;
+        const today = now.toLocaleDateString('sv-SE', { timeZone: 'Europe/Kyiv' });
+        if (!data.enabled) {
+          setSchedNextRun('Зупинено');
+        } else if (data.nextAttemptAt && new Date(data.nextAttemptAt) > now) {
+          const at = new Date(data.nextAttemptAt);
+          setSchedNextRun(
+            `Повтор о ${at.toLocaleTimeString('uk-UA', { timeZone: 'Europe/Kyiv', hour: '2-digit', minute: '2-digit' })}`,
+          );
+        } else if (after0400 && (data.skipDate === today || data.lastSuccessDate === today)) {
+          setSchedNextRun('Завтра 04:00 (Kyiv)');
+        } else {
+          setSchedNextRun('Сьогодні 04:00 (Kyiv)');
+        }
+      } catch {
+        /* non-fatal */
+      }
+    })();
+  }, []);
 
   /** Scroll admin main to the product form and focus title when opening edit/create. */
   useEffect(() => {
@@ -507,6 +560,73 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
       setFeedProgress(null);
     } finally {
       setFeedImporting(false);
+    }
+  }
+
+  async function toggleSchedule(enable: boolean) {
+    setSchedSaving(true);
+    try {
+      const res = await fetch('/api/import-feed/schedule', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: enable }),
+      });
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as { error?: string };
+        showToast(err.error || 'Помилка збереження розкладу', 'error');
+        return;
+      }
+      const data = (await res.json()) as { enabled: boolean; skipDate: string | null; lastSuccessDate: string | null; nextAttemptAt: string | null };
+      setSchedEnabled(data.enabled);
+      const now = new Date();
+      const today = now.toLocaleDateString('sv-SE', { timeZone: 'Europe/Kyiv' });
+      const kyivHour = parseInt(
+        now.toLocaleTimeString('en-GB', { timeZone: 'Europe/Kyiv', hour: '2-digit', hour12: false }),
+        10,
+      );
+      const after0400 = kyivHour >= 4;
+      if (!data.enabled) {
+        setSchedNextRun('Зупинено');
+      } else if (data.nextAttemptAt && new Date(data.nextAttemptAt) > now) {
+        const at = new Date(data.nextAttemptAt);
+        setSchedNextRun(
+          `Повтор о ${at.toLocaleTimeString('uk-UA', { timeZone: 'Europe/Kyiv', hour: '2-digit', minute: '2-digit' })}`,
+        );
+      } else if (after0400 && (data.skipDate === today || data.lastSuccessDate === today)) {
+        setSchedNextRun('Завтра 04:00 (Kyiv)');
+      } else {
+        setSchedNextRun('Сьогодні 04:00 (Kyiv)');
+      }
+      showToast(enable ? 'Розклад увімкнено' : 'Розклад зупинено', 'success');
+    } catch {
+      showToast('Мережева помилка', 'error');
+    } finally {
+      setSchedSaving(false);
+    }
+  }
+
+  async function saveSchedUrl() {
+    const url = schedUrlDraft.trim();
+    if (!url) return;
+    setSchedSaving(true);
+    try {
+      const res = await fetch('/api/import-feed/schedule', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as { error?: string };
+        showToast(err.error || 'Помилка збереження URL', 'error');
+        return;
+      }
+      setSchedUrl(url);
+      setSchedUrlEditing(false);
+      showToast('URL розкладу збережено', 'success');
+    } catch {
+      showToast('Мережева помилка', 'error');
+    } finally {
+      setSchedSaving(false);
     }
   }
 
@@ -926,6 +1046,87 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
             Приховати всі
           </button>
           {dirty ? <span className='admin-dirty'>Є незбережені зміни · Ctrl+S</span> : null}
+        </div>
+
+        {/* Schedule strip */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            flexWrap: 'wrap',
+            marginTop: 10,
+            padding: '8px 12px',
+            background: 'rgba(0,0,0,0.03)',
+            borderRadius: 8,
+            border: '1px solid var(--color-admin-border, #e5e7eb)',
+            fontSize: '0.85rem',
+          }}
+        >
+          <span style={{ fontWeight: 600 }}>Щоденний імпорт:</span>
+          <span style={{ color: schedEnabled ? 'green' : 'inherit' }}>{schedEnabled ? 'Увімкнено' : 'Зупинено'}</span>
+          {schedNextRun ? <span style={{ opacity: 0.7 }}>{schedNextRun}</span> : null}
+          {schedLastError ? (
+            <span style={{ color: 'red', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              title={schedLastError}>
+              Помилка: {schedLastError.slice(0, 80)}
+            </span>
+          ) : schedLastSuccess ? (
+            <span style={{ opacity: 0.6 }}>
+              Успіх: {new Date(schedLastSuccess).toLocaleString('uk-UA', { timeZone: 'Europe/Kyiv', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+            </span>
+          ) : null}
+          <button
+            type='button'
+            className='admin-btn admin-btn--secondary'
+            disabled={schedSaving}
+            onClick={() => void toggleSchedule(!schedEnabled)}
+            style={{ fontSize: '0.8rem', padding: '3px 10px' }}
+          >
+            {schedEnabled ? 'Стоп' : 'Продовжити'}
+          </button>
+          {schedUrlEditing ? (
+            <>
+              <input
+                className='admin-field'
+                type='url'
+                value={schedUrlDraft}
+                onChange={e => setSchedUrlDraft(e.target.value)}
+                style={{ width: 320, fontSize: '0.8rem', padding: '3px 8px' }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') void saveSchedUrl();
+                  if (e.key === 'Escape') setSchedUrlEditing(false);
+                }}
+                autoFocus
+              />
+              <button
+                type='button'
+                className='admin-btn'
+                disabled={schedSaving}
+                onClick={() => void saveSchedUrl()}
+                style={{ fontSize: '0.8rem', padding: '3px 10px' }}
+              >
+                Зберегти URL
+              </button>
+              <button
+                type='button'
+                className='admin-btn admin-btn--secondary'
+                onClick={() => setSchedUrlEditing(false)}
+                style={{ fontSize: '0.8rem', padding: '3px 10px' }}
+              >
+                Скасувати
+              </button>
+            </>
+          ) : (
+            <button
+              type='button'
+              className='admin-btn admin-btn--secondary'
+              onClick={() => { setSchedUrlDraft(schedUrl); setSchedUrlEditing(true); }}
+              style={{ fontSize: '0.8rem', padding: '3px 10px' }}
+            >
+              URL: {schedUrl.length > 40 ? `${schedUrl.slice(0, 40)}…` : schedUrl}
+            </button>
+          )}
         </div>
 
         {selectedIds.length > 0 ? (

@@ -27,11 +27,23 @@ vi.mock('@/lib/auth', () => ({
   getSessionClaims: vi.fn(),
 }));
 
+vi.mock('@/lib/feed-schedule', () => ({
+  readFeedSchedule: vi.fn().mockResolvedValue({ enabled: false }),
+  saveFeedSchedule: vi.fn().mockResolvedValue(undefined),
+  kyivDate: vi.fn(() => '2026-01-15'),
+  kyivIsAfter0400: vi.fn(() => false),
+}));
+
+vi.mock('@/lib/run-feed-import', () => ({
+  isFeedImportRunning: vi.fn(() => false),
+}));
+
 import { requireAdminRole } from '@/lib/require-role';
 import { rateLimit } from '@/lib/rate-limit';
 import { getSiteData, saveSiteData } from '@/lib/site-data';
 import { fetchAndStoreImage } from '@/lib/fetch-remote-image';
 import { appendActivity } from '@/lib/admin-activity';
+import { isFeedImportRunning } from '@/lib/run-feed-import';
 import type { Product, SiteData } from '@/lib/types';
 import { POST } from './route';
 
@@ -215,6 +227,7 @@ describe('POST /api/import-feed', () => {
     expect(updated?.visible).toBe(true);
     expect(updated?.sortPin).toBe(true);
     expect(updated?.relatedIds).toEqual(['prod-x']);
+    expect(updated?.inStock).toBe(true); // existing product inStock preserved
 
     // New product starts hidden (visible: false)
     const newlyCreated = savedData.goods.find((g: Product) => g.code === 'NEW-1');
@@ -223,5 +236,16 @@ describe('POST /api/import-feed', () => {
     expect(newlyCreated?.visible).toBe(false);
 
     expect(appendActivity).toHaveBeenCalled();
+  });
+
+  it('returns 409 when another import is already running', async () => {
+    vi.mocked(isFeedImportRunning).mockReturnValue(true);
+    const req = new NextRequest('http://localhost/api/import-feed', {
+      method: 'POST',
+      body: JSON.stringify({ url: 'https://example.com/feed.json' }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(409);
+    vi.mocked(isFeedImportRunning).mockReturnValue(false);
   });
 });

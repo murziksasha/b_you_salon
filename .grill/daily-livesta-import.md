@@ -132,3 +132,4 @@ The import dialog stays as it is, including the photo checkbox and its own URL.
 ### Verify
 
 Unit tests above. Then, with the dev server, open Адмінка → Товари as an editor: the strip loads stopped, saving the URL round-trips, Continue and Stop change the status, and the import dialog still opens. Do not run a full Livesta import against the real catalog. Say so if the browser pass cannot log in.
+

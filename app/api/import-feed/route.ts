@@ -13,6 +13,8 @@ import {
   type FeedProduct,
 } from '@/lib/feed-import';
 import { fetchAndStoreImage } from '@/lib/fetch-remote-image';
+import { isFeedImportRunning } from '@/lib/run-feed-import';
+import { readFeedSchedule, saveFeedSchedule, kyivDate, kyivIsAfter0400 } from '@/lib/feed-schedule';
 import type { Product } from '@/lib/types';
 
 const FEED_TIMEOUT_MS = 30_000;
@@ -32,10 +34,9 @@ async function fetchFeed(url: string): Promise<string> {
   }
 }
 
-function buildProduct(fp: FeedProduct, imageUrl: string): Omit<Product, 'id'> {
+function buildProduct(fp: FeedProduct, imageUrl: string, existingInStock?: boolean): Omit<Product, 'id'> {
   const characteristics = buildCharacteristics(fp);
   const promoText = fp.rrp && fp.rrp > fp.price ? `До знижки: ${fp.rrp.toLocaleString('uk-UA')} ₴` : undefined;
-
   return {
     title: fp.name,
     description: cleanFeedDescription(fp.description),
@@ -43,13 +44,28 @@ function buildProduct(fp: FeedProduct, imageUrl: string): Omit<Product, 'id'> {
     price: fp.price,
     image: imageUrl || PRODUCT_PLACEHOLDER_IMAGE,
     images: [],
-    visible: false, // imported products start hidden — admin reviews and publishes
+    visible: false,
     code: fp.sku,
-    inStock: true,
+    // For existing products, keep their inStock. For new products, start inStock: true.
+    inStock: existingInStock !== undefined ? existingInStock : true,
     promoText,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
+}
+
+async function stampManualSuccessIfNeeded(now: Date): Promise<void> {
+  try {
+    const sched = await readFeedSchedule();
+    if (!sched.enabled) return;
+    if (!kyivIsAfter0400(now)) return;
+    const today = kyivDate(now);
+    if (sched.skipDate === today) return;
+    if (sched.lastSuccessDate === today) return;
+    await saveFeedSchedule({ ...sched, lastSuccessDate: today, lastSuccessAt: now.toISOString() });
+  } catch {
+    /* non-fatal */
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -63,6 +79,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: 'Too many import requests', retryAfter },
       { status: 429, headers: { 'Retry-After': String(retryAfter) } },
+    );
+  }
+
+  if (isFeedImportRunning()) {
+    return NextResponse.json(
+      { error: 'Імпорт уже виконується. Зачекайте завершення або спробуйте пізніше.' },
+      { status: 409 },
     );
   }
 
@@ -138,7 +161,6 @@ export async function POST(request: NextRequest) {
           let updated = 0;
           const errors: string[] = [];
 
-          // Process in batches so streaming updates are sent smoothly
           const batchSize = downloadImages ? 5 : 50;
 
           for (let i = 0; i < total; i += batchSize) {
@@ -160,7 +182,8 @@ export async function POST(request: NextRequest) {
                   }
                 }
 
-                const patch = buildProduct(fp, imageUrl);
+                const existingInStock = existingIdx >= 0 ? goods[existingIdx]?.inStock : undefined;
+                const patch = buildProduct(fp, imageUrl, existingInStock);
 
                 if (existingIdx >= 0) {
                   const curr = goods[existingIdx];
@@ -173,6 +196,7 @@ export async function POST(request: NextRequest) {
                       sortPin: curr.sortPin,
                       relatedIds: curr.relatedIds,
                       visible: curr.visible,
+                      inStock: curr.inStock,
                       updatedAt: new Date().toISOString(),
                     };
                     updated++;
@@ -197,12 +221,15 @@ export async function POST(request: NextRequest) {
               message: `Опрацьовано ${processed} із ${total}`,
             });
 
-            // Small yield to let I/O and network flush
             await new Promise(r => setTimeout(r, 2));
           }
 
           emit({ type: 'status', message: 'Збереження каталогу…' });
           await saveSiteData({ ...siteData, goods });
+
+          // Stamp manual success if schedule conditions met
+          const now = new Date();
+          await stampManualSuccessIfNeeded(now);
 
           try {
             const { appendActivity } = await import('@/lib/admin-activity');
@@ -246,7 +273,7 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  // Non-streaming fallback (e.g. unit tests or standard JSON POST)
+  // Non-streaming fallback
   let rawText: string;
   try {
     rawText = await fetchFeed(url);
@@ -298,7 +325,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const patch = buildProduct(fp, imageUrl);
+    const existingInStock = existingIdx >= 0 ? goods[existingIdx]?.inStock : undefined;
+    const patch = buildProduct(fp, imageUrl, existingInStock);
 
     if (existingIdx >= 0) {
       const curr = goods[existingIdx];
@@ -311,6 +339,7 @@ export async function POST(request: NextRequest) {
           sortPin: curr.sortPin,
           relatedIds: curr.relatedIds,
           visible: curr.visible,
+          inStock: curr.inStock,
           updatedAt: new Date().toISOString(),
         };
         updated++;
@@ -329,6 +358,9 @@ export async function POST(request: NextRequest) {
       { status: 500 },
     );
   }
+
+  const now = new Date();
+  await stampManualSuccessIfNeeded(now);
 
   try {
     const { appendActivity } = await import('@/lib/admin-activity');
