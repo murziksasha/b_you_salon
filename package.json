@@ -41,7 +41,7 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:smoke": "playwright test e2e/smoke.spec.ts",
-    "check": "npm run typecheck && npm run lint && npm run test",
+    "check": "node scripts/check-tracked-data.mjs && npm run typecheck && npm run lint && npm run test",
     "migrate:totp": "tsx scripts/migrate-totp.ts"
   },
   "dependencies": {

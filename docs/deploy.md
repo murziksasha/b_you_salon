@@ -553,6 +553,31 @@ npm run update
 
 Проверка после обновления: `/api/health` + главная + админка.
 
+#### 9.1. Запрет «сырого» git pull и разовое восстановление хоста
+
+Никогда не выполняйте голый (сырой) `git pull` на хосте. PM2 в процессе работы постоянно перезаписывает runtime-файлы (`data/admin-activity.json`, `data/admin-sessions.json`, `data/site.json` и др.). Если эти файлы были ранее отслежены в Git, прямой `git pull` приводит к конфликтам `modify/delete` и оставляет дерево в состоянии сломанного мержа. Все файлы `data/*.json` (кроме шаблона `data/site.seed.json`) теперь исключены из Git.
+
+Если хост уже получил конфликт мержа или имеет локальные коммиты, выполните **разовые команды восстановления вручную** (перед этим остановите PM2, чтобы процессы не писали в JSON):
+
+```powershell
+# На хосте в папке проекта:
+$stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+New-Item -ItemType Directory -Force -Path "data\backups\pre-reset-$stamp" | Out-Null
+Copy-Item data\*.json "data\backups\pre-reset-$stamp\" -Force
+if (Test-Path .git\MERGE_HEAD) { git merge --abort }
+git fetch origin
+git checkout dev
+git reset --hard origin/dev
+Get-ChildItem "data\backups\pre-reset-$stamp\*.json" |
+  Where-Object { $_.Name -ne "site.seed.json" } |
+  ForEach-Object { Copy-Item $_.FullName "data\$($_.Name)" -Force }
+npm run update
+```
+
+Команда `git reset --hard` удаляет старые отслеживаемые JSON и локальные коммиты хоста, а последующее копирование возвращает актуальные рабочие данные как незатреканные (игнорируемые) файлы. `data/site.seed.json` при этом не перетирается, а секреты `.env` и загрузки `public/uploads` не затрагиваются. Не запускайте `npm run seed`.
+
+После выполнения этой процедуры все последующие обновления на хосте выполняются **только через `npm run update`**.
+
 ### 10. Бэкапы на хосте (обязательно)
 
 Контент живёт в файлах:
