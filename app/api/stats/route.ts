@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth';
-import { assertAdminIp } from '@/lib/require-admin-ip';
+import { requireAdminRole } from '@/lib/require-role';
 import { listLeads } from '@/lib/leads';
 import { listOrders } from '@/lib/orders';
 import { getSiteData } from '@/lib/site-data';
@@ -19,19 +18,14 @@ import { scanCatalog } from '@/lib/catalog-health';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const ipGate = await assertAdminIp();
-  if (!ipGate.ok) {
-    return NextResponse.json({ error: ipGate.error }, { status: ipGate.status });
-  }
-  if (!(await getSession())) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const g = await requireAdminRole('dashboard_view');
+  if (!g.ok) return g.response;
 
   const [leads, orders, site, activity] = await Promise.all([
     listLeads(),
     listOrders(),
     getSiteData(),
-    listActivity(25),
+    listActivity(50),
   ]);
   const inbox = mergeInbox(leads, orders);
   const open = inbox.filter((i) => i.open);

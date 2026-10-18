@@ -13,11 +13,14 @@ import { TotpSetupPanel } from './TotpSetupPanel';
 import { UsersPanel } from './UsersPanel';
 import { StickySaveBar } from './StickySaveBar';
 import { NotifyPrefsPanel } from './NotifyPrefsPanel';
+import { TelegramBotPanel } from './TelegramBotPanel';
+import { useAdminRole } from './AdminRoleContext';
 
 const SOCIAL_PRESETS: Array<{ type: string; icon: string; label: string }> = [
   { type: 'viber', icon: '/img/icons/viber.svg', label: 'Viber' },
   { type: 'telegram', icon: '/img/icons/telegram.svg', label: 'Telegram' },
   { type: 'instagram', icon: '/img/icons/instagram.svg', label: 'Instagram' },
+  { type: 'facebook', icon: '/img/icons/facebook.svg', label: 'Facebook' },
   { type: 'youtube', icon: '/img/icons/youtube.svg', label: 'YouTube' },
 ];
 
@@ -31,6 +34,7 @@ function emptySocial(type = 'telegram'): SocialLink {
 }
 
 export function SettingsEditor({ initialData }: { initialData: SiteData }) {
+  const { can } = useAdminRole();
   const [data, setData] = useState(initialData);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -86,6 +90,8 @@ export function SettingsEditor({ initialData }: { initialData: SiteData }) {
 
   return (
     <div className='admin-form'>
+      {can('settings') ? (
+      <>
       <div className='admin-toolbar'>
         <button type='button' className='admin-btn' onClick={() => void save()} disabled={saving}>
           {saving ? 'Збереження…' : 'Зберегти'}
@@ -118,6 +124,12 @@ export function SettingsEditor({ initialData }: { initialData: SiteData }) {
           value={s.favicon}
           onChange={(url) => patchSettings({ favicon: url })}
           preset='logo'
+        />
+        <ImageField
+          label='Зображення для соцмереж (1200×630)'
+          value={s.ogImage || ''}
+          onChange={(url) => patchSettings({ ogImage: url })}
+          preset='og'
         />
         <label>
           Години роботи (шапка)
@@ -323,13 +335,18 @@ export function SettingsEditor({ initialData }: { initialData: SiteData }) {
           />
         </label>
       </div>
+      </>
+      ) : null}
 
       <TotpSetupPanel />
 
-      <NotifyPrefsPanel />
+      {can('telegram') ? <TelegramBotPanel /> : null}
 
-      <UsersPanel />
+      {can('inbox') || can('telegram') ? <NotifyPrefsPanel /> : null}
 
+      {can('users') ? <UsersPanel /> : null}
+
+      {can('ops') ? (
       <div className='admin-card'>
         <h2 className='admin-h2'>Ops alerts</h2>
         <p className='admin-hint'>Перевірка backup &gt;48г та SMTP → Telegram (throttle 12 год).</p>
@@ -356,10 +373,13 @@ export function SettingsEditor({ initialData }: { initialData: SiteData }) {
           Запустити ops alerts
         </button>
       </div>
+      ) : null}
 
-      <BackupPanel />
+      {can('backup') ? <BackupPanel /> : null}
 
-      <StickySaveBar dirty={dirty} saving={saving} onSave={() => void save()} />
+      {can('settings') ? (
+        <StickySaveBar dirty={dirty} saving={saving} onSave={() => void save()} />
+      ) : null}
     </div>
   );
 }

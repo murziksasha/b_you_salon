@@ -83,10 +83,7 @@ export function generateTotpSecret(): string {
   return base32Encode(randomBytes(20));
 }
 
-export function buildOtpauthUrl(
-  secretBase32: string,
-  options?: { account?: string; issuer?: string },
-): string {
+export function buildOtpauthUrl(secretBase32: string, options?: { account?: string; issuer?: string }): string {
   const issuer = options?.issuer || 'ProperService';
   const account = options?.account || 'admin';
   const label = encodeURIComponent(`${issuer}:${account}`);
@@ -100,17 +97,40 @@ export function buildOtpauthUrl(
   return `otpauth://totp/${label}?${params.toString()}`;
 }
 
-/** Verify TOTP code (30s step, ±1 window). */
+const usedCodes = new Map<string, number>();
+
+/** Reset tracked used codes (for testing). */
+export function resetUsedTotpCodes(): void {
+  usedCodes.clear();
+}
+
+/** Verify TOTP code (30s step, ±1 window). Prevents replay within the valid window. */
 export function verifyTotp(secretBase32: string, token: string, window = 1): boolean {
   const secret = base32Decode(secretBase32);
   if (!secret.length) return false;
   const clean = String(token || '').replace(/\s+/g, '');
   if (!/^\d{6}$/.test(clean)) return false;
-  const step = Math.floor(Date.now() / 1000 / 30);
+
+  const now = Date.now();
+  // Prune expired codes
+  for (const [k, expiresAt] of usedCodes.entries()) {
+    if (expiresAt < now) usedCodes.delete(k);
+  }
+
+  const step = Math.floor(now / 1000 / 30);
   for (let w = -window; w <= window; w++) {
     const expected = hotp(secret, step + w);
     try {
-      if (timingSafeEqual(Buffer.from(expected), Buffer.from(clean))) return true;
+      if (timingSafeEqual(Buffer.from(expected), Buffer.from(clean))) {
+        // Reject if code was already used for this secret
+        const key = `${normalizeTotpSecret(secretBase32)}:${clean}`;
+        if (usedCodes.has(key)) {
+          return false;
+        }
+        // Remember used code for 2 minutes (window is ±30s)
+        usedCodes.set(key, now + 120_000);
+        return true;
+      }
     } catch {
       // length mismatch
     }

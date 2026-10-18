@@ -26,8 +26,8 @@ flowchart LR
 
 Окремі журнали (не в `site.json`):
 
-- `data/leads.json` — заявки на дзвінок (`source: callback`)
-- `data/orders.json` — замовлення з магазину (`source: shop`, снапшот товару)
+- `data/leads.json` — заявки на дзвінок / запис (`source: callback|booking`)
+- `data/orders.json` — замовлення з магазину (`source: shop` + снапшот товарів) або консультація по товарах (`source: consult`)
 
 Секції типізовані union `Section` (`hero`, `advantages`, `malfunctions`, …).  
 Рендер: `SectionRenderer` → компоненти в `components/sections/`.
@@ -53,19 +53,32 @@ Single-instance: цілий файл перезаписується при `save
 
 ## Auth
 
-1. `POST /api/auth` — `verifyPassword` (timing-safe) проти `ADMIN_PASSWORD` + optional TOTP
-2. `createSession` — cookie `admin_session` = `token.expiry.hmac`
-3. `middleware.ts` захищає `/admin/*` (крім login)
-4. API `GET/PUT /api/site`, `POST /api/upload` перевіряють сесію
-5. 2FA setup: `GET/POST /api/auth/totp` (session + password re-auth)
-
-Secret: `SESSION_SECRET` (або fallback `ADMIN_PASSWORD` / dev default).
+1. `POST /api/auth` — multi-user (`data/admins.json`, scrypt) or env `ADMIN_PASSWORD` (gated by `ADMIN_ENV_LOGIN`: `always` | `auto` | `breakglass` | `off`, `lib/admin/env-login.ts`).
+2. Rate limit per IP (10/min) + per-username lockout (5 failures / 15 min, `lib/login-lockout.ts`).
+3. 2FA: personal TOTP per user (`admins.json` → `totp`, never listed); users without personal TOTP fall back to the global secret (`ADMIN_TOTP_SECRET` / `data/admin-totp.json`) — transitional.
+4. `createSession` — cookie `admin_session` = `token.expiry.claimsHex.hmac` (claim-less tokens rejected). Signing key: `SESSION_SECRET` (required in prod, >= 32 chars).
+5. Authorization uses the live `admins.json` row (`resolveAdminAccess`); deleted/disabled users lose access immediately.
+6. `middleware.ts` — deny-by-default for `/api/*` (except `PUBLIC_API`): IP allowlist (`TRUST_PROXY` decides whether proxy headers are trusted) + Origin check for state-changing methods; `/admin/*` cookie presence.
+7. Pages: `requirePageAccess` (server-side role check). API: `withAdmin` / `requireAdminRole`.
+8. Step-up for sensitive actions (users, sessions, 2FA): current user's own password (`lib/admin/reauth.ts`).
 
 ## Public rendering
 
 - `app/page.tsx` — home (`slug === ''`)
 - `app/[slug]/page.tsx` — CMS pages
 - `app/shop/*` — catalog (`ShopCatalog`: search / sort / category)
+- **Шапка сайту (`Header.tsx`)**:
+  - Зона визначається з шляху (`zoneFromPath`): `salon`, `shop` або `home`.
+  - Золоті CTA-кнопки (pill `by-header__book`):
+    - Салон (`zone === 'salon'`): кнопка «Записатись» із плавним скролом до `#callback`.
+    - Магазин і кошик (`/shop`, `/cart`): кнопка «Консультація» (на `/shop` плавний скрол до `#contacts`, на `/cart` перехід на `/shop#contacts`).
+    - Якорі `#callback` та `#contacts` мають `scroll-margin-top: calc(6.4rem + 2.4rem)` проти перекриття липким хедером.
+  - Кошик: показується виключно у зоні `shop` (`/shop`, `/store`, `/cart`); на головному екрані та в салоні прихований навіть за наявності товарів у кошику (`count > 0`).
+  - Телефон зони (`phoneForZone`): у магазині та кошику — номер магазину/консультанта, в інших зонах — головний телефон.
+  - Мобільний drawer дублює відповідні CTA («Записатись» або «Консультація») і автоматично закривається при кліку.
+- Тема публічки: `ThemeProvider` + кнопка в `Header` (і в мобільному drawer). `html[data-theme=light|dark]`, ключ `byou-theme` (legacy `ps-theme` ще читається). Адмінка не використовує цей перемикач.
+- CSP (`lib/csp.ts` + nginx): у **production** `script-src 'self' 'unsafe-inline'` (без `unsafe-eval`). У `next dev` додається `'unsafe-eval'` — інакше webpack/React не гідратяться і клієнтські кнопки (тема, cookie-банер) не працюють.
+- Cookie-банер (`CookieConsentBanner` у `SiteShell`): sticky bottom, `z-index: 110` (над `.sticky-call` 90 і `.pageup` 95). Поки відкритий — `html[data-cookie-banner=open]`; після відповіді — `done` (inline boot у `app/layout.tsx` ховає банер до paint, як тема). Форма POST `/api/cookie-consent` ставить cookie і редіректить (працює і без JS); з JS — `preventDefault` + `localStorage`. Згода: `lib/cookie-consent.ts`, ключ `byou-cookie-consent` у `localStorage` (JSON `{ v, choice, at }`) і cookie `v1.all` / `v1.necessary` (Max-Age 1 рік, `Path=/`, `SameSite=Lax`, без `Secure`/`HttpOnly`). Версія `v` — щоб перепитати після зміни політики. Футер: «Налаштування cookies» диспатчить `byou-cookie-consent-open`. Адмінка банер не монтує.
 - `force-dynamic` — актуальний контент без ISR (file CMS)
 - **Feedback carousel** (`FeedbackSection`): CSS grid stack — усі слайди в одній комірці, розмір viewport = max по контенту (найвищий/найширший скрін); перемикання без layout shift. Зображення з `section.images`, CTA «більше відгуків» з `settings.reviewsUrl`.
 
@@ -84,9 +97,13 @@ Shared helpers: `lib/admin/saveSite.ts`, `lib/admin/uploadImage.ts`, `lib/sectio
 
 ## Contact flow
 
-`CallbackForm` → `POST /api/contact` → honeypot `website` → validate UA phone (`380`+9 або `0`+9) → rate-limit → **append lead** (`data/leads.json`, `emailed: false`) → nodemailer (optional) → mark `emailed: true` on success  
+`CallbackForm` дивиться `intent` + `pagePath` (`lib/form-flow.ts`):
 
-Заявки завжди в журналі адмінки `/admin/leads` навіть без SMTP.  
+- **booking** (`/salon*` або `intent=salon`) → `POST /api/contact` → лід `source: booking`
+- **sales** (`/shop*`, `/cart` або `intent=shop`) → `POST /api/orders` (консультація без товарів) або contact internally `placeShopOrder({ consult: true })`
+- **callback** (інше) → лід `source: callback`
+
+Honeypot `website` → validate UA phone → rate-limit → journal навіть без SMTP.  
 Legacy `mailer/smart.php` лишається в Docker/nginx, але frontend його не викликає.
 
 Маска/placeholder телефону: `+38 (___) ___ __ __` (`lib/phone.ts` → `PHONE_PLACEHOLDER`).
@@ -105,7 +122,7 @@ Legacy `mailer/smart.php` лишається в Docker/nginx, але frontend й
 | Телефон (`tel:`) | body |
 | Час | server `uk-UA` |
 | ID заявки | `lead.id` (рядок журналу) |
-| Джерело | `callback` |
+| Джерело | `booking` або `callback` |
 | Сторінка | `pagePath` + `SITE_URL` якщо задано |
 | Заголовок сторінки | `pageTitle` |
 | Referer / IP / User-Agent / мова | request headers |
@@ -148,9 +165,9 @@ sequenceDiagram
   end
 ```
 
-- Entry: only product page `/shop/[id]` — `OrderForm` («Замовити»)
-- Fields: UA phone (required), comment (optional, max 1000), quantity always **1**
-- Server reloads product; rejects invisible/missing; stores **snapshot** (id, title, price, code, image)
+- Entry: кошик `/cart`, форми магазину (консультація), головна з `intent=shop`
+- Cart: UA phone, fulfillment, comment; server reloads products; rejects `inStock === false`; stores **snapshot**
+- Consult (немає `items`): `source: consult`, товар-плейсхолдер «Консультація по товарах», Telegram **Продаж**
 - Email to `MAIL_TO` only (shop); journal works without SMTP (`emailed: false`)
 - Honeypot field `website` → soft `ok` without persist (same on contact)
 - Admin: `/admin/orders` + `GET/PATCH/DELETE /api/orders` (session + IP allowlist at route)
@@ -167,7 +184,7 @@ Leads (callback) and orders (shop) are **separate** files and admin sections.
 ### Notifications
 
 - Email: nodemailer → `MAIL_TO` (contact + orders)
-- Telegram: `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` (`lib/notify.ts`)
+- Telegram: `TELEGRAM_BOT_TOKEN` + paired subscribers (`data/telegram-subscribers.json`) and optional `TELEGRAM_CHAT_ID` (`lib/notify.ts`). Pushes include masked phone + inline keyboard (copy / Viber https-redirect `/r/viber` / admin / claim). Skip if quiet hours or the phone already has another open inbox item. Updates: `POST /api/telegram/webhook` (secret header) when `TELEGRAM_WEBHOOK_SECRET` + public https `SITE_URL`; otherwise pm2 `byou-telegram` long-poll. Digest + catch-up run in Next.js (`lib/telegram-digest-runner.ts`).
 - Admin SMTP test: `POST /api/smtp-test` (session)
 
 ### Partial site API
@@ -191,6 +208,7 @@ Leads (callback) and orders (shop) are **separate** files and admin sections.
 ## Admin shell
 
 - Viewport-locked layout (`admin-shell` 100dvh, `overflow: hidden`): only `admin-main` scrolls; sidebar stays visible.
+- Services editor (`/admin/services`): **Редагувати** / **+ Послуга** jumps `admin-main` to `#service-edit-form` (form sits above the list; hash via `replaceState`). Same idea as goods (`#goods-edit-form`).
 - Desktop collapse to icons: `AdminShell` + `localStorage` key `admin-nav-collapsed`; labels hidden via `.admin-shell--nav-collapsed`.
 
 ## Media

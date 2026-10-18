@@ -2,14 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 import { appendLead, findOpenLeadsByPhone, updateLead } from '@/lib/leads';
 import { getSiteData } from '@/lib/site-data';
-import { zoneFromPath } from '@/lib/zone';
+import { parseFormIntent, resolveFormFlow, resolveLeadSource, resolveLeadZone } from '@/lib/form-flow';
 import {
   absoluteSiteUrl,
   sanitizePagePath,
   sanitizePageTitle,
   truncateMeta,
 } from '@/lib/page-path';
-import { notifyLead } from '@/lib/notify';
+import { placeShopOrder } from '@/lib/place-shop-order';
+import { autoNotifyNewLead } from '@/lib/telegram-auto-notify';
 import { clientKey, rateLimit } from '@/lib/rate-limit';
 import { escapeText } from '@/lib/sanitize';
 import { isValidUaPhone, normalizePhoneCanonical } from '@/lib/phone';
@@ -38,6 +39,7 @@ export async function POST(request: NextRequest) {
     let bodyUtm = {};
     let serviceIdRaw = '';
     let commentRaw = '';
+    let intentRaw: unknown;
 
     const contentType = request.headers.get('content-type') || '';
     if (contentType.includes('application/json')) {
@@ -48,6 +50,7 @@ export async function POST(request: NextRequest) {
       honeypot = typeof body.website === 'string' ? body.website : '';
       serviceIdRaw = typeof body.serviceId === 'string' ? body.serviceId : '';
       commentRaw = typeof body.comment === 'string' ? body.comment : '';
+      intentRaw = body.intent;
       bodyUtm = parseUtmFromBody(body as Record<string, unknown>);
     } else {
       const formData = await request.formData();
@@ -57,6 +60,7 @@ export async function POST(request: NextRequest) {
       honeypot = String(formData.get('website') || '');
       serviceIdRaw = String(formData.get('serviceId') || '');
       commentRaw = String(formData.get('comment') || '');
+      intentRaw = formData.get('intent');
       bodyUtm = parseUtmFromBody({
         utm_source: formData.get('utm_source'),
         utm_medium: formData.get('utm_medium'),
@@ -83,8 +87,30 @@ export async function POST(request: NextRequest) {
 
     const pagePath = sanitizePagePath(pagePathRaw);
     const pageTitle = sanitizePageTitle(pageTitleRaw);
-    const zone = zoneFromPath(pagePath || '/');
+    const intent = parseFormIntent(intentRaw);
+    const flow = resolveFormFlow({ pagePath, intent });
+    const zone = resolveLeadZone(pagePath || '/', intent);
     const comment = commentRaw.trim().slice(0, 1000);
+
+    if (flow === 'sales') {
+      const placed = await placeShopOrder({
+        phone,
+        comment: comment || undefined,
+        consult: true,
+        pagePath: pagePath || undefined,
+      });
+      if (!placed.order && !placed.emailed) {
+        return NextResponse.json({ error: 'Failed to save order' }, { status: 500 });
+      }
+      return NextResponse.json({
+        ok: true,
+        emailed: placed.emailed,
+        telegram: placed.telegram,
+        orderId: placed.order?.id,
+        consult: true,
+        dev: placed.dev,
+      });
+    }
     let serviceId: string | undefined;
     let serviceTitle: string | undefined;
     if (serviceIdRaw.trim()) {
@@ -140,7 +166,7 @@ export async function POST(request: NextRequest) {
         lead = await appendLead({
           phone,
           emailed: false,
-          source: zone === 'salon' || serviceId ? 'booking' : 'callback',
+          source: resolveLeadSource(flow) === 'booking' || serviceId ? 'booking' : 'callback',
           zone,
           serviceId,
           serviceTitle,
@@ -154,21 +180,9 @@ export async function POST(request: NextRequest) {
       lead = null;
     }
 
-    // Fire-and-await Telegram (non-blocking for failure)
     let telegram = false;
     try {
-      telegram = await notifyLead({
-        phone,
-        leadId: lead?.id,
-        pagePath,
-        utmLine,
-        zone,
-        serviceTitle,
-        comment,
-      });
-      if (lead && telegram) {
-        // re-read not needed; flag only for response/logging
-      }
+      telegram = await autoNotifyNewLead(lead, { deduped });
     } catch {
       telegram = false;
     }
@@ -177,7 +191,7 @@ export async function POST(request: NextRequest) {
     const pageUrl = absoluteSiteUrl(pagePath, siteUrl) || pagePath;
     const adminLeadsUrl = siteUrl ? `${siteUrl}/admin/leads` : undefined;
     const phoneDigits = phone.replace(/\D/g, '');
-    const source = 'callback';
+    const source = lead?.source || resolveLeadSource(flow);
 
     const safePhone = escapeText(phone);
     const safeWhen = escapeText(when);

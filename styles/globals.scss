@@ -1,8 +1,9 @@
-@import '../src/sass/style.scss';
-@import './theme.scss';
-@import './shop.scss';
-@import './motion.scss';
-@import './byou.scss';
+@use '../src/sass/style.scss';
+@use './tokens-public.scss';
+@use './theme.scss';
+@use './shop.scss';
+@use './motion.scss';
+@use './byou.scss';
 
 /* Shared form status (callback + order) */
 .status {
@@ -66,14 +67,15 @@
     z-index: 90;
     gap: 8px;
     padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0));
-    background: var(--by-sticky-bg, rgba(13, 13, 13, 0.94));
+    background: var(--by-sticky-bg, color-mix(in srgb, var(--by-bg, #0d0d0d) 92%, transparent));
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.2);
     align-items: stretch;
     /* Height estimate for clearance */
     --sticky-call-h: 7.2rem;
   }
 
-  body.nav-open .sticky-call {
+  body.nav-open .sticky-call,
+  body.nav-open .cookie-banner {
     display: none;
   }
 
@@ -151,6 +153,11 @@
     z-index: 95;
     right: 1.2rem;
   }
+
+  html[data-cookie-banner='open'] .pageup {
+    bottom: calc(16rem + env(safe-area-inset-bottom, 0px));
+    z-index: 115;
+  }
 }
 
 /* Not-found page */
@@ -191,10 +198,14 @@
   }
 }
 
-/* Content HTML pages */
+/* Content HTML pages (privacy etc.) — keep side gutters on narrow viewports.
+   Avoid padding-y-only shorthand: it wipes .wrapper horizontal padding. */
 .content-page {
-  padding: 3rem 0 5rem;
+  box-sizing: border-box;
+  width: min(72rem, calc(100% - 3.2rem));
   max-width: 72rem;
+  margin-inline: auto;
+  padding: 3rem 1.6rem 5rem;
 
   &__title {
     margin-bottom: 2rem;
@@ -203,6 +214,7 @@
   &__body {
     font-size: 1.6rem;
     line-height: 1.55;
+    overflow-wrap: anywhere;
 
     p {
       margin: 0 0 1.2rem;
@@ -213,6 +225,14 @@
     }
   }
 }
+
+@media (max-width: 767px) {
+  .content-page {
+    width: min(72rem, calc(100% - 2.4rem));
+    padding: 2.4rem 1.2rem 4rem;
+  }
+}
+
  
 .ps-hide-mobile{display:contents}  
 @media (max-width:767px){.ps-hide-mobile{display:none !important}}  

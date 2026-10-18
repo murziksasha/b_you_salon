@@ -1,9 +1,11 @@
+import { requirePageAccess } from '@/lib/admin/page-guard';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { LeadsPanel } from '@/components/admin/LeadsPanel';
 
 export const dynamic = 'force-dynamic';
 
-export default function AdminLeadsPage() {
+export default async function AdminLeadsPage() {
+  await requirePageAccess('/admin/leads');
   return (
     <AdminShell>
       <h1>Заявки</h1>

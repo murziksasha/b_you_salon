@@ -7,6 +7,10 @@ interface Bucket {
   timestamps: number[];
 }
 
+const MAX_BUCKETS = 5_000;
+const CLEANUP_INTERVAL_MS = 60_000;
+let lastCleanup = Date.now();
+
 const buckets = new Map<string, Bucket>();
 
 export interface RateLimitOptions {
@@ -22,9 +26,29 @@ export interface RateLimitResult {
   retryAfterMs: number;
 }
 
+function pruneExpiredBuckets(now: number): void {
+  for (const [k, b] of buckets.entries()) {
+    // If bucket has no timestamps or oldest is older than 5 minutes, prune
+    if (b.timestamps.length === 0 || b.timestamps[b.timestamps.length - 1] < now - 300_000) {
+      buckets.delete(k);
+    }
+  }
+}
+
 export function rateLimit(key: string, options: RateLimitOptions): RateLimitResult {
   const now = Date.now();
   const windowStart = now - options.windowMs;
+
+  // Periodic cleanup or cap enforcement to prevent unbounded memory growth
+  if (now - lastCleanup > CLEANUP_INTERVAL_MS || buckets.size > MAX_BUCKETS) {
+    pruneExpiredBuckets(now);
+    lastCleanup = now;
+    while (buckets.size >= MAX_BUCKETS) {
+      const oldestKey = buckets.keys().next().value;
+      if (oldestKey !== undefined) buckets.delete(oldestKey);
+      else break;
+    }
+  }
 
   let bucket = buckets.get(key);
   if (!bucket) {
@@ -32,7 +56,7 @@ export function rateLimit(key: string, options: RateLimitOptions): RateLimitResu
     buckets.set(key, bucket);
   }
 
-  bucket.timestamps = bucket.timestamps.filter((t) => t > windowStart);
+  bucket.timestamps = bucket.timestamps.filter(t => t > windowStart);
 
   if (bucket.timestamps.length >= options.limit) {
     const oldest = bucket.timestamps[0] ?? now;
@@ -57,7 +81,17 @@ export function resetRateLimits(): void {
 }
 
 export function clientKey(request: Request, prefix: string): string {
+  // Prefer X-Real-IP (set by trusted proxy), fallback to rightmost X-Forwarded-For
+  const real = request.headers.get('x-real-ip');
+  if (real) return `${prefix}:${real.trim()}`;
   const forwarded = request.headers.get('x-forwarded-for');
-  const ip = forwarded?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'unknown';
-  return `${prefix}:${ip}`;
+  if (forwarded) {
+    const parts = forwarded
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+    const ip = parts[parts.length - 1] || 'unknown';
+    return `${prefix}:${ip}`;
+  }
+  return `${prefix}:unknown`;
 }

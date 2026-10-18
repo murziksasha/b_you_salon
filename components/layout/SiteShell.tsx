@@ -1,10 +1,13 @@
 import type { MenuItem, SiteData, SiteSettings } from '@/lib/types';
 import { LocalBusinessJsonLd } from '@/components/seo/LocalBusinessJsonLd';
 import { CartProvider } from '@/components/cart/CartProvider';
+import { requestSiteUrl } from '@/lib/request-site-url';
+import { CookieConsentBanner } from './CookieConsentBanner';
 import { Footer } from './Footer';
 import { Header } from './Header';
 import { PageUp } from './PageUp';
 import { StickyCallBar } from './StickyCallBar';
+import { ZoneRoot } from './ZoneRoot';
 
 interface SiteShellProps {
   settings: SiteSettings;
@@ -13,12 +16,12 @@ interface SiteShellProps {
   children: React.ReactNode;
 }
 
-export function SiteShell({ settings, menu, site, children }: SiteShellProps) {
-  const siteUrl = process.env.SITE_URL?.replace(/\/$/, '') || undefined;
+export async function SiteShell({ settings, menu, site, children }: SiteShellProps) {
+  const siteUrl = await requestSiteUrl();
 
   return (
     <CartProvider>
-      <div className='container' id='up'>
+      <ZoneRoot className='container'>
         <LocalBusinessJsonLd settings={settings} siteUrl={siteUrl} />
         <a className='skip-link' href='#main-content'>
           Перейти до вмісту
@@ -30,7 +33,8 @@ export function SiteShell({ settings, menu, site, children }: SiteShellProps) {
         <PageUp />
         <Footer settings={settings} />
         <StickyCallBar settings={settings} />
-      </div>
+        <CookieConsentBanner privacyUrl={settings.privacyPolicyUrl || '/confident'} />
+      </ZoneRoot>
     </CartProvider>
   );
 }

@@ -5,6 +5,7 @@ import { requireAdminRole } from '@/lib/require-role';
 import { atomicWriteJson } from '@/lib/atomic-write';
 import { createId } from '@/lib/id';
 import type { Page } from '@/lib/types';
+import { parseOrError, previewPostBodySchema } from '@/lib/validation';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,16 +27,17 @@ export async function POST(request: NextRequest) {
   if (!g.ok) return g.response;
 
   try {
-    const body = (await request.json()) as { page?: Page };
-    if (!body.page || !body.page.id) {
-      return NextResponse.json({ error: 'Missing page' }, { status: 400 });
+    const parsed = parseOrError(previewPostBodySchema, await request.json());
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
+    const body = parsed.data;
     const token = createId();
     const dir = previewDir();
     await fs.mkdir(dir, { recursive: true });
     const file = path.join(dir, `${token}.json`);
     await atomicWriteJson(file, {
-      page: body.page,
+      page: body.page as Page,
       createdAt: new Date().toISOString(),
       actor: g.username,
     });

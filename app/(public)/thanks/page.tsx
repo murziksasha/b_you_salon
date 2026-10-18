@@ -2,6 +2,13 @@ import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
+export async function generateMetadata() {
+  return {
+    title: 'Дякуємо',
+    robots: { index: false, follow: false },
+  };
+}
+
 export default async function ThanksPage({
   searchParams,
 }: {

@@ -30,14 +30,19 @@ function Read-AppPort {
   return $port
 }
 
+function Test-DepsReady {
+  $nextBin = Join-Path $Root "node_modules\next\dist\bin\next"
+  return (Test-Path $nextBin)
+}
+
 function Install-AppDeps {
-  if (-not (Test-Path (Join-Path $Root "node_modules"))) {
-    Write-Host "node_modules missing - installing dependencies..."
+  if (-not (Test-DepsReady)) {
+    Write-Host "node_modules missing or Next.js not installed - installing dependencies..."
     if (Test-Path (Join-Path $Root "package-lock.json")) {
-      npm ci
+      cmd.exe /c "npm ci"
     }
     else {
-      npm install
+      cmd.exe /c "npm install"
     }
     if ($LASTEXITCODE -ne 0) {
       Write-Error "npm install/ci failed (exit $LASTEXITCODE)"
@@ -49,10 +54,16 @@ function Install-AppDeps {
 function Build-AppIfNeeded {
   $buildId = Join-Path $Root ".next\BUILD_ID"
   if (-not (Test-Path $buildId)) {
-    Write-Host ".next build missing - running npm run build..."
-    npm run build
+    $nextBin = Join-Path $Root "node_modules\next\dist\bin\next"
+    Write-Host ".next build missing - running next build..."
+    if (Test-Path $nextBin) {
+      cmd.exe /c "node node_modules\next\dist\bin\next build"
+    }
+    else {
+      cmd.exe /c "npm run build"
+    }
     if ($LASTEXITCODE -ne 0) {
-      Write-Error "npm run build failed (exit $LASTEXITCODE)"
+      Write-Error "next build failed (exit $LASTEXITCODE)"
       exit $LASTEXITCODE
     }
   }

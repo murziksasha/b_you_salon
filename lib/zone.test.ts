@@ -14,6 +14,8 @@ describe('zone helpers', () => {
     expect(zoneFromPath('/salon/manicure')).toBe('salon');
     expect(zoneFromPath('/shop')).toBe('shop');
     expect(zoneFromPath('/shop/p-serum')).toBe('shop');
+    expect(zoneFromPath('/store')).toBe('shop');
+    expect(zoneFromPath('/store/p-serum')).toBe('shop');
     expect(zoneFromPath('/cart')).toBe('shop');
   });
 

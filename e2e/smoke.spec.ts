@@ -36,11 +36,27 @@ test.describe('public smoke', () => {
     expect(json.offsiteHint).toBeUndefined();
   });
 
+  test('home emits Ukrainian Open Graph tags', async ({ request }) => {
+    const res = await request.get('/');
+    expect(res.ok()).toBeTruthy();
+    const html = await res.text();
+    expect(html).toMatch(/<html[^>]*lang="uk"/i);
+    expect(html).toMatch(/property="og:locale"[^>]*content="uk_UA"|content="uk_UA"[^>]*property="og:locale"/);
+    expect(html).toMatch(/property="og:title"/);
+    expect(html).toMatch(/property="og:description"/);
+    expect(html).toMatch(/property="og:image"/);
+    expect(html).toMatch(/og-cover\.jpg/);
+    expect(html).toMatch(/name="twitter:card"[^>]*content="summary_large_image"|content="summary_large_image"[^>]*name="twitter:card"/);
+    expect(html).not.toMatch(/og:image"[^>]*localhost:3000\/img\/icons\/logo/i);
+  });
+
   test('robots.txt', async ({ request }) => {
     const res = await request.get('/robots.txt');
     expect(res.ok()).toBeTruthy();
     const text = await res.text();
     expect(text.toLowerCase()).toContain('user-agent');
+    expect(text).toContain('/admin');
+    expect(text).toContain('/cart');
   });
 
   test('sitemap.xml', async ({ request }) => {
@@ -119,17 +135,91 @@ test.describe('public smoke', () => {
     });
     expect([200, 429]).toContain(res.status());
     if (res.status() === 200) {
-      const json = (await res.json()) as { ok?: boolean };
+      const json = (await res.json()) as { ok?: boolean; leadId?: string };
       expect(json.ok).toBe(true);
     }
   });
 
-  test('order rejects missing items', async ({ request }) => {
+  test('home shop intent creates consult order not lead', async ({ request }) => {
+    const res = await request.post('/api/contact', {
+      data: {
+        phone: '+380501114455',
+        pagePath: '/',
+        intent: 'shop',
+        comment: 'e2e shop intent',
+      },
+      headers: { 'Content-Type': 'application/json' },
+    });
+    expect([200, 429]).toContain(res.status());
+    if (res.status() === 200) {
+      const json = (await res.json()) as { ok?: boolean; orderId?: string; consult?: boolean; leadId?: string };
+      expect(json.ok).toBe(true);
+      expect(json.consult).toBe(true);
+      expect(json.orderId).toBeTruthy();
+      expect(json.leadId).toBeUndefined();
+    }
+  });
+
+  test('shop page contact is a consult order', async ({ request }) => {
+    const res = await request.post('/api/orders', {
+      data: { phone: '+380501116677', pagePath: '/shop', comment: 'e2e shop form' },
+      headers: { 'Content-Type': 'application/json' },
+    });
+    expect([200, 429]).toContain(res.status());
+    if (res.status() === 200) {
+      const json = (await res.json()) as { ok?: boolean; consult?: boolean; orderId?: string };
+      expect(json.ok).toBe(true);
+      expect(json.consult).toBe(true);
+      expect(json.orderId).toBeTruthy();
+    }
+  });
+
+  test('order rejects missing items outside shop flow', async ({ request }) => {
     const res = await request.post('/api/orders', {
       data: { phone: '+380501112233', productId: 'nonexistent-product-id' },
       headers: { 'Content-Type': 'application/json' },
     });
     expect([400, 429]).toContain(res.status());
+  });
+
+  test('order without items from home is rejected', async ({ request }) => {
+    const res = await request.post('/api/orders', {
+      data: { phone: '+380501112233', pagePath: '/' },
+      headers: { 'Content-Type': 'application/json' },
+    });
+    expect([400, 429]).toContain(res.status());
+  });
+
+  test('cookie banner is on public pages and remembers the choice', async ({ page }) => {
+    const dialog = page.getByRole('dialog', { name: /файли cookie/i });
+
+    await page.goto('/');
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole('button', { name: /прийняти/i }).click();
+    await expect(dialog).toHaveCount(0);
+
+    await page.goto('/salon');
+    await expect(dialog).toHaveCount(0);
+
+    await page.getByRole('button', { name: /налаштування cookies/i }).click();
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole('button', { name: /лише необхідні/i }).click();
+    await expect(dialog).toHaveCount(0);
+    await page.reload();
+    await expect(dialog).toHaveCount(0);
+  });
+
+  test('cookie banner necessary-only also persists on a fresh context', async ({ browser }) => {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    const dialog = page.getByRole('dialog', { name: /файли cookie/i });
+    await page.goto('/');
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole('button', { name: /лише необхідні/i }).click();
+    await expect(dialog).toHaveCount(0);
+    await page.goto('/shop');
+    await expect(dialog).toHaveCount(0);
+    await context.close();
   });
 
   test('privacy page loads', async ({ page }) => {
@@ -142,6 +232,28 @@ test.describe('public smoke', () => {
     const res = await page.goto('/cart');
     expect(res?.ok()).toBeTruthy();
     await expect(page.getByRole('heading', { name: /кошик/i })).toBeVisible();
+  });
+
+  test('theme toggle is on every public page and persists', async ({ page }) => {
+    const urls = ['/', '/salon', '/shop', '/cart', '/confident'];
+    const toggle = page.getByRole('button', { name: /увімкнути (світлу|темну) тему/i });
+
+    for (const url of urls) {
+      await page.goto(url);
+      await expect(toggle.first()).toBeVisible();
+    }
+
+    await page.goto('/');
+    const before = await page.locator('html').getAttribute('data-theme');
+    expect(before === 'light' || before === 'dark').toBeTruthy();
+
+    await toggle.first().click();
+    const flipped = before === 'dark' ? 'light' : 'dark';
+    await expect(page.locator('html')).toHaveAttribute('data-theme', flipped);
+
+    await page.goto('/salon');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', flipped);
+    await expect(toggle.first()).toBeVisible();
   });
 
   test('mobile doors stack shop then salon', async ({ page }) => {
@@ -159,6 +271,7 @@ test.describe('admin smoke', () => {
   test('login page loads', async ({ page }) => {
     await page.goto('/admin/login');
     await expect(page.getByRole('heading', { name: /вхід/i })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: /файли cookie/i })).toHaveCount(0);
     await expect(page.locator('#admin-password')).toBeVisible();
     await expect(page.getByRole('button', { name: /увійти/i })).toBeVisible();
   });

@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth';
-import { assertAdminIp } from '@/lib/require-admin-ip';
-import { roleCan } from '@/lib/admin-users';
-import { getSessionClaims } from '@/lib/auth';
+import { requireAdminRole } from '@/lib/require-role';
 import { runOpsAlerts } from '@/lib/ops-alerts';
 
 export const dynamic = 'force-dynamic';
@@ -16,21 +13,10 @@ function cronAuthorized(request: NextRequest): boolean {
 }
 
 async function gate(request: NextRequest) {
-  if (cronAuthorized(request)) return { ok: true as const, via: 'cron' as const };
-
-  const ipGate = await assertAdminIp();
-  if (!ipGate.ok) {
-    return { ok: false as const, response: NextResponse.json({ error: ipGate.error }, { status: ipGate.status }) };
-  }
-  if (!(await getSession())) {
-    return { ok: false as const, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
-  }
-  const claims = await getSessionClaims();
-  const role = (claims?.role || 'legacy') as import('@/lib/admin-users').AdminRole | 'legacy';
-  if (!roleCan(role, 'content')) {
-    return { ok: false as const, response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) };
-  }
-  return { ok: true as const, via: 'admin' as const };
+  if (cronAuthorized(request)) return { ok: true as const, via: 'cron' as const, response: null };
+  const g = await requireAdminRole('ops');
+  if (!g.ok) return { ok: false as const, via: 'admin' as const, response: g.response };
+  return { ok: true as const, via: 'admin' as const, response: null };
 }
 
 /** Trigger ops health checks → Telegram (throttled 12h per type). Cron: Bearer BACKUP_CRON_SECRET. */

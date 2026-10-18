@@ -29,6 +29,8 @@ npm run dev
 | `/cart` | Кошик → заявка менеджеру |
 | `/admin` | Конструктор, заявки, замовлення, Inbox |
 
+Публічний сайт: унизу sticky-банер cookie; вибір зберігається на пристрої (`byou-cookie-consent`). Адмінка без банера.
+
 ## Docker
 
 Прод-стек: контейнер Next.js (`byou-app`) + nginx (`byou-nginx`).
@@ -56,6 +58,7 @@ Dev з hot-reload у контейнері: `npm run docker:dev` (теж порт
 | `npm run dev` | Dev-сервер |
 | `npm run seed` | Записати дефолтний контент у `data/site.json` |
 | `npm run update` | Хост: checkout `dev` + `git pull` + build + `pm2 restart` (див. `docs/deploy.md`) |
+| `npm run check` | typecheck + lint + tests (CI) |
 | `npm test` | Vitest |
 | `npm run test:smoke` | Playwright smoke |
 | `npm run docker:up` | Prod-стек |
@@ -66,3 +69,4 @@ Dev з hot-reload у контейнері: `npm run docker:dev` (теж порт
 - [Архітектура](docs/architecture.md)
 - [Посібник адміна](docs/admin-guide.md)
 - [Деплой](docs/deploy.md)
+- [План виправлень improveFeat](docs/fix-plan-improveFeat.md)

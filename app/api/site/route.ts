@@ -4,6 +4,8 @@ import { getSiteData, saveSiteData } from '@/lib/site-data';
 import type { SiteData } from '@/lib/types';
 import { parseSiteData } from '@/lib/validation';
 import { requireAdminRole } from '@/lib/require-role';
+import { roleCan, siteSectionCapability } from '@/lib/admin-roles';
+import { siteWriteDeniedCapability } from '@/lib/admin-site-auth';
 
 const PATCH_SECTIONS = [
   'goods',
@@ -28,7 +30,7 @@ export async function GET() {
 }
 
 export async function PUT(request: NextRequest) {
-  const g = await requireAdminRole('content');
+  const g = await requireAdminRole();
   if (!g.ok) return g.response;
 
   const rl = rateLimit(clientKey(request, 'site-write'), { limit: 30, windowMs: 60_000 });
@@ -49,11 +51,17 @@ export async function PUT(request: NextRequest) {
     }
 
     const current = await getSiteData();
+    const currentParsed = parseSiteData(current);
+    const baseline = currentParsed.success ? currentParsed.data : current;
+    const denied = siteWriteDeniedCapability(g.role, g.grants, baseline, parsed.data);
+    if (denied) {
+      return NextResponse.json({ error: 'Forbidden', needRole: denied }, { status: 403 });
+    }
     const clientRev = parsed.data.updatedAt;
     const serverRev = current.updatedAt;
     const force = request.headers.get('x-force-overwrite') === '1';
-    // Optimistic concurrency: if both have a revision and they differ, reject
-    if (!force && clientRev && serverRev && clientRev !== serverRev) {
+    // Optimistic concurrency: reject if client revision is missing or differs from server (unless force)
+    if (!force && serverRev && (!clientRev || clientRev !== serverRev)) {
       return NextResponse.json(
         {
           error: 'Дані змінені іншим сеансом. Оновіть сторінку та повторіть.',
@@ -66,16 +74,16 @@ export async function PUT(request: NextRequest) {
 
     const saved = await saveSiteData(parsed.data);
     try {
-      const { appendActivity } = await import('@/lib/admin-activity');
+      const { safeAudit } = await import('@/lib/api/audit');
       const { getSessionClaims } = await import('@/lib/auth');
       const claims = await getSessionClaims();
-      await appendActivity({
+      await safeAudit({
         kind: 'site_save',
         message: force ? 'Збережено сайт (force overwrite)' : 'Збережено site.json',
         actor: claims?.username,
       });
-    } catch {
-      /* ignore */
+    } catch (err) {
+      console.error('[site] audit failed', err);
     }
     return NextResponse.json({ ok: true, updatedAt: saved.updatedAt });
   } catch {
@@ -88,7 +96,7 @@ export async function PUT(request: NextRequest) {
  * Body: { section: 'goods'|'settings'|..., data: ..., expectedUpdatedAt?: string }
  */
 export async function PATCH(request: NextRequest) {
-  const g = await requireAdminRole('content');
+  const g = await requireAdminRole();
   if (!g.ok) return g.response;
 
   const rl = rateLimit(clientKey(request, 'site-write'), { limit: 30, windowMs: 60_000 });
@@ -108,18 +116,16 @@ export async function PATCH(request: NextRequest) {
     };
     const section = body.section as PatchSection;
     if (!PATCH_SECTIONS.includes(section) || body.data === undefined) {
-      return NextResponse.json(
-        { error: `section must be one of: ${PATCH_SECTIONS.join(', ')}` },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: `section must be one of: ${PATCH_SECTIONS.join(', ')}` }, { status: 400 });
+    }
+    const need = siteSectionCapability(section);
+    if (need && !roleCan(g.role, need, g.grants)) {
+      return NextResponse.json({ error: 'Forbidden', needRole: need }, { status: 403 });
     }
 
     const current = await getSiteData();
-    if (
-      body.expectedUpdatedAt &&
-      current.updatedAt &&
-      body.expectedUpdatedAt !== current.updatedAt
-    ) {
+    const force = request.headers.get('x-force-overwrite') === '1';
+    if (!force && current.updatedAt && (!body.expectedUpdatedAt || body.expectedUpdatedAt !== current.updatedAt)) {
       return NextResponse.json(
         {
           error: 'Дані змінені іншим сеансом. Оновіть сторінку та повторіть.',

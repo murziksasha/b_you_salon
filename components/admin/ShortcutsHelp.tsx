@@ -12,6 +12,7 @@ const ROWS: Array<{ keys: string; desc: string }> = [
   { keys: 'c', desc: 'Inbox: подзвонити' },
   { keys: 'd', desc: 'Inbox: статус «Готово»' },
   { keys: '/', desc: 'Inbox: фокус у пошук телефону' },
+  { keys: 'Home / End', desc: 'Прокрутка на початок / в кінець списку' },
 ];
 
 export function ShortcutsHelp() {
@@ -25,7 +26,7 @@ export function ShortcutsHelp() {
       }
       if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault();
-        setOpen((v) => !v);
+        setOpen(v => !v);
       }
       if (e.key === 'Escape' && open) {
         e.preventDefault();
@@ -48,7 +49,7 @@ export function ShortcutsHelp() {
         </div>
         <table className='admin-shortcuts-table'>
           <tbody>
-            {ROWS.map((r) => (
+            {ROWS.map(r => (
               <tr key={r.keys}>
                 <td>
                   <kbd>{r.keys}</kbd>
@@ -58,7 +59,9 @@ export function ShortcutsHelp() {
             ))}
           </tbody>
         </table>
-        <p className='admin-cmd-footer'>Натисніть <kbd>?</kbd> ще раз, щоб закрити</p>
+        <p className='admin-cmd-footer'>
+          Натисніть <kbd>?</kbd> ще раз, щоб закрити
+        </p>
       </div>
     </div>
   );

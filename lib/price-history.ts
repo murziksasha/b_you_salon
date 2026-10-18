@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { atomicWriteJson } from './atomic-write';
+import { withFileMutex } from './file-mutex';
 
 export type PricePoint = {
   at: string;
@@ -36,6 +37,10 @@ async function writeStore(store: Store): Promise<void> {
   await atomicWriteJson(priceHistoryPath(), store);
 }
 
+function withPriceLock<T>(fn: () => Promise<T>): Promise<T> {
+  return withFileMutex(priceHistoryPath(), fn);
+}
+
 export async function recordPriceChange(input: {
   productId: string;
   price: number;
@@ -43,6 +48,7 @@ export async function recordPriceChange(input: {
   prevPrice?: number;
 }): Promise<void> {
   if (typeof input.prevPrice === 'number' && input.prevPrice === input.price) return;
+  return withPriceLock(async () => {
   const store = await readStore();
   store.entries.unshift({
     at: new Date().toISOString(),
@@ -52,6 +58,7 @@ export async function recordPriceChange(input: {
   });
   if (store.entries.length > MAX) store.entries = store.entries.slice(0, MAX);
   await writeStore(store);
+  });
 }
 
 export async function listPriceHistory(productId?: string, limit = 50): Promise<PricePoint[]> {

@@ -4,6 +4,7 @@
 # next.js
 /.next/
 /out/
+*.tsbuildinfo
 
 # production
 /build
@@ -19,13 +20,13 @@
 /public/uploads/*
 !/public/uploads/.gitkeep
 
-# data overrides (optional local edits)
+# data overrides & runtime CMS state (seed template kept)
+/data/*.json
+!/data/site.seed.json
 /data/site.json.bak
 /data/backups/
-/data/leads.json
-/data/orders.json
-/data/admin-totp.json
-/data/media-index.json
+/data/previews/
+/data/revisions/
 
 # misc
 .DS_Store
@@ -44,3 +45,5 @@ yarn-error.log*
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+# test coverage
+/coverage/

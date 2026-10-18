@@ -6,18 +6,30 @@ import type { InboxItem } from '@/lib/inbox';
 // Link used for client profile
 import {
   fillTemplate,
+  REPLY_TEMPLATES,
   smsLink,
-  telegramShareLink,
-  templatesForStatus,
+  telegramAppShareLink,
+  telegramWebShareLink,
   viberChatLink,
 } from '@/lib/reply-templates';
-import { snoozeHours, snoozeTomorrow, isOverdueCallback } from '@/lib/callback-schedule';
+import {
+  fromDatetimeLocalValue,
+  isOverdueCallback,
+  snoozeHours,
+  snoozeTomorrow,
+  toDatetimeLocalValue,
+} from '@/lib/callback-schedule';
 import { formatTelHref } from '@/lib/phone';
+import { CONSULT_PRODUCT_ID } from '@/lib/shop-consult';
 import {
   CLOSE_OUTCOME_LABELS,
   CLOSE_OUTCOMES,
   WORKFLOW_LABELS,
   WORKFLOW_STATUSES,
+  defaultOutcomeForStatus,
+  isCloseOutcome,
+  isClosedStatus,
+  resolveCloseOutcome,
   statusBadgeClass,
   statusRequiresOutcome,
   type CloseOutcome,
@@ -35,20 +47,19 @@ function formatWhen(iso: string): string {
   }
 }
 
+async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 type Filter = 'open' | 'all' | 'stale' | 'lead' | 'order' | 'callback' | 'dup' | 'mine' | 'unassigned';
 
 function parseInitialFilter(raw: string): Filter {
-  const allowed: Filter[] = [
-    'open',
-    'all',
-    'stale',
-    'lead',
-    'order',
-    'callback',
-    'dup',
-    'mine',
-    'unassigned',
-  ];
+  const allowed: Filter[] = ['open', 'all', 'stale', 'lead', 'order', 'callback', 'dup', 'mine', 'unassigned'];
   return (allowed as string[]).includes(raw) ? (raw as Filter) : 'open';
 }
 
@@ -70,10 +81,13 @@ export function InboxPanel({
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [tgConfigured, setTgConfigured] = useState<boolean | null>(null);
   const [tgBusy, setTgBusy] = useState(false);
+  /** Two-step delete — avoids window.confirm (often blocked) and blur→busy races. */
+  const [deleteArmed, setDeleteArmed] = useState(false);
   const listRef = useRef<HTMLUListElement>(null);
+  const noteBlurTimer = useRef<number | null>(null);
   const { refresh: refreshCounts, openTotal, latestId, live } = useAdminCounts();
   const { username } = useAdminRole();
-  const [closeOutcome, setCloseOutcome] = useState<CloseOutcome | ''>('');
+  const [selectedTemplateId, setSelectedTemplateId] = useState(REPLY_TEMPLATES[0]?.id || 'greet');
   const lastLatest = useRef<string | null | undefined>(undefined);
 
   useEffect(() => {
@@ -114,7 +128,10 @@ export function InboxPanel({
     void requestNotifyPermission();
     // Fallback poll; SSE drives counts — refresh list when latest open id changes
     const id = window.setInterval(() => void load({ silent: true }), 30_000);
-    return () => window.clearInterval(id);
+    return () => {
+      window.clearInterval(id);
+      if (noteBlurTimer.current != null) window.clearTimeout(noteBlurTimer.current);
+    };
   }, [load]);
 
   // When SSE reports a new latest open item, reload list
@@ -134,7 +151,7 @@ export function InboxPanel({
   const visible = useMemo(() => {
     const q = phoneQ.replace(/\D/g, '');
     const now = Date.now();
-    return items.filter((i) => {
+    return items.filter(i => {
       if (filter === 'open' && !i.open) return false;
       if (filter === 'stale' && !i.stale) return false;
       if (filter === 'lead' && i.kind !== 'lead') return false;
@@ -159,8 +176,21 @@ export function InboxPanel({
 
   const selected = useMemo(() => {
     if (!selectedKey) return visible[0] || null;
-    return visible.find((i) => `${i.kind}:${i.id}` === selectedKey) || visible[0] || null;
+    return visible.find(i => `${i.kind}:${i.id}` === selectedKey) || visible[0] || null;
   }, [visible, selectedKey]);
+
+  const selectedTemplate = REPLY_TEMPLATES.find(t => t.id === selectedTemplateId) || REPLY_TEMPLATES[0];
+  const templateText =
+    selected && selectedTemplate
+      ? fillTemplate(selectedTemplate.body, {
+          phone: selected.phone,
+          product: selected.productTitle,
+        })
+      : '';
+
+  useEffect(() => {
+    setDeleteArmed(false);
+  }, [selected?.id, selected?.kind]);
 
   useEffect(() => {
     if (!selected) {
@@ -179,7 +209,53 @@ export function InboxPanel({
         /* ignore */
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id, selected?.kind, selected?.phone]);
+
+  const patch = useCallback(
+    async (
+      item: InboxItem,
+      body: {
+        status?: WorkflowStatus;
+        note?: string;
+        callbackAt?: string;
+        handled?: boolean;
+        outcome?: CloseOutcome;
+        assignee?: string;
+      },
+      okMsg: string,
+    ) => {
+      if (body.status && statusRequiresOutcome(body.status)) {
+        const outcome = resolveCloseOutcome(body.status, body.outcome);
+        if (!outcome) {
+          showToast('Оберіть результат закриття (outcome)', 'error');
+          return;
+        }
+        body = { ...body, outcome };
+      }
+      setBusy(true);
+      try {
+        const res = await fetch('/api/inbox', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind: item.kind, id: item.id, ...body }),
+        });
+        if (!res.ok) {
+          const j = (await res.json().catch(() => ({}))) as { error?: string };
+          showToast(j.error || 'Не вдалося оновити', 'error');
+          return;
+        }
+        showToast(okMsg, 'success');
+        await load();
+        await refreshCounts();
+      } catch {
+        showToast('Мережева помилка', 'error');
+      } finally {
+        setBusy(false);
+      }
+    },
+    [load, refreshCounts],
+  );
 
   // Keyboard navigation
   useEffect(() => {
@@ -189,9 +265,7 @@ export function InboxPanel({
         if (e.key !== 'Escape') return;
       }
       if (!visible.length) return;
-      const idx = selected
-        ? visible.findIndex((i) => i.id === selected.id && i.kind === selected.kind)
-        : 0;
+      const idx = selected ? visible.findIndex(i => i.id === selected.id && i.kind === selected.kind) : 0;
 
       if (e.key === 'j' || e.key === 'ArrowDown') {
         e.preventDefault();
@@ -206,7 +280,7 @@ export function InboxPanel({
         window.location.href = formatTelHref(selected.phone);
       } else if (e.key === 'd' && selected) {
         e.preventDefault();
-        void patch(selected, { status: 'done' }, 'Готово');
+        void patch(selected, { status: 'done', outcome: defaultOutcomeForStatus('done') }, 'Готово');
       } else if (e.key === '/' && tag !== 'INPUT') {
         e.preventDefault();
         document.getElementById('inbox-phone-q')?.focus();
@@ -214,59 +288,11 @@ export function InboxPanel({
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [visible, selected]);
-
-  async function patch(
-    item: InboxItem,
-    body: {
-      status?: WorkflowStatus;
-      note?: string;
-      callbackAt?: string;
-      handled?: boolean;
-      outcome?: CloseOutcome;
-      assignee?: string;
-    },
-    okMsg: string,
-  ) {
-    if (body.status && statusRequiresOutcome(body.status)) {
-      const outcome = body.outcome || (closeOutcome as CloseOutcome) || undefined;
-      const note = body.note ?? noteDraft;
-      if (!outcome) {
-        showToast('Оберіть результат закриття (outcome)', 'error');
-        return;
-      }
-      if (!(note || '').trim()) {
-        showToast('Додайте нотатку при закритті', 'error');
-        return;
-      }
-      body = { ...body, outcome, note };
-    }
-    setBusy(true);
-    try {
-      const res = await fetch('/api/inbox', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kind: item.kind, id: item.id, ...body }),
-      });
-      if (!res.ok) {
-        const j = (await res.json().catch(() => ({}))) as { error?: string };
-        showToast(j.error || 'Не вдалося оновити', 'error');
-        return;
-      }
-      showToast(okMsg, 'success');
-      setCloseOutcome('');
-      await load();
-      await refreshCounts();
-    } catch {
-      showToast('Мережева помилка', 'error');
-    } finally {
-      setBusy(false);
-    }
-  }
+  }, [visible, selected, patch]);
 
   async function remove(item: InboxItem) {
-    if (!confirm('Видалити запис?')) return;
     setBusy(true);
+    setDeleteArmed(false);
     try {
       const res = await fetch('/api/inbox', {
         method: 'DELETE',
@@ -288,14 +314,16 @@ export function InboxPanel({
     }
   }
 
-  const checkedList = useMemo(
-    () => visible.filter((i) => checked[`${i.kind}:${i.id}`]),
-    [visible, checked],
-  );
+  function flushNoteDraft(item: InboxItem, draft: string) {
+    if ((item.note || '') === draft) return;
+    void patch(item, { note: draft }, 'Нотатку збережено');
+  }
+
+  const checkedList = useMemo(() => visible.filter(i => checked[`${i.kind}:${i.id}`]), [visible, checked]);
 
   function toggleCheck(item: InboxItem) {
     const key = `${item.kind}:${item.id}`;
-    setChecked((prev) => ({ ...prev, [key]: !prev[key] }));
+    setChecked(prev => ({ ...prev, [key]: !prev[key] }));
   }
 
   function selectAllVisible() {
@@ -316,11 +344,17 @@ export function InboxPanel({
     setBusy(true);
     let ok = 0;
     try {
+      const outcome = defaultOutcomeForStatus(status);
       for (const item of checkedList) {
         const res = await fetch('/api/inbox', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ kind: item.kind, id: item.id, status }),
+          body: JSON.stringify({
+            kind: item.kind,
+            id: item.id,
+            status,
+            ...(outcome ? { outcome } : {}),
+          }),
         });
         if (res.ok) ok++;
       }
@@ -352,7 +386,7 @@ export function InboxPanel({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          items: checkedList.map((i) => ({ kind: i.kind, id: i.id })),
+          items: checkedList.map(i => ({ kind: i.kind, id: i.id })),
           note: note.trim() || undefined,
         }),
       });
@@ -375,16 +409,11 @@ export function InboxPanel({
     }
   }
 
-  const templates = templatesForStatus(selected?.status);
-
   return (
     <div className='admin-inbox'>
       <div className='admin-row admin-row--between admin-mb'>
         <div className='admin-row admin-row--wrap'>
-          <span
-            className={`admin-live-dot${live ? ' is-live' : ''}`}
-            title={live ? 'Live SSE' : 'Polling'}
-          >
+          <span className={`admin-live-dot${live ? ' is-live' : ''}`} title={live ? 'Live SSE' : 'Polling'}>
             {live ? '● live' : '○ poll'} · {openTotal} open
           </span>
           {(
@@ -417,7 +446,7 @@ export function InboxPanel({
             className='admin-field-sm'
             placeholder='Телефон… (/)'
             value={phoneQ}
-            onChange={(e) => setPhoneQ(e.target.value)}
+            onChange={e => setPhoneQ(e.target.value)}
             aria-label='Пошук телефону'
           />
           {/* API download, not a Next page */}
@@ -480,8 +509,8 @@ export function InboxPanel({
       ) : null}
 
       <p className='admin-hint admin-mb'>
-        Клавіші: <kbd>j</kbd>/<kbd>k</kbd> список · <kbd>c</kbd> дзвінок · <kbd>d</kbd> готово ·{' '}
-        <kbd>/</kbd> пошук · <kbd>?</kbd> довідка
+        Клавіші: <kbd>j</kbd>/<kbd>k</kbd> список · <kbd>c</kbd> дзвінок · <kbd>d</kbd> готово · <kbd>/</kbd> пошук ·{' '}
+        <kbd>?</kbd> довідка
       </p>
 
       {loading ? <p className='admin-hint'>Завантаження…</p> : null}
@@ -490,11 +519,10 @@ export function InboxPanel({
         <ul className='admin-inbox-list' ref={listRef}>
           {!loading && visible.length === 0 ? (
             <li className='admin-hint' style={{ padding: 16 }}>
-              Черга порожня.{' '}
-              <Link href='/admin/leads'>Журнал заявок</Link>
+              Черга порожня. <Link href='/admin/leads'>Журнал заявок</Link>
             </li>
           ) : null}
-          {visible.map((item) => {
+          {visible.map(item => {
             const key = `${item.kind}:${item.id}`;
             const isSel = selected && selected.id === item.id && selected.kind === item.kind;
             return (
@@ -513,12 +541,8 @@ export function InboxPanel({
                   onClick={() => setSelectedKey(key)}
                 >
                   <span className='admin-inbox-row__top'>
-                    <span className='admin-inbox-kind'>
-                      {item.kind === 'lead' ? 'Дзвінок' : 'Замовлення'}
-                    </span>
-                    <span className={statusBadgeClass(item.status)}>
-                      {WORKFLOW_LABELS[item.status]}
-                    </span>
+                    <span className='admin-inbox-kind'>{item.kind === 'lead' ? 'Дзвінок' : 'Замовлення'}</span>
+                    <span className={statusBadgeClass(item.status)}>{WORKFLOW_LABELS[item.status]}</span>
                     {item.stale ? <span className='admin-wf-badge admin-wf-badge--stale'>SLA</span> : null}
                     {item.assignee ? (
                       <span className='admin-wf-badge admin-wf-badge--called' title='Assignee'>
@@ -538,12 +562,8 @@ export function InboxPanel({
                     ) : null}
                   </strong>
                   <span className='admin-lead-meta'>{formatWhen(item.createdAt)}</span>
-                  {item.callbackAt ? (
-                    <span className='admin-lead-meta'>📞 {formatWhen(item.callbackAt)}</span>
-                  ) : null}
-                  {item.productTitle ? (
-                    <span className='admin-lead-meta'>{item.productTitle}</span>
-                  ) : null}
+                  {item.callbackAt ? <span className='admin-lead-meta'>📞 {formatWhen(item.callbackAt)}</span> : null}
+                  {item.productTitle ? <span className='admin-lead-meta'>{item.productTitle}</span> : null}
                   {item.pagePath ? <span className='admin-lead-meta'>{item.pagePath}</span> : null}
                 </button>
               </li>
@@ -560,8 +580,11 @@ export function InboxPanel({
                 <h2 className='admin-h2' style={{ margin: 0 }}>
                   {selected.kind === 'lead' ? 'Заявка' : 'Замовлення'}
                 </h2>
-                <span className={statusBadgeClass(selected.status)}>
-                  {WORKFLOW_LABELS[selected.status]}
+                <span className='admin-row' style={{ gap: 6 }}>
+                  <span className={statusBadgeClass(selected.status)}>{WORKFLOW_LABELS[selected.status]}</span>
+                  {selected.outcome && isCloseOutcome(selected.outcome) ? (
+                    <span className='admin-wf-badge'>{CLOSE_OUTCOME_LABELS[selected.outcome]}</span>
+                  ) : null}
                 </span>
               </div>
               <p>
@@ -573,10 +596,10 @@ export function InboxPanel({
               {selected.productTitle ? (
                 <p>
                   <strong>{selected.productTitle}</strong>
-                  {selected.productPrice != null
+                  {selected.productId !== CONSULT_PRODUCT_ID && selected.productPrice != null
                     ? ` · ${selected.productPrice.toLocaleString('uk-UA')} ₴`
                     : ''}
-                  {selected.productId ? (
+                  {selected.productId && selected.productId !== CONSULT_PRODUCT_ID ? (
                     <>
                       {' · '}
                       <Link href={`/shop/${selected.productId}`} target='_blank'>
@@ -592,18 +615,14 @@ export function InboxPanel({
               {selected.pagePath ? <p className='admin-lead-meta'>Сторінка: {selected.pagePath}</p> : null}
               {(selected.utmSource || selected.utmMedium || selected.utmCampaign) && (
                 <p className='admin-lead-meta'>
-                  UTM: {[selected.utmSource, selected.utmMedium, selected.utmCampaign]
-                    .filter(Boolean)
-                    .join(' / ')}
+                  UTM: {[selected.utmSource, selected.utmMedium, selected.utmCampaign].filter(Boolean).join(' / ')}
                 </p>
               )}
               {selected.callbackAt ? (
                 <p className='admin-lead-meta'>Передзвінок: {formatWhen(selected.callbackAt)}</p>
               ) : null}
               {selected.duplicatePhone ? (
-                <p className='admin-hint'>
-                  ⚠ Номер уже є в журналі — див. історію нижче або фільтр «Дублікати».
-                </p>
+                <p className='admin-hint'>⚠ Номер уже є в журналі — див. історію нижче або фільтр «Дублікати».</p>
               ) : null}
 
               <div className='admin-row admin-row--wrap admin-mb'>
@@ -612,11 +631,7 @@ export function InboxPanel({
                   className='admin-btn'
                   disabled={busy}
                   onClick={() =>
-                    void patch(
-                      selected,
-                      { status: 'in_progress', assignee: username || 'admin' },
-                      'Взято в роботу',
-                    )
+                    void patch(selected, { status: 'in_progress', assignee: username || 'admin' }, 'Взято в роботу')
                   }
                 >
                   Взяв у роботу
@@ -634,35 +649,14 @@ export function InboxPanel({
                   className='admin-select'
                   value={selected.status}
                   disabled={busy}
-                  onChange={(e) => {
+                  onChange={e => {
                     const st = e.target.value as WorkflowStatus;
-                    if (statusRequiresOutcome(st)) {
-                      showToast('Оберіть outcome + нотатку, потім кнопку закриття', 'info');
-                      return;
-                    }
                     void patch(selected, { status: st }, 'Статус оновлено');
                   }}
                 >
-                  {WORKFLOW_STATUSES.map((s) => (
+                  {WORKFLOW_STATUSES.map(s => (
                     <option key={s} value={s}>
                       {WORKFLOW_LABELS[s]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className='admin-field admin-mb'>
-                Результат закриття (outcome)
-                <select
-                  className='admin-select'
-                  value={closeOutcome || selected.outcome || ''}
-                  disabled={busy}
-                  onChange={(e) => setCloseOutcome(e.target.value as CloseOutcome | '')}
-                >
-                  <option value=''>— оберіть —</option>
-                  {CLOSE_OUTCOMES.map((o) => (
-                    <option key={o} value={o}>
-                      {CLOSE_OUTCOME_LABELS[o]}
                     </option>
                   ))}
                 </select>
@@ -681,70 +675,99 @@ export function InboxPanel({
                   <button
                     key={st}
                     type='button'
-                    className='admin-btn admin-btn--secondary'
+                    className={`admin-btn admin-btn--secondary${selected.status === st ? ' is-active' : ''}`}
                     disabled={busy}
-                    onClick={() =>
-                      void patch(
-                        selected,
-                        {
-                          status: st,
-                          ...(statusRequiresOutcome(st) && closeOutcome
-                            ? { outcome: closeOutcome as CloseOutcome, note: noteDraft }
-                            : {}),
-                        },
-                        label,
-                      )
-                    }
+                    onClick={() => void patch(selected, { status: st }, label)}
                   >
                     {label}
                   </button>
                 ))}
               </div>
 
+              {isClosedStatus(selected.status) ? (
+                <label className='admin-field admin-mb'>
+                  Уточнити результат
+                  <select
+                    className='admin-select'
+                    value={selected.outcome && isCloseOutcome(selected.outcome) ? selected.outcome : ''}
+                    disabled={busy}
+                    onChange={e => {
+                      const v = e.target.value;
+                      if (!isCloseOutcome(v)) return;
+                      void patch(selected, { outcome: v }, 'Результат оновлено');
+                    }}
+                  >
+                    {!selected.outcome || !isCloseOutcome(selected.outcome) ? (
+                      <option value=''>— оберіть —</option>
+                    ) : null}
+                    {CLOSE_OUTCOMES.map(o => (
+                      <option key={o} value={o}>
+                        {CLOSE_OUTCOME_LABELS[o]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+
               <label className='admin-field admin-mb'>
                 Передзвонити о
                 <input
                   type='datetime-local'
-                  className='admin-grow'
+                  value={toDatetimeLocalValue(selected.callbackAt)}
                   disabled={busy}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    if (!v) return;
-                    const iso = new Date(v).toISOString();
+                  onChange={e => {
+                    const iso = fromDatetimeLocalValue(e.target.value);
+                    if (!iso) return;
                     void patch(selected, { status: 'waiting', callbackAt: iso }, 'Передзвінок заплановано');
                   }}
                 />
               </label>
+              <p className='admin-hint admin-mb'>
+                Поставить статус «Очікує». Заявка з’явиться у фільтрі «Передзвінки» та на дашборді.
+              </p>
+              {selected.callbackAt ? (
+                <div className='admin-row admin-mb'>
+                  <button
+                    type='button'
+                    className='admin-btn admin-btn--secondary admin-btn--sm'
+                    disabled={busy}
+                    onClick={() => void patch(selected, { callbackAt: '' }, 'Передзвінок скинуто')}
+                  >
+                    Скинути передзвін
+                  </button>
+                </div>
+              ) : null}
 
               <label className='admin-field admin-mb'>
                 Нотатка
                 <textarea
-                  className='admin-grow'
                   rows={3}
                   value={noteDraft}
                   disabled={busy}
-                  onChange={(e) => setNoteDraft(e.target.value)}
+                  placeholder='Коментар оператора…'
+                  onChange={e => setNoteDraft(e.target.value)}
                   onBlur={() => {
-                    if ((selected.note || '') === noteDraft) return;
-                    void patch(selected, { note: noteDraft }, 'Нотатку збережено');
+                    // Defer so a click on Видалити / status buttons is not lost to busy=true mid-click.
+                    if (noteBlurTimer.current != null) window.clearTimeout(noteBlurTimer.current);
+                    const item = selected;
+                    const draft = noteDraft;
+                    noteBlurTimer.current = window.setTimeout(() => {
+                      noteBlurTimer.current = null;
+                      flushNoteDraft(item, draft);
+                    }, 180);
                   }}
                 />
               </label>
 
               <div className='admin-mb'>
                 <h3 className='admin-h3'>Snooze передзвону</h3>
+                <p className='admin-hint'>Статус «Очікує» + час передзвону в черзі оператора.</p>
                 <div className='admin-row admin-row--wrap'>
                   <button
                     type='button'
                     className='admin-btn admin-btn--secondary'
                     disabled={busy}
-                    onClick={() =>
-                      void patch(
-                        selected,
-                        { status: 'waiting', callbackAt: snoozeHours(1) },
-                        '+1 год',
-                      )
-                    }
+                    onClick={() => void patch(selected, { status: 'waiting', callbackAt: snoozeHours(1) }, '+1 год')}
                   >
                     +1 год
                   </button>
@@ -753,11 +776,7 @@ export function InboxPanel({
                     className='admin-btn admin-btn--secondary'
                     disabled={busy}
                     onClick={() =>
-                      void patch(
-                        selected,
-                        { status: 'waiting', callbackAt: snoozeTomorrow(10, 0) },
-                        'Завтра 10:00',
-                      )
+                      void patch(selected, { status: 'waiting', callbackAt: snoozeTomorrow(10, 0) }, 'Завтра 10:00')
                     }
                   >
                     Завтра 10:00
@@ -771,54 +790,85 @@ export function InboxPanel({
               <div className='admin-mb'>
                 <h3 className='admin-h3'>Шаблони відповідей</h3>
                 <div className='admin-row admin-row--wrap'>
-                  {templates.map((t) => {
-                    const text = fillTemplate(t.body, {
-                      phone: selected.phone,
-                      product: selected.productTitle,
-                    });
-                    return (
-                      <div key={t.id} className='admin-row' style={{ gap: 4 }}>
-                        <button
-                          type='button'
-                          className='admin-btn admin-btn--secondary admin-btn--sm'
-                          onClick={async () => {
-                            try {
-                              await navigator.clipboard.writeText(text);
-                              showToast(`Скопійовано: ${t.label}`, 'success');
-                            } catch {
-                              showToast(text, 'info');
-                            }
-                          }}
-                          title={text}
-                        >
-                          {t.label}
-                        </button>
-                        <a
-                          className='admin-btn admin-btn--secondary admin-btn--sm'
-                          href={viberChatLink(selected.phone)}
-                          title='Viber'
-                        >
-                          Vb
-                        </a>
-                        <a
-                          className='admin-btn admin-btn--secondary admin-btn--sm'
-                          href={telegramShareLink(text)}
-                          target='_blank'
-                          rel='noreferrer'
-                          title='Telegram share'
-                        >
-                          Tg
-                        </a>
-                        <a
-                          className='admin-btn admin-btn--secondary admin-btn--sm'
-                          href={smsLink(selected.phone, text)}
-                          title='SMS'
-                        >
-                          SMS
-                        </a>
-                      </div>
-                    );
-                  })}
+                  {REPLY_TEMPLATES.map(t => (
+                    <button
+                      key={t.id}
+                      type='button'
+                      className={`admin-btn admin-btn--secondary admin-btn--sm${
+                        t.id === selectedTemplate?.id ? ' is-active' : ''
+                      }`}
+                      onClick={() => setSelectedTemplateId(t.id)}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+                {templateText ? <div className='admin-template-preview'>{templateText}</div> : null}
+                <div className='admin-row admin-row--wrap'>
+                  <button
+                    type='button'
+                    className='admin-btn admin-btn--secondary admin-btn--sm'
+                    disabled={!templateText}
+                    onClick={() => {
+                      void (async () => {
+                        const ok = await copyToClipboard(templateText);
+                        showToast(
+                          ok ? `Скопійовано: ${selectedTemplate?.label || ''}` : templateText,
+                          ok ? 'success' : 'info',
+                        );
+                      })();
+                    }}
+                  >
+                    Копіювати
+                  </button>
+                  <a
+                    className='admin-btn admin-btn--secondary admin-btn--sm'
+                    href={viberChatLink(selected.phone)}
+                    title='Відкриє Viber з номером. Текст уже в буфері — вставте Ctrl+V.'
+                    onClick={e => {
+                      e.preventDefault();
+                      const href = viberChatLink(selected.phone);
+                      void (async () => {
+                        const ok = await copyToClipboard(templateText);
+                        showToast(
+                          ok ? 'Текст у буфері — вставте у Viber (Ctrl+V)' : templateText,
+                          ok ? 'success' : 'info',
+                        );
+                        window.location.href = href;
+                      })();
+                    }}
+                  >
+                    Viber
+                  </a>
+                  <a
+                    className='admin-btn admin-btn--secondary admin-btn--sm'
+                    href={telegramWebShareLink(
+                      templateText,
+                      typeof window !== 'undefined' ? window.location.origin : 'https://t.me',
+                    )}
+                    title='Відкриє Telegram з текстом шаблону (Ctrl+клік — web share)'
+                    rel='noreferrer'
+                    onClick={e => {
+                      e.preventDefault();
+                      void (async () => {
+                        const ok = await copyToClipboard(templateText);
+                        showToast(
+                          ok ? 'Текст скопійовано. Оберіть чат у Telegram' : templateText,
+                          ok ? 'success' : 'info',
+                        );
+                        window.location.href = telegramAppShareLink(templateText);
+                      })();
+                    }}
+                  >
+                    Telegram
+                  </a>
+                  <a
+                    className='admin-btn admin-btn--secondary admin-btn--sm'
+                    href={smsLink(selected.phone, templateText)}
+                    title='Відкриє SMS на телефоні з текстом шаблону'
+                  >
+                    SMS
+                  </a>
                 </div>
               </div>
 
@@ -837,11 +887,11 @@ export function InboxPanel({
                     type='button'
                     className='admin-btn admin-btn--secondary'
                     disabled={busy || tgBusy}
+                    title='Пуш у адмін-бот. Клієнту не надсилається.'
                     onClick={async () => {
                       setTgBusy(true);
                       try {
-                        const note =
-                          window.prompt('Опційна нотатка в Telegram (Enter — без)') || '';
+                        const note = window.prompt('Опційна нотатка в Telegram (Enter — без)') || '';
                         const res = await fetch('/api/notify', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
@@ -856,7 +906,7 @@ export function InboxPanel({
                           showToast(j.error || 'Telegram не надіслано', 'error');
                           return;
                         }
-                        showToast('Надіслано в Telegram', 'success');
+                        showToast('Надіслано операторам у Telegram', 'success');
                       } catch {
                         showToast('Мережева помилка Telegram', 'error');
                       } finally {
@@ -864,28 +914,68 @@ export function InboxPanel({
                       }
                     }}
                   >
-                    {tgBusy ? 'Telegram…' : 'Telegram ↗'}
+                    {tgBusy ? 'Telegram…' : 'Надіслати операторам у Telegram'}
                   </button>
                 ) : tgConfigured === false ? (
-                  <span className='admin-hint' title='TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID'>
+                  <span className='admin-hint' title='TELEGRAM_BOT_TOKEN + підписник або TELEGRAM_CHAT_ID'>
                     TG off
                   </span>
                 ) : null}
-                <button
-                  type='button'
-                  className='admin-btn admin-btn--danger'
-                  disabled={busy}
-                  onClick={() => void remove(selected)}
-                >
-                  Видалити
-                </button>
+                {deleteArmed ? (
+                  <>
+                    <button
+                      type='button'
+                      className='admin-btn admin-btn--danger'
+                      disabled={busy}
+                      onMouseDown={e => {
+                        e.preventDefault();
+                        if (noteBlurTimer.current != null) {
+                          window.clearTimeout(noteBlurTimer.current);
+                          noteBlurTimer.current = null;
+                        }
+                        void remove(selected);
+                      }}
+                    >
+                      Підтвердити видалення
+                    </button>
+                    <button
+                      type='button'
+                      className='admin-btn admin-btn--secondary'
+                      disabled={busy}
+                      onMouseDown={e => {
+                        e.preventDefault();
+                        setDeleteArmed(false);
+                      }}
+                    >
+                      Скасувати
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type='button'
+                    className='admin-btn admin-btn--danger'
+                    disabled={busy}
+                    title='Видалити заявку з журналу'
+                    onMouseDown={e => {
+                      // mousedown runs before textarea blur → avoids dead click when note is focused
+                      e.preventDefault();
+                      if (noteBlurTimer.current != null) {
+                        window.clearTimeout(noteBlurTimer.current);
+                        noteBlurTimer.current = null;
+                      }
+                      setDeleteArmed(true);
+                    }}
+                  >
+                    Видалити
+                  </button>
+                )}
               </div>
 
               {history.length > 1 ? (
                 <div>
                   <h3 className='admin-h3'>Історія за номером ({history.length})</h3>
                   <ul className='admin-leads-list'>
-                    {history.map((h) => (
+                    {history.map(h => (
                       <li key={`${h.kind}:${h.id}`} className='admin-lead-item'>
                         <span className='admin-lead-meta'>
                           {h.kind === 'lead' ? 'Дзвінок' : 'Замовлення'} · {formatWhen(h.createdAt)} ·{' '}

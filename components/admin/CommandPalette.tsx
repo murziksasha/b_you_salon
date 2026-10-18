@@ -18,6 +18,7 @@ import {
   Users,
 } from 'lucide-react';
 import { isFavorite, readFavorites, readRecents, toggleFavorite } from '@/lib/admin-recents';
+import { useAdminRole } from './AdminRoleContext';
 
 type Cmd = {
   id: string;
@@ -48,6 +49,7 @@ const STATIC: Cmd[] = [
 
 export function CommandPalette() {
   const router = useRouter();
+  const { canNav, can } = useAdminRole();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const [active, setActive] = useState(0);
@@ -86,6 +88,7 @@ export function CommandPalette() {
 
       // Recents
       for (const r of readRecents()) {
+        if (r.href.startsWith('/admin') && !canNav(r.href)) continue;
         cmds.push({
           id: `recent-${r.href}`,
           label: r.label,
@@ -97,31 +100,35 @@ export function CommandPalette() {
       }
 
       try {
-        const res = await fetch('/api/site');
-        if (res.ok) {
+        const res = canNav('/admin/pages') || canNav('/admin/goods') ? await fetch('/api/site') : null;
+        if (res?.ok) {
           const site = (await res.json()) as {
             pages?: Array<{ title: string; slug: string }>;
             goods?: Array<{ id: string; title: string; code?: string }>;
           };
-          for (const p of site.pages || []) {
-            cmds.push({
-              id: `page-${p.slug || 'home'}`,
-              label: `Сторінка: ${p.title}`,
-              hint: p.slug ? `/${p.slug}` : '/',
-              href: `/admin/pages/${p.slug || 'home'}`,
-              keywords: `${p.title} ${p.slug} page`,
-              group: 'Сторінки',
-            });
+          if (canNav('/admin/pages')) {
+            for (const p of site.pages || []) {
+              cmds.push({
+                id: `page-${p.slug || 'home'}`,
+                label: `Сторінка: ${p.title}`,
+                hint: p.slug ? `/${p.slug}` : '/',
+                href: `/admin/pages/${p.slug || 'home'}`,
+                keywords: `${p.title} ${p.slug} page`,
+                group: 'Сторінки',
+              });
+            }
           }
-          for (const g of site.goods || []) {
-            cmds.push({
-              id: `good-${g.id}`,
-              label: `Товар: ${g.title}`,
-              hint: g.code || g.id.slice(0, 8),
-              href: `/admin/goods?edit=${encodeURIComponent(g.id)}`,
-              keywords: `${g.title} ${g.code || ''} product`,
-              group: 'Товари',
-            });
+          if (canNav('/admin/goods')) {
+            for (const g of site.goods || []) {
+              cmds.push({
+                id: `good-${g.id}`,
+                label: `Товар: ${g.title}`,
+                hint: g.code || g.id.slice(0, 8),
+                href: `/admin/goods?edit=${encodeURIComponent(g.id)}`,
+                keywords: `${g.title} ${g.code || ''} product`,
+                group: 'Товари',
+              });
+            }
           }
         }
       } catch {
@@ -129,8 +136,8 @@ export function CommandPalette() {
       }
 
       try {
-        const res = await fetch('/api/media?sort=mtime');
-        if (res.ok) {
+        const res = can('media') ? await fetch('/api/media?sort=mtime') : null;
+        if (res?.ok) {
           const json = (await res.json()) as {
             items?: Array<{ name: string; url: string; alt?: string }>;
           };
@@ -151,11 +158,11 @@ export function CommandPalette() {
 
       setDynamic(cmds);
     })();
-  }, [open]);
+  }, [open, canNav, can]);
 
   const phoneCmd: Cmd | null = useMemo(() => {
     const digits = q.replace(/\D/g, '');
-    if (digits.length >= 6) {
+    if (digits.length >= 6 && canNav('/admin/inbox')) {
       return {
         id: 'phone',
         label: `Знайти за телефоном: ${q.trim()}`,
@@ -165,7 +172,7 @@ export function CommandPalette() {
       };
     }
     return null;
-  }, [q]);
+  }, [q, canNav]);
 
   const favCmds: Cmd[] = useMemo(() => {
     return favs
@@ -188,11 +195,12 @@ export function CommandPalette() {
           keywords: href,
         };
       })
-      .filter(Boolean) as Cmd[];
-  }, [favs]);
+      .filter((c) => !c.href || c.href === '/' || canNav(c.href)) as Cmd[];
+  }, [favs, canNav]);
 
   const items = useMemo(() => {
-    const all = [...favCmds, ...STATIC, ...dynamic, ...(phoneCmd ? [phoneCmd] : [])];
+    const nav = STATIC.filter((c) => !c.href || c.href === '/' || canNav(c.href));
+    const all = [...favCmds, ...nav, ...dynamic, ...(phoneCmd ? [phoneCmd] : [])];
     // de-dupe by id
     const seen = new Set<string>();
     const unique = all.filter((c) => {
@@ -211,7 +219,7 @@ export function CommandPalette() {
         return hay.includes(query);
       })
       .slice(0, 16);
-  }, [q, dynamic, phoneCmd, favCmds]);
+  }, [q, dynamic, phoneCmd, favCmds, canNav]);
 
   useEffect(() => {
     setActive(0);

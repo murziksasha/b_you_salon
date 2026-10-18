@@ -119,7 +119,8 @@
     transition: opacity 0.25s ease, transform 0.25s ease, bottom 0.2s ease;
   }
 
-  .sticky-call {
+  .sticky-call,
+  .cookie-banner {
     animation: ps-slide-up 0.35s ease both;
   }
 
@@ -171,6 +172,7 @@
   ._btn,
   .pageup,
   .sticky-call,
+  .cookie-banner,
   .shop-group,
   .ps-image__img {
     transition: none !important;

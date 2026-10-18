@@ -43,7 +43,7 @@ export function LocalBusinessJsonLd({ settings, siteUrl }: LocalBusinessJsonLdPr
             '@type': 'ContactPoint',
             telephone: tel,
             contactType: 'customer service',
-            availableLanguage: ['uk', 'ru'],
+            availableLanguage: ['uk'],
           })),
         }
       : {}),

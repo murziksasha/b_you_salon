@@ -20,6 +20,7 @@ import {
   getUsageForUploadName,
 } from '@/lib/media-usage';
 import { getSiteData } from '@/lib/site-data';
+import { mediaPatchBodySchema, parseOrError } from '@/lib/validation';
 
 export const dynamic = 'force-dynamic';
 
@@ -99,20 +100,11 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    const body = (await request.json()) as {
-      name?: string;
-      names?: string[];
-      purpose?: string;
-      tags?: string[] | string;
-      alt?: string;
-      focusX?: number;
-      focusY?: number;
-      folderId?: string;
-      sortOrder?: number;
-      /** Bulk reorder within a folder */
-      orderedNames?: string[];
-      reorderFolderId?: string;
-    };
+    const parsed = parseOrError(mediaPatchBodySchema, await request.json());
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+    const body = parsed.data;
 
     if (Array.isArray(body.orderedNames)) {
       const names = body.orderedNames.filter((n): n is string => typeof n === 'string');

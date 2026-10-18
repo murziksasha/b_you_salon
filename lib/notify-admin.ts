@@ -1,6 +1,6 @@
 import type { Lead } from './leads';
 import type { Order } from './orders';
-import { notifyLead, notifyOrder, sendTelegramMessage } from './notify';
+import { broadcastTelegram, notifyLead, notifyOrder } from './notify';
 
 export type NotifyTarget = { kind: 'lead' | 'order'; id: string };
 
@@ -11,22 +11,45 @@ export async function notifyOneLead(lead: Lead, note?: string): Promise<boolean>
     leadId: lead.id,
     pagePath: lead.pagePath,
     utmLine: utm || undefined,
+    zone: lead.zone,
+    serviceTitle: lead.serviceTitle,
+    comment: lead.comment,
+    source: lead.source,
+    createdAt: lead.createdAt,
+    status: lead.status,
+    handled: lead.handled,
+    assignee: lead.assignee,
   });
   if (ok && note?.trim()) {
-    await sendTelegramMessage(`📝 Нотатка: ${note.trim().slice(0, 500)}`);
+    await broadcastTelegram(`📝 Нотатка: ${note.trim().slice(0, 500)}`, 'lead');
   }
   return ok;
 }
 
 export async function notifyOneOrder(order: Order, note?: string): Promise<boolean> {
+  const consult = order.source === 'consult';
   const ok = await notifyOrder({
     phone: order.phone,
     productTitle: order.product.title,
-    price: order.product.price,
+    items: consult
+      ? undefined
+      : order.items?.length
+        ? order.items.map((i) => ({ title: i.title, qty: i.qty, price: i.price }))
+        : [{ title: order.product.title, qty: order.quantity || 1, price: order.product.price }],
+    consult,
+    name: order.name,
+    address: order.address,
+    price: consult ? undefined : order.total ?? order.product.price,
     orderId: order.id,
+    fulfillment: consult ? undefined : order.fulfillment,
+    comment: order.comment,
+    createdAt: order.createdAt,
+    status: order.status,
+    handled: order.handled,
+    assignee: order.assignee,
   });
   if (ok && note?.trim()) {
-    await sendTelegramMessage(`📝 Нотатка: ${note.trim().slice(0, 500)}`);
+    await broadcastTelegram(`📝 Нотатка: ${note.trim().slice(0, 500)}`, 'order');
   }
   return ok;
 }

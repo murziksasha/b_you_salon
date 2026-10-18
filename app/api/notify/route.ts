@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminRole } from '@/lib/require-role';
 import { listLeads } from '@/lib/leads';
 import { listOrders } from '@/lib/orders';
-import { sendTelegramMessage, telegramConfigured } from '@/lib/notify';
+import { broadcastTelegram, telegramCanSend, telegramConfigured } from '@/lib/notify';
 import {
   formatBulkSummaryLine,
   notifyOneLead,
   notifyOneOrder,
   type NotifyTarget,
 } from '@/lib/notify-admin';
-import { appendActivity } from '@/lib/admin-activity';
+import { safeAudit } from '@/lib/api/audit';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,9 +25,9 @@ export async function POST(request: NextRequest) {
   const g = await requireAdminRole('inbox');
   if (!g.ok) return g.response;
 
-  if (!telegramConfigured()) {
+  if (!telegramConfigured() || !(await telegramCanSend())) {
     return NextResponse.json(
-      { error: 'Telegram не налаштовано (TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID)' },
+      { error: 'Telegram не налаштовано (TELEGRAM_BOT_TOKEN + підписник або TELEGRAM_CHAT_ID)' },
       { status: 503 },
     );
   }
@@ -44,17 +44,13 @@ export async function POST(request: NextRequest) {
     const note = typeof body.note === 'string' ? body.note.trim() : '';
 
     if (typeof body.text === 'string' && body.text.trim()) {
-      const ok = await sendTelegramMessage(`[Admin] ${body.text.trim()}`);
+      const ok = await broadcastTelegram(`[Admin] ${body.text.trim()}`, 'ops');
       if (!ok) return NextResponse.json({ error: 'Не вдалося надіслати' }, { status: 502 });
-      try {
-        await appendActivity({
+      await safeAudit({
           kind: 'other',
           message: 'Telegram: ручне повідомлення',
           actor: g.username,
         });
-      } catch {
-        /* ignore */
-      }
       return NextResponse.json({ ok: true });
     }
 
@@ -72,7 +68,7 @@ export async function POST(request: NextRequest) {
       }
 
       if (note) {
-        await sendTelegramMessage(`[Admin bulk] ${note.slice(0, 400)}`);
+        await broadcastTelegram(`[Admin bulk] ${note.slice(0, 400)}`, 'ops');
       }
 
       const [leads, orders] = await Promise.all([listLeads(), listOrders()]);
@@ -100,15 +96,11 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      try {
-        await appendActivity({
+      await safeAudit({
           kind: 'other',
           message: `${formatBulkSummaryLine(targets)} · ok ${sent} fail ${failed}`,
           actor: g.username,
         });
-      } catch {
-        /* ignore */
-      }
 
       return NextResponse.json({ ok: true, sent, failed, total: targets.length });
     }
@@ -123,15 +115,11 @@ export async function POST(request: NextRequest) {
       if (!lead) return NextResponse.json({ error: 'Not found' }, { status: 404 });
       const ok = await notifyOneLead(lead, note || undefined);
       if (!ok) return NextResponse.json({ error: 'Не вдалося надіслати' }, { status: 502 });
-      try {
-        await appendActivity({
+      await safeAudit({
           kind: 'lead_status',
           message: `Telegram re-notify заявка ${lead.id.slice(0, 8)}`,
           actor: g.username,
         });
-      } catch {
-        /* ignore */
-      }
       return NextResponse.json({ ok: true });
     }
 
@@ -140,15 +128,11 @@ export async function POST(request: NextRequest) {
     if (!order) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     const ok = await notifyOneOrder(order, note || undefined);
     if (!ok) return NextResponse.json({ error: 'Не вдалося надіслати' }, { status: 502 });
-    try {
-      await appendActivity({
+    await safeAudit({
         kind: 'order_status',
         message: `Telegram re-notify замовлення ${order.id.slice(0, 8)}`,
         actor: g.username,
       });
-    } catch {
-      /* ignore */
-    }
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ error: 'Bad request' }, { status: 400 });
@@ -158,5 +142,5 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   const g = await requireAdminRole('inbox');
   if (!g.ok) return g.response;
-  return NextResponse.json({ configured: telegramConfigured() });
+  return NextResponse.json({ configured: await telegramCanSend() });
 }

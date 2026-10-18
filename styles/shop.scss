@@ -7,30 +7,82 @@
 }
 
 .shop-section__title,
-.shop-page__title {
+.shop-page .shop-page__title {
   margin-bottom: 8px;
-  font-size: 2.8rem !important;
+  font-family: var(--by-serif, Georgia, serif);
+  font-size: clamp(3.2rem, 5vw, 5rem);
+  font-weight: 500;
   color: var(--by-cream, #f5ede4);
+  line-height: 1.08;
 }
 
 .shop-section__subtitle,
 .shop-page__subtitle {
   margin-bottom: 24px;
   color: var(--by-muted, #b8a99a);
+  white-space: pre-line;
 }
 
 .shop-catalog {
   margin-bottom: 8px;
 }
 
+.shop-page__intro {
+  margin-bottom: 2.4rem;
+
+  &--hero {
+    text-align: center;
+    max-width: 780px;
+    margin-left: auto;
+    margin-right: auto;
+    margin-bottom: 2.8rem;
+  }
+}
+
+.shop-page__title {
+  color: var(--by-cream, #f5ede4);
+  margin-bottom: 0.75rem;
+}
+
+.shop-page__slogan {
+  margin: 0 auto 0.85rem;
+  max-width: 720px;
+  font-family: var(--by-sans);
+  font-size: 1.7rem;
+  line-height: 1.5;
+  color: var(--by-muted);
+  font-weight: 400;
+}
+
+.shop-page__delivery {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0 auto;
+  font-family: var(--by-sans);
+  font-size: clamp(1.2rem, 2vw, 1.4rem);
+  line-height: 1.5;
+  font-weight: 500;
+  color: var(--by-gold, #c4a574);
+  letter-spacing: 0.015em;
+
+  &-icon {
+    font-size: 1.4rem;
+    line-height: 1;
+    color: var(--by-gold, #c4a574);
+  }
+}
+
 .shop-toolbar {
   display: block;
-  margin-bottom: 1.8rem;
-  padding: 1.8rem 2rem;
-  background: var(--by-surface-2, #221e1b);
-  border: 1px solid var(--by-line, rgba(196, 165, 116, 0.35));
-  border-radius: 1.2rem;
-  box-shadow: var(--by-shadow, 0 24px 60px rgba(0, 0, 0, 0.45));
+  margin-bottom: 1.4rem;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
   color: var(--by-cream, #f5ede4);
 
   &__heading {
@@ -247,11 +299,11 @@
 }
 
 .shop-card {
-  background: var(--by-surface-2, #221e1b);
-  border-radius: 12px;
+  background: transparent;
+  border-radius: 0;
   overflow: hidden;
-  box-shadow: var(--by-shadow, 0 16px 40px rgba(0, 0, 0, 0.35));
-  border: 1px solid var(--by-line, rgba(196, 165, 116, 0.35));
+  box-shadow: none;
+  border: none;
   transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
   display: flex;
   flex-direction: column;
@@ -274,7 +326,7 @@
     flex-direction: column;
     text-decoration: none;
     color: inherit;
-    padding: 14px 14px 0;
+    padding: 0;
     flex: 1;
     min-width: 0;
 
@@ -286,21 +338,25 @@
   &__image {
     position: relative;
     flex-shrink: 0;
-    border-radius: 8px;
+    border-radius: 0;
     overflow: hidden;
     background: var(--by-bg-2, #161412);
 
-    img {
+    img,
+    .ps-image,
+    .ps-image__img {
       width: 100%;
-      height: 180px;
+      height: 300px;
       object-fit: cover;
-      border-radius: 8px;
+      border-radius: 0;
       display: block;
     }
 
     @media (max-width: 767px) {
-      img {
-        height: 140px;
+      img,
+      .ps-image,
+      .ps-image__img {
+        height: 180px;
       }
     }
   }
@@ -310,7 +366,7 @@
     top: 8px;
     left: 8px;
     z-index: 1;
-    font-size: 0.72rem;
+    font-size: 1.15rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.03em;
@@ -341,7 +397,7 @@
     right: 8px;
     z-index: 1;
     text-align: center;
-    font-size: 0.75rem;
+    font-size: 1.15rem;
     font-weight: 600;
     padding: 4px 8px;
     border-radius: 6px;
@@ -368,7 +424,8 @@
     font-family: var(--by-serif, Georgia, serif);
     font-size: 1.75rem;
     font-weight: 600;
-    margin: 1.2rem 0 0.5rem;
+    margin: 1.4rem 0 0.5rem;
+    padding: 0 0.2rem;
     line-height: 1.25;
     color: var(--by-cream, #f5ede4);
     display: -webkit-box;
@@ -392,8 +449,8 @@
   }
 
   &__desc {
-    font-size: 1.3rem;
-    line-height: 1.4;
+    font-size: 1.35rem;
+    line-height: 1.45;
     color: var(--by-muted, #b8a99a);
     margin: 0 0 0.8rem;
     display: -webkit-box;
@@ -403,12 +460,18 @@
     margin-top: auto;
   }
 
+  &__code,
+  &__desc,
+  &__promo {
+    padding-inline: 0.2rem;
+  }
+
   &__footer {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    padding: 1.2rem 1.4rem 1.4rem;
+    padding: 1.2rem 0.2rem 0.4rem;
     margin-top: auto;
     border-top: 1px solid color-mix(in srgb, var(--by-line, rgba(196, 165, 116, 0.35)) 70%, transparent);
 
@@ -471,6 +534,7 @@
 
 .shop-detail__promo {
   margin: 0 0 8px;
+  font-size: 1.4rem;
   color: var(--by-gold, #c4a574);
   font-weight: 600;
 }
@@ -549,12 +613,14 @@
     }
   }
 
-  &__image img {
+  &__image img,
+  &__image .ps-image,
+  &__image .ps-image__img {
     width: 100%;
     height: auto;
-    max-height: 420px;
+    max-height: 560px;
     object-fit: contain;
-    border-radius: 8px;
+    border-radius: 0;
     background: var(--by-bg-2, #161412);
   }
 
@@ -563,21 +629,24 @@
     flex-direction: column;
   }
 
-  &__title._title {
-    font-size: 2.4rem !important;
-    margin-bottom: 12px;
+  &__title {
+    font-family: var(--by-serif, Georgia, serif);
+    font-size: clamp(2.8rem, 4vw, 4.4rem);
+    font-weight: 500;
+    line-height: 1.1;
+    margin: 0 0 12px;
     color: var(--by-cream, #f5ede4);
   }
 
   &__code {
     margin: 0 0 10px;
-    font-size: 1rem;
+    font-size: 1.3rem;
     color: var(--by-muted, #b8a99a);
     word-break: break-word;
   }
 
   &__price {
-    font-size: 1.5rem;
+    font-size: 2.2rem;
     color: var(--by-blush, #e8a0bf);
     font-weight: 700;
     margin: 0 0 16px;
@@ -586,6 +655,29 @@
   &__desc {
     margin-bottom: 20px;
     color: var(--by-muted, #b8a99a);
+    font-size: 1.55rem;
+    line-height: 1.65;
+
+    p {
+      margin: 0 0 12px;
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+
+    ul, ol {
+      margin: 0 0 12px 20px;
+      padding: 0;
+    }
+
+    li {
+      margin-bottom: 4px;
+    }
+
+    b, strong {
+      color: var(--by-cream, #f5ede4);
+      font-weight: 600;
+    }
   }
 
   &__actions {
@@ -747,6 +839,35 @@
   &__title {
     margin-bottom: 1.6rem;
     font-size: 2.4rem;
+    color: var(--by-cream, #f5ede4);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Characteristics table (product detail page)
+// ---------------------------------------------------------------------------
+.shop-char-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.4rem 0;
+  font-size: 1.4rem;
+
+  th,
+  td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid rgba(255 255 255 / 0.12);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  th {
+    width: 40%;
+    color: var(--by-cream-muted, rgba(245 237 228 / 0.6));
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  td {
     color: var(--by-cream, #f5ede4);
   }
 }

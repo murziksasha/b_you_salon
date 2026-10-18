@@ -21,9 +21,9 @@ export function ProductGallery({ images, alt }: ProductGalleryProps) {
       <PublicImage
         src={current}
         alt={alt}
-        width={480}
-        height={360}
-        sizes='(max-width: 768px) 100vw, 480px'
+        width={720}
+        height={720}
+        sizes='(max-width: 768px) 100vw, 560px'
         priority
         style={{ width: '100%', height: 'auto' }}
       />

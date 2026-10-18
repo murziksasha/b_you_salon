@@ -3,8 +3,8 @@ import { requireAdminRole } from '@/lib/require-role';
 import { listLeads } from '@/lib/leads';
 import { listOrders } from '@/lib/orders';
 import { buildEveningDigest, buildMorningDigest, buildSlaReminder } from '@/lib/process-digest';
-import { sendTelegramMessage, telegramConfigured } from '@/lib/notify';
-import { appendActivity } from '@/lib/admin-activity';
+import { broadcastTelegram, telegramCanSend, telegramConfigured } from '@/lib/notify';
+import { safeAudit } from '@/lib/api/audit';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   if (kind === 'evening') text = buildEveningDigest(leads, orders);
   else if (kind === 'sla') text = buildSlaReminder(leads, orders) || 'SLA: все в нормі';
   else text = buildMorningDigest(leads, orders);
-  return NextResponse.json({ kind, text, telegram: telegramConfigured() });
+  return NextResponse.json({ kind, text, telegram: telegramConfigured() && (await telegramCanSend()) });
 }
 
 export async function POST(request: NextRequest) {
@@ -39,20 +39,16 @@ export async function POST(request: NextRequest) {
 
     let sent = false;
     if (body.send) {
-      if (!telegramConfigured()) {
+      if (!telegramConfigured() || !(await telegramCanSend())) {
         return NextResponse.json({ error: 'Telegram не налаштовано', text }, { status: 503 });
       }
-      sent = await sendTelegramMessage(text);
+      sent = await broadcastTelegram(text, 'ops');
       if (!sent) return NextResponse.json({ error: 'Send failed', text }, { status: 502 });
-      try {
-        await appendActivity({
+      await safeAudit({
           kind: 'other',
           message: `Digest ${kind} → Telegram`,
           actor: g.username,
         });
-      } catch {
-        /* ignore */
-      }
     }
     return NextResponse.json({ ok: true, kind, text, sent });
   } catch {

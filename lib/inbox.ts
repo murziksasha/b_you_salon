@@ -1,5 +1,6 @@
 import type { Lead } from './leads';
 import type { Order } from './orders';
+import { CONSULT_PRODUCT_TITLE, isConsultOrder } from './shop-consult';
 import {
   isOpenStatus,
   isStaleOpen,
@@ -70,6 +71,7 @@ export function leadToInbox(lead: Lead): InboxItem {
 
 export function orderToInbox(order: Order): InboxItem {
   const status = normalizeStatus(order.status, order.handled);
+  const consult = isConsultOrder(order);
   return {
     kind: 'order',
     id: order.id,
@@ -81,14 +83,16 @@ export function orderToInbox(order: Order): InboxItem {
     emailed: order.emailed,
     handledAt: order.handledAt,
     callbackAt: order.callbackAt,
-    productTitle: order.items?.length
-      ? order.items.map((i) => `${i.title} ×${i.qty}`).join(', ')
-      : order.product.title,
+    productTitle: consult
+      ? CONSULT_PRODUCT_TITLE
+      : order.items?.length
+        ? order.items.map((i) => `${i.title} ×${i.qty}`).join(', ')
+        : order.product.title,
     productId: order.product.id,
-    productPrice: order.total ?? order.product.price,
+    productPrice: consult ? 0 : order.total ?? order.product.price,
     productCode: order.product.code,
     comment: [
-      order.fulfillment === 'delivery' ? 'Доставка' : 'Самовивіз',
+      consult ? '' : order.fulfillment === 'delivery' ? 'Доставка' : 'Самовивіз',
       order.address,
       order.comment,
     ]
