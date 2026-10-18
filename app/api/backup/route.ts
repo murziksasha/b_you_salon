@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession, getSessionClaims } from '@/lib/auth';
 import { createSiteBackupFromData, deleteBackupFile, listSiteBackups, readBackupFile } from '@/lib/backup';
-import { assertAdminIp } from '@/lib/require-admin-ip';
 import { getSiteData, saveSiteData } from '@/lib/site-data';
 import { parseSiteData } from '@/lib/validation';
-import { roleCan } from '@/lib/admin-users';
+import { requireAdminRole } from '@/lib/require-role';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,46 +14,21 @@ function cronAuthorized(request: NextRequest): boolean {
   return auth === `Bearer ${secret}` || header === secret;
 }
 
-async function requireAdminOrCron(request: NextRequest) {
-  if (cronAuthorized(request)) return { ok: true as const, via: 'cron' as const };
+async function requireAdminOrCron(request: NextRequest, action: 'backup' | 'restore_backup') {
+  if (cronAuthorized(request) && action === 'backup') return { ok: true as const, via: 'cron' as const };
 
-  const ipGate = await assertAdminIp();
-  if (!ipGate.ok) return { ok: false as const, status: ipGate.status, error: ipGate.error };
-
-  const session = await getSession();
-  if (!session) return { ok: false as const, status: 401, error: 'Unauthorized' };
-
+  const g = await requireAdminRole(action);
+  if (!g.ok) return { ok: false as const, response: g.response };
   return { ok: true as const, via: 'admin' as const };
-}
-
-async function requireAdminOnly(_request: NextRequest, action?: string) {
-  const ipGate = await assertAdminIp();
-  if (!ipGate.ok) return { ok: false as const, status: ipGate.status, error: ipGate.error };
-  const session = await getSession();
-  if (!session) return { ok: false as const, status: 401, error: 'Unauthorized' };
-  if (action) {
-    const claims = await getSessionClaims();
-    const role = (claims?.role || 'operator') as import('@/lib/admin-users').AdminRole | 'legacy';
-    if (!roleCan(role, action)) {
-      return { ok: false as const, status: 403, error: 'Forbidden' };
-    }
-  }
-  return { ok: true as const };
 }
 
 /** List backups or download one file. */
 export async function GET(request: NextRequest) {
-  const gate = await requireAdminOrCron(request);
-  if (!gate.ok) {
-    return NextResponse.json({ error: gate.error }, { status: gate.status });
-  }
+  const gate = await requireAdminOrCron(request, 'backup');
+  if (!gate.ok) return gate.response;
 
   const name = request.nextUrl.searchParams.get('file');
   if (name) {
-    const downloadGate = await requireAdminOnly(request, 'restore_backup');
-    if (!downloadGate.ok) {
-      return NextResponse.json({ error: downloadGate.error }, { status: downloadGate.status });
-    }
     const raw = await readBackupFile(name);
     if (!raw) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     return new NextResponse(raw, {
@@ -87,10 +60,8 @@ export async function POST(request: NextRequest) {
   }
 
   if (body.action === 'restore') {
-    const gate = await requireAdminOnly(request, 'restore_backup');
-    if (!gate.ok) {
-      return NextResponse.json({ error: gate.error }, { status: gate.status });
-    }
+    const gate = await requireAdminOrCron(request, 'restore_backup');
+    if (!gate.ok) return gate.response;
     const name = body.file || '';
     const raw = await readBackupFile(name);
     if (!raw) return NextResponse.json({ error: 'Backup not found' }, { status: 404 });
@@ -119,10 +90,8 @@ export async function POST(request: NextRequest) {
   }
 
   // Default: create backup
-  const gate = await requireAdminOrCron(request);
-  if (!gate.ok) {
-    return NextResponse.json({ error: gate.error }, { status: gate.status });
-  }
+  const gate = await requireAdminOrCron(request, 'backup');
+  if (!gate.ok) return gate.response;
 
   try {
     const data = await getSiteData();
@@ -144,10 +113,8 @@ export async function POST(request: NextRequest) {
 
 /** Delete a backup file — admin only. ?file=name */
 export async function DELETE(request: NextRequest) {
-  const gate = await requireAdminOnly(request, 'restore_backup');
-  if (!gate.ok) {
-    return NextResponse.json({ error: gate.error }, { status: gate.status });
-  }
+  const gate = await requireAdminOrCron(request, 'restore_backup');
+  if (!gate.ok) return gate.response;
 
   const name = request.nextUrl.searchParams.get('file') || '';
   const ok = await deleteBackupFile(name);

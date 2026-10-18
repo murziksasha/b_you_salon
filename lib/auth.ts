@@ -10,6 +10,7 @@ import {
 } from './session';
 import { getAdminUserByUsername, hasMultiUserMode, verifyPasswordHash, type AdminRole } from './admin-users';
 import { isSessionAllowed } from './admin-sessions';
+import { isEnvLoginAllowed } from './admin/env-login';
 
 function safeCompare(a: string, b: string): boolean {
   const bufferA = Buffer.from(a);
@@ -39,7 +40,13 @@ function cookieSecureEnabled(): boolean {
   return process.env.NODE_ENV === 'production';
 }
 
-export type LoginResult = { ok: true; claims: SessionClaims } | { ok: false; error: string };
+/**
+ * `userTotpSecret`: personal TOTP of the authenticated admins.json user (if configured).
+ * When absent, the login route falls back to the global secret (env/file) — transitional mode.
+ */
+export type LoginResult =
+  | { ok: true; claims: SessionClaims; userTotpSecret?: string; viaEnvPassword?: boolean }
+  | { ok: false; error: string };
 
 /**
  * Authenticate: multi-user (username+password against admins.json) OR legacy ADMIN_PASSWORD.
@@ -53,28 +60,27 @@ export async function authenticateLogin(input: { password: string; username?: st
     if (!user || !(await verifyPasswordHash(input.password, user.passwordHash))) {
       return { ok: false, error: 'Invalid credentials' };
     }
-    return { ok: true, claims: { username: user.username, role: user.role } };
+    return {
+      ok: true,
+      claims: { username: user.username, role: user.role },
+      ...(user.totp?.secret ? { userTotpSecret: user.totp.secret } : {}),
+    };
   }
 
-  // Legacy single password (also works when multi-user exists if no username provided)
-  if (!username && verifyPassword(input.password)) {
-    return { ok: true, claims: { username: 'admin', role: multi ? 'owner' : 'legacy' } };
+  // Env ADMIN_PASSWORD paths are gated by ADMIN_ENV_LOGIN (see lib/admin/env-login.ts).
+  const envAllowed = await isEnvLoginAllowed();
+  const envIdentityTaken = multi && Boolean(await getAdminUserByUsername('admin'));
+  const envUsernameOk = !username || (username.toLowerCase() === 'admin' && !envIdentityTaken);
+
+  if (envAllowed && envUsernameOk && verifyPassword(input.password)) {
+    return {
+      ok: true,
+      claims: { username: 'admin', role: !username && !multi ? 'legacy' : 'owner' },
+      viaEnvPassword: true,
+    };
   }
 
-  // Try username as optional even without multi mode using env password only for "admin"
-  if (username && username.toLowerCase() === 'admin' && verifyPassword(input.password)) {
-    return { ok: true, claims: { username: 'admin', role: 'owner' } };
-  }
-
-  // Multi-user without username: reject if only multi users exist
-  if (multi && !username) {
-    // Still allow legacy ADMIN_PASSWORD as owner override
-    if (verifyPassword(input.password)) {
-      return { ok: true, claims: { username: 'admin', role: 'owner' } };
-    }
-    return { ok: false, error: 'Invalid credentials' };
-  }
-
+  if (multi || username) return { ok: false, error: 'Invalid credentials' };
   return { ok: false, error: 'Invalid password' };
 }
 
@@ -118,8 +124,7 @@ export async function getSessionClaims(): Promise<SessionClaims | null> {
   const parsed = await parseSession(value);
   if (!parsed.valid) return null;
   if (parsed.fingerprint && !(await isSessionAllowed(parsed.fingerprint))) return null;
-  return parsed.claims || { username: 'admin', role: 'legacy' };
-  return parsed.claims || { username: 'admin', role: 'operator' };
+  return parsed.claims || null;
 }
 
 export async function getSessionFingerprint(): Promise<string | null> {

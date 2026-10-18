@@ -11,28 +11,43 @@ const compat = new FlatCompat({
 
 /** @type {import('eslint').Linter.Config[]} */
 const config = [
-  ...compat.extends('next/core-web-vitals', 'next/typescript'),
   {
     ignores: [
       'node_modules/**',
       '.next/**',
       'dist/**',
+      'coverage/**',
       'mailer/**',
       'public/**',
       'mcps/**',
       'next-env.d.ts',
       '**/*.test.ts',
       '**/*.test.tsx',
+      'ecosystem.config.cjs',
     ],
+  },
+  ...compat.extends('next/core-web-vitals', 'next/typescript'),
+  {
+    files: ['**/*.cjs'],
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+    },
   },
   {
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-unused-vars': [
-        'warn',
-        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
-      ],
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       'react/no-danger': 'off',
+    },
+  },
+  {
+    // FSD: import features only through their public API (features/<name>/index.ts).
+    files: ['app/**', 'components/**', 'lib/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        { patterns: [{ group: ['@/features/*/*'], message: 'Import from @/features/<name> (index.ts) only.' }] },
+      ],
     },
   },
 ];

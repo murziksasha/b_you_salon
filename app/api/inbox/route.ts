@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { listLeads, updateLead, deleteLead } from '@/lib/leads';
 import { listOrders, updateOrder, deleteOrder } from '@/lib/orders';
 import { historyByPhone, mergeInbox } from '@/lib/inbox';
-import { isWorkflowStatus, validateClosePatch } from '@/lib/workflow';
-import { appendActivity } from '@/lib/admin-activity';
+import { isWorkflowStatus, resolveCloseOutcome, validateClosePatch } from '@/lib/workflow';
+import { safeAudit } from '@/lib/api/audit';
 import { requireAdminRole } from '@/lib/require-role';
 import { toCsv } from '@/lib/csv';
 
@@ -86,9 +86,10 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
     }
     const status = body.status as undefined | import('@/lib/workflow').WorkflowStatus;
+    const outcome = resolveCloseOutcome(status, body.outcome);
     const closeErr = validateClosePatch({
       status,
-      outcome: body.outcome,
+      outcome,
       note: body.note,
     });
     if (closeErr) {
@@ -100,36 +101,28 @@ export async function PATCH(request: NextRequest) {
       handled: body.handled,
       note: body.note,
       callbackAt: body.callbackAt,
-      outcome: body.outcome as undefined | import('@/lib/workflow').CloseOutcome,
+      outcome,
       assignee: body.assignee,
     };
 
     if (body.kind === 'lead') {
       const updated = await updateLead(body.id, patch);
       if (!updated) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-      try {
-        await appendActivity({
+      await safeAudit({
           kind: 'lead_status',
           message: `Заявка ${body.id.slice(0, 8)} → ${updated.status}`,
           actor: g.username,
         });
-      } catch {
-        /* ignore */
-      }
       return NextResponse.json({ ok: true, item: updated, kind: 'lead' });
     }
 
     const updated = await updateOrder(body.id, patch);
     if (!updated) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    try {
-      await appendActivity({
+    await safeAudit({
         kind: 'order_status',
         message: `Замовлення ${body.id.slice(0, 8)} → ${updated.status}`,
         actor: g.username,
       });
-    } catch {
-      /* ignore */
-    }
     return NextResponse.json({ ok: true, item: updated, kind: 'order' });
   } catch {
     return NextResponse.json({ error: 'Bad request' }, { status: 400 });

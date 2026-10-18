@@ -382,7 +382,7 @@ export function DashboardExtras() {
         {stats.activity.length === 0 ? (
           <p className='admin-hint'>Поки порожньо — зʼявиться після дій в адмінці</p>
         ) : (
-          <ul className='admin-activity'>
+          <ul className='admin-activity admin-activity--scroll'>
             {stats.activity.map((a) => {
               const href =
                 a.kind === 'lead_status'

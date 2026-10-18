@@ -11,8 +11,25 @@ export function getAdminIpAllowlist(): string[] {
     .filter(Boolean);
 }
 
+let warnedUnsetTrustProxy = false;
+
 /**
- * Extract client IP from reverse proxy headers.
+ * TRUST_PROXY controls whether X-Real-IP / X-Forwarded-For are trusted.
+ * - "true": a trusted reverse proxy (nginx) overwrites these headers -> trust them.
+ * - "false": no proxy in front of Next.js -> headers are client-controlled and ignored.
+ *   Next.js route handlers do not expose the socket IP, so the client IP is unknown and
+ *   ADMIN_IP_ALLOWLIST fails closed.
+ * - unset: legacy behaviour (trust headers) with a one-time warning. Set it explicitly.
+ */
+export function trustProxyMode(): 'true' | 'false' | 'unset' {
+  const v = (process.env.TRUST_PROXY || '').trim().toLowerCase();
+  if (v === 'true' || v === '1') return 'true';
+  if (v === 'false' || v === '0') return 'false';
+  return 'unset';
+}
+
+/**
+ * Extract client IP from reverse proxy headers (only when the proxy is trusted).
  *
  * Prefer X-Real-IP (set explicitly by trusted Nginx config).
  * For X-Forwarded-For, use the RIGHTMOST entry — leftmost hops are client-supplied.
@@ -22,6 +39,15 @@ export function getAdminIpAllowlist(): string[] {
  *   proxy_set_header X-Forwarded-For $remote_addr;
  */
 export function clientIpFromHeaders(headers: Headers): string {
+  const mode = trustProxyMode();
+  if (mode === 'false') return '';
+  if (mode === 'unset' && !warnedUnsetTrustProxy && getAdminIpAllowlist().length > 0) {
+    warnedUnsetTrustProxy = true;
+    console.warn(
+      '[admin-ip] TRUST_PROXY is not set: trusting X-Real-IP/X-Forwarded-For for ADMIN_IP_ALLOWLIST. ' +
+        'Set TRUST_PROXY=true behind nginx or TRUST_PROXY=false when Next.js is exposed directly.',
+    );
+  }
   // X-Real-IP is authoritative when set by the reverse proxy
   const real = headers.get('x-real-ip');
   if (real) return normalizeIp(real.trim());

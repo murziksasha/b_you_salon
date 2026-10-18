@@ -1,10 +1,12 @@
+import { requirePageAccess } from '@/lib/admin/page-guard';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { EmergencyOpsPanel } from '@/components/admin/EmergencyOpsPanel';
 import { TelegramBotPanel } from '@/components/admin/TelegramBotPanel';
 
 export const dynamic = 'force-dynamic';
 
-export default function AdminOpsPage() {
+export default async function AdminOpsPage() {
+  await requirePageAccess('/admin/ops');
   return (
     <AdminShell>
       <h1>Ops · runbook</h1>

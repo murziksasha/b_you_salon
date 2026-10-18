@@ -38,7 +38,7 @@ export function ActivityPanel() {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch('/api/activity?limit=100');
+      const res = await fetch('/api/activity?limit=500');
       if (!res.ok) {
         showToast('Не вдалося завантажити', 'error');
         return;
@@ -94,7 +94,7 @@ export function ActivityPanel() {
       </div>
       {loading ? <p className='admin-hint'>Завантаження…</p> : null}
       {!loading && !visible.length ? <p className='admin-hint'>Порожньо</p> : null}
-      <ul className='admin-activity'>
+      <ul className='admin-activity admin-activity--scroll'>
         {visible.map((a) => (
           <li key={a.id}>
             <span className='admin-activity__time'>{formatWhen(a.at)}</span>

@@ -37,9 +37,13 @@
 - [x] Процесні пакети: outcome/нотатка, assignee, publish gate, digest, metrics, catalog health, ops runbook
 - Див. також `docs/admin-guide.md`
 
+## Фаза 8 — Безпека і якість
+
+Див. `docs/fix-plan-improveFeat.md` (етапи 0–14) і PR `improveFeat`.
+
 ## Процеси (SOP)
 
-1. **Лід:** new → «Взяв у роботу» → called/waiting/snooze → close з **outcome + note**
+1. **Лід:** new → «Взяв у роботу» → called/waiting/snooze → close з **авто-outcome** (нотатка за бажанням; результат можна уточнити після закриття)
 2. **Handoff:** вечірній digest → Telegram
 3. **Контент:** draft → (опційно «На ревʼю») → publish gate (SEO/diff confirm) → live
 4. **Каталог:** зміна ціни >20% confirm; publish checklist на visible

@@ -64,6 +64,19 @@ function statusLine(status?: WorkflowStatus | string, handled?: boolean, assigne
   return lines;
 }
 
+function zoneLabel(zone?: string): string {
+  if (zone === 'salon') return 'салон';
+  if (zone === 'shop') return 'магазин';
+  if (zone === 'home') return 'головна';
+  return (zone || '').trim();
+}
+
+function money(n: number): string {
+  return `${n.toLocaleString('uk-UA')} ₴`;
+}
+
+export type OrderPushItem = { title: string; qty: number; price?: number };
+
 export function formatLeadPush(payload: {
   phone: string;
   source?: Lead['source'] | string;
@@ -79,12 +92,14 @@ export function formatLeadPush(payload: {
 }): string {
   const isBooking = payload.source === 'booking';
   const title = isBooking ? 'Запис' : 'Заявка';
+  const zone = zoneLabel(payload.zone);
   return [
     title,
-    formatWhen(payload.createdAt),
+    `Надіслано: ${formatWhen(payload.createdAt)}`,
     maskPhoneDisplay(payload.phone),
     ...statusLine(payload.status, payload.handled, payload.assignee),
-    payload.serviceTitle ? `Послуга: ${payload.serviceTitle}` : '',
+    payload.serviceTitle?.trim() ? `Потрібно: ${payload.serviceTitle.trim()}` : '',
+    zone ? `Зона: ${zone}` : '',
     payload.comment?.trim() || '',
     payload.viberHint ? `Viber: ${payload.viberHint}` : '',
   ]
@@ -94,7 +109,11 @@ export function formatLeadPush(payload: {
 
 export function formatOrderPush(payload: {
   phone: string;
-  productTitle: string;
+  productTitle?: string;
+  items?: OrderPushItem[];
+  consult?: boolean;
+  name?: string;
+  address?: string;
   price?: number;
   fulfillment?: string;
   comment?: string;
@@ -104,23 +123,88 @@ export function formatOrderPush(payload: {
   assignee?: string;
   viberHint?: string;
 }): string {
-  const fulfill =
-    payload.fulfillment === 'delivery' ? 'Доставка' : payload.fulfillment === 'pickup' ? 'Самовивіз' : '';
+  const consult = Boolean(payload.consult);
+  const fulfill = consult
+    ? ''
+    : payload.fulfillment === 'delivery'
+      ? 'Отримання: Доставка'
+      : payload.fulfillment === 'pickup'
+        ? 'Отримання: Самовивіз'
+        : '';
   const price =
-    typeof payload.price === 'number' ? `Сума: ${payload.price.toLocaleString('uk-UA')} ₴` : '';
+    !consult && typeof payload.price === 'number' ? `Сума: ${money(payload.price)}` : '';
+  const itemLines = consult
+    ? [`Товар: ${payload.productTitle || 'Консультація по товарах'}`]
+    : payload.items?.length
+      ? [
+          'Товари:',
+          ...payload.items.map((i) => {
+            const qty = Number.isFinite(i.qty) && i.qty > 0 ? i.qty : 1;
+            const line = typeof i.price === 'number' ? ` — ${money(i.price * qty)}` : '';
+            return `• ${i.title} ×${qty}${line}`;
+          }),
+        ]
+      : payload.productTitle
+        ? [`Товар: ${payload.productTitle}`]
+        : [];
   return [
     'Продаж',
-    formatWhen(payload.createdAt),
+    `Надіслано: ${formatWhen(payload.createdAt)}`,
     maskPhoneDisplay(payload.phone),
+    payload.name?.trim() ? `Імʼя: ${payload.name.trim()}` : '',
     ...statusLine(payload.status, payload.handled, payload.assignee),
-    payload.productTitle ? `Товар: ${payload.productTitle}` : '',
+    ...itemLines,
     price,
     fulfill,
+    !consult && payload.address?.trim() ? `Адреса: ${payload.address.trim()}` : '',
     payload.comment?.trim() || '',
     payload.viberHint ? `Viber: ${payload.viberHint}` : '',
   ]
     .filter(Boolean)
     .join('\n');
+}
+
+export function leadPushFromLead(lead: Lead, extra?: { viberHint?: string }): Parameters<typeof formatLeadPush>[0] {
+  return {
+    phone: lead.phone,
+    source: lead.source,
+    zone: lead.zone,
+    serviceTitle: lead.serviceTitle,
+    comment: lead.comment,
+    createdAt: lead.createdAt,
+    status: lead.status,
+    handled: lead.handled,
+    assignee: lead.assignee,
+    viberHint: extra?.viberHint,
+  };
+}
+
+export function orderPushFromOrder(
+  order: Order,
+  extra?: { viberHint?: string },
+): Parameters<typeof formatOrderPush>[0] {
+  const consult = order.source === 'consult' || order.product?.id === 'consult';
+  const items: OrderPushItem[] | undefined = consult
+    ? undefined
+    : order.items?.length
+      ? order.items.map((i) => ({ title: i.title, qty: i.qty, price: i.price }))
+      : [{ title: order.product.title, qty: order.quantity || 1, price: order.product.price }];
+  return {
+    phone: order.phone,
+    productTitle: order.product.title,
+    items,
+    consult,
+    name: order.name,
+    address: order.address,
+    price: consult ? undefined : order.total ?? order.product.price,
+    fulfillment: consult ? undefined : order.fulfillment,
+    comment: order.comment,
+    createdAt: order.createdAt,
+    status: order.status,
+    handled: order.handled,
+    assignee: order.assignee,
+    viberHint: extra?.viberHint,
+  };
 }
 
 export function formatLeadListItem(lead: Lead, index: number): string {
@@ -129,7 +213,7 @@ export function formatLeadListItem(lead: Lead, index: number): string {
   const st = normalizeStatus(lead.status, lead.handled);
   const who = lead.assignee ? ` · ${lead.assignee}` : '';
   return [
-    `${index}. ${kind} · ${formatWhen(lead.createdAt)} · ${WORKFLOW_LABELS[st]}${who}`,
+    `${index}. ${kind} · Надіслано ${formatWhen(lead.createdAt)} · ${WORKFLOW_LABELS[st]}${who}`,
     maskPhoneDisplay(lead.phone),
     extra ? extra : '',
   ]
@@ -145,7 +229,7 @@ export function formatOrderListItem(order: Order, index: number): string {
   const st = normalizeStatus(order.status, order.handled);
   const who = order.assignee ? ` · ${order.assignee}` : '';
   return [
-    `${index}. Продаж · ${formatWhen(order.createdAt)} · ${WORKFLOW_LABELS[st]}${who}`,
+    `${index}. Продаж · Надіслано ${formatWhen(order.createdAt)} · ${WORKFLOW_LABELS[st]}${who}`,
     maskPhoneDisplay(order.phone),
     extra,
   ]

@@ -49,9 +49,30 @@ export function isCloseOutcome(v: unknown): v is CloseOutcome {
   return typeof v === 'string' && (CLOSE_OUTCOMES as readonly string[]).includes(v);
 }
 
-/** Statuses that require outcome + note when set. */
+/** Statuses that require an outcome (note is optional). */
 export function statusRequiresOutcome(status: WorkflowStatus): boolean {
   return status === 'done' || status === 'spam' || status === 'no_answer';
+}
+
+/** Default outcome for one-click close buttons. */
+export const DEFAULT_CLOSE_OUTCOME: Partial<Record<WorkflowStatus, CloseOutcome>> = {
+  done: 'deal',
+  spam: 'spam',
+  no_answer: 'no_answer',
+};
+
+export function defaultOutcomeForStatus(status: WorkflowStatus): CloseOutcome | undefined {
+  return DEFAULT_CLOSE_OUTCOME[status];
+}
+
+/** Explicit valid outcome wins; otherwise the status default. */
+export function resolveCloseOutcome(
+  status: WorkflowStatus | undefined,
+  explicit?: string | null,
+): CloseOutcome | undefined {
+  if (explicit && isCloseOutcome(explicit)) return explicit;
+  if (!status) return undefined;
+  return defaultOutcomeForStatus(status);
 }
 
 /** Statuses that still need operator attention. */
@@ -120,7 +141,7 @@ export function statusBadgeClass(status: WorkflowStatus): string {
   }
 }
 
-/** Validate close: need outcome + non-empty note for closed statuses. */
+/** Validate close: outcome required (auto-filled by defaultOutcomeForStatus). Note is optional. */
 export function validateClosePatch(input: {
   status?: WorkflowStatus;
   outcome?: string;
@@ -129,9 +150,6 @@ export function validateClosePatch(input: {
   if (!input.status || !statusRequiresOutcome(input.status)) return null;
   if (!isCloseOutcome(input.outcome)) {
     return 'Оберіть результат закриття (outcome)';
-  }
-  if (!(input.note || '').trim()) {
-    return 'Додайте нотатку при закритті';
   }
   return null;
 }

@@ -1,3 +1,4 @@
+import { requirePageAccess } from '@/lib/admin/page-guard';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { ClientProfile } from '@/components/admin/ClientProfile';
 
@@ -8,6 +9,7 @@ export default async function AdminClientsPage({
 }: {
   searchParams: Promise<{ phone?: string }>;
 }) {
+  await requirePageAccess('/admin/clients');
   const sp = await searchParams;
   return (
     <AdminShell>

@@ -1,9 +1,11 @@
+import { requirePageAccess } from '@/lib/admin/page-guard';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { OrdersPanel } from '@/components/admin/OrdersPanel';
 
 export const dynamic = 'force-dynamic';
 
-export default function AdminOrdersPage() {
+export default async function AdminOrdersPage() {
+  await requirePageAccess('/admin/orders');
   return (
     <AdminShell>
       <h1>Замовлення</h1>

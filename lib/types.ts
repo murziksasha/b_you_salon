@@ -12,7 +12,7 @@ export interface PhoneEntry {
 
 export interface SocialLink {
   id: string;
-  type: 'viber' | 'telegram' | 'instagram' | 'youtube' | string;
+  type: 'viber' | 'telegram' | 'instagram' | 'youtube' | 'facebook' | string;
   url: string;
   icon: string;
 }
@@ -58,6 +58,8 @@ export interface Product {
   id: string;
   title: string;
   description: string;
+  /** Free-text characteristics: one "Key: Value" per line. Rendered as a table on the product detail page. */
+  characteristics?: string;
   price: number;
   image: string;
   images?: string[];

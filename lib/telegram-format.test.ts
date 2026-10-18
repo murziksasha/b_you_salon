@@ -25,7 +25,8 @@ describe('telegram-format', () => {
     expect(lead).toContain('+38050***33');
     expect(lead).not.toContain('+380501112233');
     expect(lead).toContain('Статус: Нова');
-    expect(lead).toContain('Манікюр');
+    expect(lead).toContain('Надіслано:');
+    expect(lead).toContain('Потрібно: Манікюр');
     expect(lead).toContain('після 18:00');
 
     const cb = formatLeadPush({
@@ -54,12 +55,33 @@ describe('telegram-format', () => {
     const consult = formatOrderPush({
       phone: '+380671112233',
       productTitle: 'Консультація по товарах',
+      consult: true,
       createdAt: '2026-09-06T11:32:00.000Z',
     });
     expect(consult.startsWith('Продаж')).toBe(true);
     expect(consult).toContain('Консультація по товарах');
+    expect(consult).toContain('Надіслано:');
     expect(consult).not.toContain('Сума:');
     expect(consult).not.toContain('Самовивіз');
+
+    const cart = formatOrderPush({
+      phone: '+380671112233',
+      items: [
+        { title: 'Шампунь', qty: 2, price: 600 },
+        { title: 'Маска', qty: 1, price: 450 },
+      ],
+      price: 1650,
+      fulfillment: 'delivery',
+      name: 'Олена',
+      address: 'Київ, вул. Хрещатик 1',
+      createdAt: '2026-09-06T11:32:00.000Z',
+    });
+    expect(cart).toContain('Товари:');
+    expect(cart).toContain('• Шампунь ×2');
+    expect(cart).toContain('Імʼя: Олена');
+    expect(cart).toContain('Адреса: Київ, вул. Хрещатик 1');
+    expect(cart).toContain('Отримання: Доставка');
+    expect(cart).toContain('Сума: 1');
   });
 
   it('clamps list counts and chunks long text', () => {

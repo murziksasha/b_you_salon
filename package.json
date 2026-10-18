@@ -3,7 +3,10 @@
   "version": "2.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3001",
+    "data:pull-prod": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/pull-prod-data.ps1",
+    "prod:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/setup-prod.ps1",
+    "deploy:prod": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/deploy-prod.ps1",
     "docker:dev": "docker compose -f docker-compose.dev.yml up --build",
     "build": "next build",
     "start": "node scripts/start-standalone.mjs",
@@ -37,9 +40,12 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:smoke": "playwright test e2e/smoke.spec.ts"
+    "test:smoke": "playwright test e2e/smoke.spec.ts",
+    "check": "npm run typecheck && npm run lint && npm run test",
+    "migrate:totp": "tsx scripts/migrate-totp.ts"
   },
   "dependencies": {
+    "fast-xml-parser": "^5.11.1",
     "lucide-react": "^1.28.0",
     "next": "^15.0.0",
     "nodemailer": "^9.0.1",
@@ -61,6 +67,7 @@
     "@types/react-dom": "^19.0.0",
     "@types/sanitize-html": "^2.16.1",
     "@vitejs/plugin-react": "^4.5.2",
+    "@vitest/coverage-v8": "^3.2.4",
     "eslint": "^9.39.5",
     "eslint-config-next": "^15.5.20",
     "jsdom": "^29.1.1",

@@ -2,8 +2,9 @@ import { handleTelegramContext, type TelegramContext } from './telegram-commands
 import { answerTelegramCallback, editTelegramMessage, sendTelegramMessage, telegramBotToken } from './notify';
 import { runCatchupIfNeeded, tickTelegramDigest } from './telegram-digest';
 import { getTelegramLastUpdateId, setTelegramLastUpdateId } from './telegram-store';
+import { telegramWebhookReady } from './telegram-webhook';
 
-type TelegramUpdate = {
+export type TelegramUpdate = {
   update_id: number;
   message?: {
     text?: string;
@@ -88,6 +89,17 @@ export async function runTelegramBot(opts?: { signal?: AbortSignal }): Promise<v
   const token = telegramBotToken();
   if (!token) {
     console.warn('[telegram-bot] TELEGRAM_BOT_TOKEN is not set; idle until restart');
+    await new Promise<void>((resolve) => {
+      if (opts?.signal) {
+        if (opts.signal.aborted) return resolve();
+        opts.signal.addEventListener('abort', () => resolve(), { once: true });
+      }
+    });
+    return;
+  }
+
+  if (telegramWebhookReady()) {
+    console.log('[telegram-bot] webhook mode; not polling');
     await new Promise<void>((resolve) => {
       if (opts?.signal) {
         if (opts.signal.aborted) return resolve();

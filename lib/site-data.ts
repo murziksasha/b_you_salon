@@ -38,17 +38,60 @@ export function withSiteDataLock<T>(fn: () => Promise<T>): Promise<T> {
   return withFileMutex(getDataFilePath(), fn);
 }
 
+/**
+ * In-memory cache keyed by file path + mtime + size. Invalidated on every save and whenever the
+ * file changes on disk (manual edits / restore). Callers get a deep clone, so mutating the
+ * result never corrupts the cache.
+ */
+let siteCache: { filePath: string; mtimeMs: number; size: number; data: SiteData } | null = null;
+
+export function invalidateSiteDataCache(): void {
+  siteCache = null;
+}
+
 async function readSiteDataUnlocked(): Promise<SiteData> {
   const filePath = getDataFilePath();
+  try {
+    const st = await fs.stat(filePath);
+    if (siteCache && siteCache.filePath === filePath && siteCache.mtimeMs === st.mtimeMs && siteCache.size === st.size) {
+      return structuredClone(siteCache.data);
+    }
+    const data = await readSiteDataFromDisk(filePath);
+    siteCache = { filePath, mtimeMs: st.mtimeMs, size: st.size, data: structuredClone(data) };
+    return data;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException)?.code !== 'ENOENT') throw err;
+    siteCache = null;
+    return readSiteDataFromDisk(filePath);
+  }
+}
+
+async function readSiteDataFromDisk(filePath: string): Promise<SiteData> {
   let raw: string;
   try {
     raw = await fs.readFile(filePath, 'utf-8');
   } catch (err) {
     const code = (err as NodeJS.ErrnoException)?.code;
     if (code === 'ENOENT') {
-      // First run: file doesn't exist yet — seed with defaults
-      const { defaultSiteData } = await import('./default-site-data');
+      // First run: file doesn't exist yet — seed with site.seed.json or defaults
       await ensureDataDir(filePath);
+      const candidateSeeds = [
+        path.join(path.dirname(filePath), 'site.seed.json'),
+        path.join(process.cwd(), 'data', 'site.seed.json'),
+      ];
+
+      for (const seedPath of candidateSeeds) {
+        try {
+          const seedRaw = await fs.readFile(seedPath, 'utf-8');
+          const seedData = JSON.parse(seedRaw) as SiteData;
+          await atomicWriteJson(filePath, seedData);
+          return normalizeSiteData(seedData);
+        } catch {
+          // try next candidate
+        }
+      }
+
+      const { defaultSiteData } = await import('./default-site-data');
       await atomicWriteJson(filePath, defaultSiteData);
       return normalizeSiteData(defaultSiteData);
     }
@@ -78,6 +121,7 @@ export async function saveSiteData(data: SiteData): Promise<SiteData> {
 }
 
 async function saveSiteDataUnlocked(data: SiteData): Promise<SiteData> {
+  invalidateSiteDataCache();
   const filePath = getDataFilePath();
   await ensureDataDir(filePath);
 
@@ -109,6 +153,7 @@ async function saveSiteDataUnlocked(data: SiteData): Promise<SiteData> {
     updatedAt: new Date().toISOString(),
   };
   await atomicWriteJson(filePath, next);
+  invalidateSiteDataCache();
 
   // Rolling snapshots under data/backups (failures must not block save)
   if (process.env.AUTO_BACKUP !== 'false') {
@@ -184,39 +229,39 @@ export async function deleteProduct(id: string): Promise<boolean> {
 
 export async function createPage(page: Omit<Page, 'id'> & { id?: string }): Promise<Page> {
   return withSiteDataLock(async () => {
-  const data = await readSiteDataUnlocked();
-  const newPage: Page = {
-    id: page.id || createId(),
-    ...page,
-  } as Page;
+    const data = await readSiteDataUnlocked();
+    const newPage: Page = {
+      id: page.id || createId(),
+      ...page,
+    } as Page;
 
-  // ensure unique slug
-  let slug = newPage.slug;
-  let suffix = 1;
-  while (data.pages.some(p => p.slug === slug)) {
-    slug = `${page.slug || 'page'}-${suffix++}`;
-  }
-  newPage.slug = slug;
+    // ensure unique slug
+    let slug = newPage.slug;
+    let suffix = 1;
+    while (data.pages.some(p => p.slug === slug)) {
+      slug = `${page.slug || 'page'}-${suffix++}`;
+    }
+    newPage.slug = slug;
 
-  data.pages.push(newPage);
-  await saveSiteDataUnlocked(data);
-  return newPage;
+    data.pages.push(newPage);
+    await saveSiteDataUnlocked(data);
+    return newPage;
   });
 }
 
 export async function deletePage(id: string): Promise<boolean> {
   return withSiteDataLock(async () => {
-  const data = await readSiteDataUnlocked();
-  // protect home
-  const target = data.pages.find(p => p.id === id);
-  if (!target || target.slug === '') return false;
+    const data = await readSiteDataUnlocked();
+    // protect home
+    const target = data.pages.find(p => p.id === id);
+    if (!target || target.slug === '') return false;
 
-  const before = data.pages.length;
-  data.pages = data.pages.filter(p => p.id !== id);
-  if (data.pages.length === before) return false;
+    const before = data.pages.length;
+    data.pages = data.pages.filter(p => p.id !== id);
+    if (data.pages.length === before) return false;
 
-  await saveSiteDataUnlocked(data);
-  return true;
+    await saveSiteDataUnlocked(data);
+    return true;
   });
 }
 

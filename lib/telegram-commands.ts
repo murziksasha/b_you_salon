@@ -24,6 +24,8 @@ import {
   formatOrderListItem,
   formatOrderPush,
   formatPhoneMovements,
+  leadPushFromLead,
+  orderPushFromOrder,
   type PhoneMovement,
   type TelegramReplyMarkup,
 } from './telegram-format';
@@ -380,17 +382,7 @@ function itemPushReply(kind: 'lead' | 'order', item: Lead | Order, edit?: boolea
       assignee: lead.assignee,
     });
     return {
-      text: formatLeadPush({
-        phone: lead.phone,
-        source: lead.source,
-        serviceTitle: lead.serviceTitle,
-        comment: lead.comment,
-        createdAt: lead.createdAt,
-        status: lead.status,
-        handled: lead.handled,
-        assignee: lead.assignee,
-        viberHint: chrome.viberHint,
-      }),
+      text: formatLeadPush(leadPushFromLead(lead, { viberHint: chrome.viberHint })),
       replyMarkup: chrome.markup,
       edit,
     };
@@ -405,20 +397,7 @@ function itemPushReply(kind: 'lead' | 'order', item: Lead | Order, edit?: boolea
     assignee: order.assignee,
   });
   return {
-    text: formatOrderPush({
-      phone: order.phone,
-      productTitle: order.items?.length
-        ? order.items.map((i) => `${i.title} ×${i.qty}`).join(', ')
-        : order.product.title,
-      price: order.total ?? order.product.price,
-      fulfillment: order.fulfillment,
-      comment: order.comment,
-      createdAt: order.createdAt,
-      status: order.status,
-      handled: order.handled,
-      assignee: order.assignee,
-      viberHint: chrome.viberHint,
-    }),
+    text: formatOrderPush(orderPushFromOrder(order, { viberHint: chrome.viberHint })),
     replyMarkup: chrome.markup,
     edit,
   };
@@ -801,30 +780,9 @@ export async function handleTelegramContext(
 }
 
 export function previewLead(lead: Lead): string {
-  return formatLeadPush({
-    phone: lead.phone,
-    source: lead.source,
-    serviceTitle: lead.serviceTitle,
-    comment: lead.comment,
-    createdAt: lead.createdAt,
-    status: lead.status,
-    handled: lead.handled,
-    assignee: lead.assignee,
-  });
+  return formatLeadPush(leadPushFromLead(lead));
 }
 
 export function previewOrder(order: Order): string {
-  return formatOrderPush({
-    phone: order.phone,
-    productTitle: order.items?.length
-      ? order.items.map((i) => `${i.title} ×${i.qty}`).join(', ')
-      : order.product.title,
-    price: order.total ?? order.product.price,
-    fulfillment: order.fulfillment,
-    comment: order.comment,
-    createdAt: order.createdAt,
-    status: order.status,
-    handled: order.handled,
-    assignee: order.assignee,
-  });
+  return formatOrderPush(orderPushFromOrder(order));
 }

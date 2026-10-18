@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AdminNav } from './AdminNav';
 import { AdminTopbar } from './AdminTopbar';
 import { AdminToastHost } from './AdminToast';
@@ -11,11 +11,13 @@ import { OperatorRouteGuard } from './OperatorRouteGuard';
 import { IdleSessionGuard } from './IdleSessionGuard';
 import { ShortcutsHelp } from './ShortcutsHelp';
 import { AdminBreadcrumb } from './AdminBreadcrumb';
+import { AdminScrollNav } from './AdminScrollNav';
 
 const STORAGE_KEY = 'admin-nav-collapsed';
 const DENSITY_KEY = 'admin-density-compact';
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
+  const mainRef = useRef<HTMLElement | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -33,7 +35,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   const toggleDensity = useCallback(() => {
-    setCompact((prev) => {
+    setCompact(prev => {
       const next = !prev;
       try {
         localStorage.setItem(DENSITY_KEY, next ? '1' : '0');
@@ -45,7 +47,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   const toggleCollapsed = useCallback(() => {
-    setCollapsed((prev) => {
+    setCollapsed(prev => {
       const next = !prev;
       try {
         localStorage.setItem(STORAGE_KEY, next ? '1' : '0');
@@ -57,7 +59,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   const toggleMobile = useCallback(() => {
-    setMobileOpen((v) => !v);
+    setMobileOpen(v => !v);
   }, []);
 
   const closeMobile = useCallback(() => {
@@ -78,12 +80,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       <AdminCountsProvider>
         <div className={`admin-body${compact && hydrated ? ' admin-body--compact' : ''}`}>
           {mobileOpen ? (
-            <button
-              type='button'
-              className='admin-nav-overlay'
-              aria-label='Закрити'
-              onClick={closeMobile}
-            />
+            <button type='button' className='admin-nav-overlay' aria-label='Закрити' onClick={closeMobile} />
           ) : null}
 
           <div
@@ -104,12 +101,13 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 compact={compact}
                 onToggleDensity={toggleDensity}
               />
-              <main className='admin-main'>
+              <main ref={mainRef} className='admin-main'>
                 <OperatorRouteGuard />
                 <IdleSessionGuard />
                 <AdminBreadcrumb />
                 {children}
               </main>
+              <AdminScrollNav containerRef={mainRef} />
             </div>
           </div>
           <AdminToastHost />

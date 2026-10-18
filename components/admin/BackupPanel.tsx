@@ -3,6 +3,7 @@
 import { fetchSiteData, saveSiteData } from '@/lib/admin/saveSite';
 import { useCallback, useEffect, useState } from 'react';
 import { showToast } from './AdminToast';
+import { useAdminRole } from './AdminRoleContext';
 
 interface BackupInfo {
   name: string;
@@ -12,6 +13,7 @@ interface BackupInfo {
 
 /** Export / import + server-side rolling backups + restore. */
 export function BackupPanel() {
+  const { can } = useAdminRole();
   const [busy, setBusy] = useState(false);
   const [backups, setBackups] = useState<BackupInfo[]>([]);
 
@@ -161,6 +163,7 @@ export function BackupPanel() {
         <button type='button' className='admin-btn admin-btn--secondary' disabled={busy} onClick={() => void snapshotNow()}>
           💾 Snapshot
         </button>
+        {can('restore_backup') ? (
         <label className='admin-btn admin-btn--secondary admin-file-btn'>
           ⬆ Імпорт JSON
           <input
@@ -175,6 +178,7 @@ export function BackupPanel() {
             }}
           />
         </label>
+        ) : null}
         <button type='button' className='admin-btn admin-btn--secondary' disabled={busy} onClick={() => void loadList()}>
           Оновити список
         </button>
@@ -193,6 +197,7 @@ export function BackupPanel() {
                   · {(b.size / 1024).toFixed(1)} KB · {new Date(b.mtime).toLocaleString()}
                 </span>
               </div>
+              {can('restore_backup') ? (
               <div className='admin-row'>
                 <button
                   type='button'
@@ -211,6 +216,7 @@ export function BackupPanel() {
                   ×
                 </button>
               </div>
+              ) : null}
             </li>
           ))}
         </ul>

@@ -15,6 +15,8 @@ services:
       SESSION_SECRET: ${SESSION_SECRET:-byou-dev-session-secret-change-me}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       ADMIN_IP_ALLOWLIST: ${ADMIN_IP_ALLOWLIST:-}
+      # nginx in front overwrites X-Real-IP / X-Forwarded-For
+      TRUST_PROXY: ${TRUST_PROXY:-true}
       AUTO_BACKUP: ${AUTO_BACKUP:-true}
       BACKUP_KEEP: ${BACKUP_KEEP:-20}
       BACKUP_CRON_SECRET: ${BACKUP_CRON_SECRET:-}
@@ -30,6 +32,7 @@ services:
       MAIL_FROM: ${MAIL_FROM:-}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
       ADMIN_TOTP_SECRET: ${ADMIN_TOTP_SECRET:-}
     volumes:
       - ./data:/app/data

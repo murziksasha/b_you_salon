@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { FormEvent, useMemo, useState } from 'react';
+import { type FormEvent, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Product } from '@/lib/types';
 import { MAX_QTY, availableCartItems, cartTotal, hydrateCart } from '@/lib/cart';
@@ -9,13 +9,7 @@ import { isValidUaPhone, PHONE_PLACEHOLDER } from '@/lib/phone';
 import { PhoneInput } from '@/components/forms/PhoneInput';
 import { useCart } from './CartProvider';
 
-export function CartCheckout({
-  products,
-  pickupHint,
-}: {
-  products: Product[];
-  pickupHint?: string;
-}) {
+export function CartCheckout({ products, pickupHint }: { products: Product[]; pickupHint?: string }) {
   const { lines, setQty, remove, clear } = useCart();
   const hydrated = useMemo(() => hydrateCart(lines, products), [lines, products]);
   const items = availableCartItems(hydrated);
@@ -59,7 +53,7 @@ export function CartCheckout({
           fulfillment,
           address: String(fd.get('address') || ''),
           website: String(fd.get('website') || ''),
-          items: items.map((i) => ({ id: i.id, qty: i.qty })),
+          items: items.map(i => ({ id: i.id, qty: i.qty })),
           pagePath: `${window.location.pathname}${window.location.search}`.slice(0, 300),
         }),
       });
@@ -94,7 +88,7 @@ export function CartCheckout({
     <div className='cart-layout'>
       <div className='cart-lines'>
         <div className='cart-table'>
-          {hydrated.map((row) => {
+          {hydrated.map(row => {
             const unit = row.product?.price || 0;
             const lineTotal = unit * row.qty;
             return (
@@ -138,7 +132,7 @@ export function CartCheckout({
                         max={MAX_QTY}
                         value={row.qty}
                         aria-label='Кількість'
-                        onChange={(e) => setQty(row.id, Number(e.target.value))}
+                        onChange={e => setQty(row.id, Number(e.target.value))}
                       />
                       <button
                         type='button'
@@ -153,9 +147,7 @@ export function CartCheckout({
                   ) : (
                     <span />
                   )}
-                  {row.available ? (
-                    <p className='cart-row__line-total'>{lineTotal.toLocaleString('uk-UA')} ₴</p>
-                  ) : null}
+                  {row.available ? <p className='cart-row__line-total'>{lineTotal.toLocaleString('uk-UA')} ₴</p> : null}
                   <button
                     type='button'
                     className='by-btn by-btn--ghost cart-row__remove'

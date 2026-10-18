@@ -53,13 +53,14 @@ Single-instance: цілий файл перезаписується при `save
 
 ## Auth
 
-1. `POST /api/auth` — `verifyPassword` (timing-safe) проти `ADMIN_PASSWORD` + optional TOTP
-2. `createSession` — cookie `admin_session` = `token.expiry.hmac`
-3. `middleware.ts` захищає `/admin/*` (крім login)
-4. API `GET/PUT /api/site`, `POST /api/upload` перевіряють сесію
-5. 2FA setup: `GET/POST /api/auth/totp` (session + password re-auth)
-
-Secret: `SESSION_SECRET` (або fallback `ADMIN_PASSWORD` / dev default).
+1. `POST /api/auth` — multi-user (`data/admins.json`, scrypt) or env `ADMIN_PASSWORD` (gated by `ADMIN_ENV_LOGIN`: `always` | `auto` | `breakglass` | `off`, `lib/admin/env-login.ts`).
+2. Rate limit per IP (10/min) + per-username lockout (5 failures / 15 min, `lib/login-lockout.ts`).
+3. 2FA: personal TOTP per user (`admins.json` → `totp`, never listed); users without personal TOTP fall back to the global secret (`ADMIN_TOTP_SECRET` / `data/admin-totp.json`) — transitional.
+4. `createSession` — cookie `admin_session` = `token.expiry.claimsHex.hmac` (claim-less tokens rejected). Signing key: `SESSION_SECRET` (required in prod, >= 32 chars).
+5. Authorization uses the live `admins.json` row (`resolveAdminAccess`); deleted/disabled users lose access immediately.
+6. `middleware.ts` — deny-by-default for `/api/*` (except `PUBLIC_API`): IP allowlist (`TRUST_PROXY` decides whether proxy headers are trusted) + Origin check for state-changing methods; `/admin/*` cookie presence.
+7. Pages: `requirePageAccess` (server-side role check). API: `withAdmin` / `requireAdminRole`.
+8. Step-up for sensitive actions (users, sessions, 2FA): current user's own password (`lib/admin/reauth.ts`).
 
 ## Public rendering
 
@@ -183,7 +184,7 @@ Leads (callback) and orders (shop) are **separate** files and admin sections.
 ### Notifications
 
 - Email: nodemailer → `MAIL_TO` (contact + orders)
-- Telegram: `TELEGRAM_BOT_TOKEN` + paired subscribers (`data/telegram-subscribers.json`) and optional `TELEGRAM_CHAT_ID` (`lib/notify.ts`). Pushes include masked phone + inline keyboard (copy / Viber https-redirect `/r/viber` / admin / claim). Skip if quiet hours or the phone already has another open inbox item. Digest + catch-up run in pm2 `byou-telegram` (`lib/telegram-digest.ts`).
+- Telegram: `TELEGRAM_BOT_TOKEN` + paired subscribers (`data/telegram-subscribers.json`) and optional `TELEGRAM_CHAT_ID` (`lib/notify.ts`). Pushes include masked phone + inline keyboard (copy / Viber https-redirect `/r/viber` / admin / claim). Skip if quiet hours or the phone already has another open inbox item. Updates: `POST /api/telegram/webhook` (secret header) when `TELEGRAM_WEBHOOK_SECRET` + public https `SITE_URL`; otherwise pm2 `byou-telegram` long-poll. Digest + catch-up run in Next.js (`lib/telegram-digest-runner.ts`).
 - Admin SMTP test: `POST /api/smtp-test` (session)
 
 ### Partial site API
@@ -207,6 +208,7 @@ Leads (callback) and orders (shop) are **separate** files and admin sections.
 ## Admin shell
 
 - Viewport-locked layout (`admin-shell` 100dvh, `overflow: hidden`): only `admin-main` scrolls; sidebar stays visible.
+- Services editor (`/admin/services`): **Редагувати** / **+ Послуга** jumps `admin-main` to `#service-edit-form` (form sits above the list; hash via `replaceState`). Same idea as goods (`#goods-edit-form`).
 - Desktop collapse to icons: `AdminShell` + `localStorage` key `admin-nav-collapsed`; labels hidden via `.admin-shell--nav-collapsed`.
 
 ## Media

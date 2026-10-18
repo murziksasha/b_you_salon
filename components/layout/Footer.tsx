@@ -17,6 +17,7 @@ const SOCIAL_LABEL: Record<string, string> = {
   telegram: 'Telegram',
   viber: 'Viber',
   instagram: 'Instagram',
+  facebook: 'Facebook',
   youtube: 'YouTube',
 };
 

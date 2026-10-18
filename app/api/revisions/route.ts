@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminRole } from '@/lib/require-role';
 import { getPageRevision, listPageRevisions, savePageRevision } from '@/lib/revisions';
 import { getSiteData, saveSiteData } from '@/lib/site-data';
-import { appendActivity } from '@/lib/admin-activity';
+import { safeAudit } from '@/lib/api/audit';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,15 +55,11 @@ export async function POST(request: NextRequest) {
       const restored = { ...rev.page, id: page.id, slug: page.slug };
       const pages = site.pages.map(p => (p.id === page.id ? restored : p));
       const saved = await saveSiteData({ ...site, pages });
-      try {
-        await appendActivity({
+      await safeAudit({
           kind: 'site_restore',
           message: `Відновлено сторінку «${page.title}» з ревізії`,
           actor: g.username,
         });
-      } catch {
-        /* ignore */
-      }
       return NextResponse.json({ ok: true, page: restored, updatedAt: saved.updatedAt });
     }
 

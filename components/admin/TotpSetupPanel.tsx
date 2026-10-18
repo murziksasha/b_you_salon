@@ -246,7 +246,7 @@ export function TotpSetupPanel() {
       {!status.managedByEnv && phase === 'idle' && !status.enabled ? (
         <div className='admin-totp-form'>
           <label>
-            Пароль адмінки (підтвердження)
+            Ваш пароль (підтвердження)
             <input
               type='password'
               autoComplete='current-password'
@@ -294,7 +294,7 @@ export function TotpSetupPanel() {
             </div>
           </label>
           <label>
-            Пароль адмінки
+            Ваш пароль
             <input
               type='password'
               autoComplete='current-password'
@@ -363,7 +363,7 @@ export function TotpSetupPanel() {
                 Для вимкнення потрібні пароль адмінки та поточний код з Authenticator.
               </p>
               <label>
-                Пароль адмінки
+                Ваш пароль
                 <input
                   type='password'
                   autoComplete='current-password'

@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useId, useState } from 'react';
+import { type FormEvent, useId, useState } from 'react';
 import { isValidUaPhone, PHONE_PLACEHOLDER } from '@/lib/phone';
 import { PhoneInput } from './PhoneInput';
 
@@ -20,13 +20,7 @@ function formatRetryWait(sec: number): string {
   return 'хвилину';
 }
 
-export function OrderForm({
-  productId,
-  productTitle,
-}: {
-  productId: string;
-  productTitle: string;
-}) {
+export function OrderForm({ productId, productTitle }: { productId: string; productTitle: string }) {
   const [status, setStatus] = useState('');
   const [isError, setIsError] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -64,11 +58,7 @@ export function OrderForm({
         if (response.status === 400) {
           const json = (await response.json().catch(() => null)) as { error?: string } | null;
           setIsError(true);
-          setStatus(
-            json?.error === 'Product not available'
-              ? 'Товар недоступний для замовлення'
-              : MESSAGES.invalid,
-          );
+          setStatus(json?.error === 'Product not available' ? 'Товар недоступний для замовлення' : MESSAGES.invalid);
           return;
         }
         throw new Error('Request failed');

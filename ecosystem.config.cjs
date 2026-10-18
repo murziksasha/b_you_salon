@@ -5,7 +5,7 @@
  *
  * Apps:
  *   byou           — Next.js
- *   byou-telegram  — admin Telegram bot (long-poll getUpdates)
+ *   byou-telegram  — admin Telegram bot (long-poll fallback if webhook is off)
  */
 const fs = require("fs");
 const path = require("path");

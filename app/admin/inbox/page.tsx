@@ -1,3 +1,4 @@
+import { requirePageAccess } from '@/lib/admin/page-guard';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { InboxPanel } from '@/components/admin/InboxPanel';
 
@@ -8,6 +9,7 @@ export default async function AdminInboxPage({
 }: {
   searchParams: Promise<{ phone?: string; filter?: string }>;
 }) {
+  await requirePageAccess('/admin/inbox');
   const sp = await searchParams;
   return (
     <AdminShell>

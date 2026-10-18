@@ -19,7 +19,7 @@ export type SessionRecord = {
 type SessionsStore = { sessions: SessionRecord[]; revoked?: string[] };
 type RevokedStore = SessionsStore;
 
-const MAX_SESSIONS = 50;
+const MAX_SESSIONS = 100;
 
 function dataRoot(): string {
   return process.env.DATA_DIR || path.join(process.cwd(), 'data');

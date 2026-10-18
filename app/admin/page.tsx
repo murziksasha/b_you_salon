@@ -1,3 +1,5 @@
+import { requirePageAccess } from '@/lib/admin/page-guard';
+import { roleCan } from '@/lib/admin-roles';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { HealthPanel } from '@/components/admin/HealthPanel';
 import { DashboardExtras, OnboardingChecklist } from '@/components/admin/DashboardExtras';
@@ -10,16 +12,18 @@ import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboard() {
+  const access = await requirePageAccess('/admin');
+  const canSeeSecurity = roleCan(access.role, 'security_owner', access.grants);
   const site = await getSiteData();
-  const visiblePages = site.pages.filter((p) => p.visible).length;
-  const visibleGoods = site.goods.filter((g) => g.visible).length;
+  const visiblePages = site.pages.filter(p => p.visible).length;
+  const visibleGoods = site.goods.filter(g => g.visible).length;
   const cookieSecure = process.env.COOKIE_SECURE;
   const smtpConfigured = Boolean(process.env.SMTP_USER && process.env.SMTP_PASS);
   const strongPassword =
     Boolean(process.env.ADMIN_PASSWORD) &&
     process.env.ADMIN_PASSWORD !== 'changeme' &&
     (process.env.ADMIN_PASSWORD?.length ?? 0) >= 8;
-  const hasSessionSecret = Boolean(process.env.SESSION_SECRET);
+  const hasSessionSecret = (process.env.SESSION_SECRET?.length ?? 0) >= 32;
   const totp = await getTotpSecret();
 
   let openLeads = 0;
@@ -43,8 +47,7 @@ export default async function AdminDashboard() {
     <AdminShell>
       <h1>Огляд</h1>
       <p className='admin-hint admin-mb-lg'>
-        Операційний центр: черга звернень, контент, здоровʼя системи. Швидкий пошук —{' '}
-        <kbd>Ctrl+K</kbd>.
+        Операційний центр: черга звернень, контент, здоровʼя системи. Швидкий пошук — <kbd>Ctrl+K</kbd>.
       </p>
 
       <div className='admin-stats'>
@@ -81,13 +84,15 @@ export default async function AdminDashboard() {
         </div>
       </div>
 
-      <OnboardingChecklist
-        hasLogo={hasLogo}
-        hasPhone={hasPhone}
-        goodsCount={site.goods.length}
-        smtpConfigured={smtpConfigured}
-        totpHint={Boolean(totp)}
-      />
+      {canSeeSecurity && (
+        <OnboardingChecklist
+          hasLogo={hasLogo}
+          hasPhone={hasPhone}
+          goodsCount={site.goods.length}
+          smtpConfigured={smtpConfigured}
+          totpHint={Boolean(totp)}
+        />
+      )}
 
       <DashboardExtras />
 
@@ -129,37 +134,37 @@ export default async function AdminDashboard() {
         <HealthPanel />
       </div>
 
-      <div className='admin-card'>
-        <h2 className='admin-h2'>Конфіг (env)</h2>
-        <ul className='admin-checklist'>
-          <li className={strongPassword ? 'is-ok' : 'is-warn'}>
-            {strongPassword ? '✓' : '!'} Пароль адмінки
-            {!strongPassword ? ' — змініть ADMIN_PASSWORD (не changeme, ≥8 символів)' : ''}
-          </li>
-          <li className={hasSessionSecret ? 'is-ok' : 'is-warn'}>
-            {hasSessionSecret ? '✓' : '!'} SESSION_SECRET
-            {!hasSessionSecret ? ' — задайте окремий секрет для cookie' : ''}
-          </li>
-          <li className={cookieSecure === 'false' || cookieSecure === undefined ? 'is-ok' : 'is-info'}>
-            COOKIE_SECURE={cookieSecure ?? '(auto)'}
-            {cookieSecure !== 'false' ? ' — для HTTP через Keen DNS зазвичай false' : ' (OK для HTTP у LAN)'}
-          </li>
-          <li className={smtpConfigured ? 'is-ok' : 'is-warn'}>
-            {smtpConfigured ? '✓' : '!'} SMTP
-            {!smtpConfigured
-              ? ' — email вимкнено; заявки/замовлення все одно в журналах'
-              : ''}
-          </li>
-          <li className={totp ? 'is-ok' : 'is-info'}>
-            {totp ? '✓ 2FA TOTP увімкнено' : '2FA вимкнено — увімкніть у Налаштуваннях'}
-          </li>
-          <li className={process.env.ADMIN_IP_ALLOWLIST ? 'is-ok' : 'is-info'}>
-            {process.env.ADMIN_IP_ALLOWLIST
-              ? `✓ ADMIN_IP_ALLOWLIST активний`
-              : 'ADMIN_IP_ALLOWLIST порожній — адмінка доступна з будь-якої IP (лише пароль)'}
-          </li>
-        </ul>
-      </div>
+      {canSeeSecurity && (
+        <div className='admin-card'>
+          <h2 className='admin-h2'>Конфіг (env)</h2>
+          <ul className='admin-checklist'>
+            <li className={strongPassword ? 'is-ok' : 'is-warn'}>
+              {strongPassword ? '✓' : '!'} Пароль адмінки
+              {!strongPassword ? ' — змініть ADMIN_PASSWORD (не changeme, ≥8 символів)' : ''}
+            </li>
+            <li className={hasSessionSecret ? 'is-ok' : 'is-warn'}>
+              {hasSessionSecret ? '✓' : '!'} SESSION_SECRET
+              {!hasSessionSecret ? ' — задайте окремий секрет для cookie (≥32 символи)' : ''}
+            </li>
+            <li className={cookieSecure === 'false' || cookieSecure === undefined ? 'is-ok' : 'is-info'}>
+              COOKIE_SECURE={cookieSecure ?? '(auto)'}
+              {cookieSecure !== 'false' ? ' — для HTTP через Keen DNS зазвичай false' : ' (OK для HTTP у LAN)'}
+            </li>
+            <li className={smtpConfigured ? 'is-ok' : 'is-warn'}>
+              {smtpConfigured ? '✓' : '!'} SMTP
+              {!smtpConfigured ? ' — email вимкнено; заявки/замовлення все одно в журналах' : ''}
+            </li>
+            <li className={totp ? 'is-ok' : 'is-info'}>
+              {totp ? '✓ 2FA TOTP увімкнено' : '2FA вимкнено — увімкніть у Налаштуваннях'}
+            </li>
+            <li className={process.env.ADMIN_IP_ALLOWLIST ? 'is-ok' : 'is-info'}>
+              {process.env.ADMIN_IP_ALLOWLIST
+                ? `✓ ADMIN_IP_ALLOWLIST активний`
+                : 'ADMIN_IP_ALLOWLIST порожній — адмінка доступна з будь-якої IP (лише пароль)'}
+            </li>
+          </ul>
+        </div>
+      )}
     </AdminShell>
   );
 }
