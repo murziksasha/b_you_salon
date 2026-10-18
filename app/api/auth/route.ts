@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateLogin, createSession, destroySession, getSessionClaims, getSessionFingerprint } from '@/lib/auth';
 import { appendActivity } from '@/lib/admin-activity';
+import { lockoutRetryAfterSec, recordLoginFailure, resetLoginFailures } from '@/lib/login-lockout';
+import { hasMultiUserMode } from '@/lib/admin-users';
+import { isBreakglassActive } from '@/lib/admin/env-login';
+import { sendTelegramMessage } from '@/lib/notify';
+import { safeAudit } from '@/lib/api/audit';
 import { markFingerprintRevoked, registerSession } from '@/lib/admin-sessions';
 import { assertAdminIp } from '@/lib/require-admin-ip';
 import { clientKey, rateLimit } from '@/lib/rate-limit';
@@ -30,22 +35,52 @@ export async function POST(request: NextRequest) {
     const username = typeof body.username === 'string' ? body.username : '';
     const totp = typeof body.totp === 'string' ? body.totp : '';
 
-    if (!process.env.ADMIN_PASSWORD) {
+    if (!process.env.ADMIN_PASSWORD && !(await hasMultiUserMode())) {
       return NextResponse.json({ error: 'ADMIN_PASSWORD is not set in .env' }, { status: 503 });
+    }
+
+    const lockedFor = lockoutRetryAfterSec(username);
+    if (lockedFor > 0) {
+      return NextResponse.json(
+        { error: 'Too many attempts', retryAfter: lockedFor },
+        { status: 429, headers: { 'Retry-After': String(lockedFor) } },
+      );
     }
 
     const auth = await authenticateLogin({ password, username });
     if (!auth.ok) {
+      if (recordLoginFailure(username)) {
+        await safeAudit({
+          kind: 'security',
+          message: `Блокування входу: ${username || 'admin'} (5 невдалих спроб)`,
+          actor: username || 'admin',
+        });
+        void sendTelegramMessage(
+          `⚠️ B_You: 5 невдалих входів для «${username || 'admin'}», вхід заблоковано на 15 хв`,
+        ).catch(err => console.error('[auth] lockout alert failed', err));
+      }
       return NextResponse.json({ error: auth.error }, { status: 401 });
     }
 
-    const totpActive = await getTotpSecret();
+    // Personal TOTP wins; otherwise the global (env/file) secret applies (transitional mode).
+    const totpActive = auth.userTotpSecret
+      ? { secret: auth.userTotpSecret, source: 'user' as const }
+      : await getTotpSecret();
     if (totpActive) {
       if (!verifyTotp(totpActive.secret, totp)) {
+        if (totp) recordLoginFailure(username);
         return NextResponse.json({ error: 'Invalid 2FA code', needTotp: true }, { status: 401 });
       }
     }
 
+    if (auth.viaEnvPassword && isBreakglassActive()) {
+      await safeAudit({ kind: 'security', message: 'Break-glass вхід через ADMIN_PASSWORD', actor: 'admin' });
+      void sendTelegramMessage('⚠️ B_You: break-glass вхід в адмінку через ADMIN_PASSWORD').catch(err =>
+        console.error('[auth] break-glass alert failed', err),
+      );
+    }
+
+    resetLoginFailures(username);
     const sessionToken = await createSession(auth.claims);
 
     // Register session for revoke-all / list (best-effort)
@@ -64,8 +99,8 @@ export async function POST(request: NextRequest) {
         message: `Вхід: ${auth.claims.username}`,
         actor: auth.claims.username,
       });
-    } catch {
-      /* ignore activity errors */
+    } catch (err) {
+      console.error('[auth] session registration / audit failed', err);
     }
 
     return NextResponse.json({
@@ -100,20 +135,16 @@ export async function DELETE(_request: NextRequest) {
     if (fp) {
       try {
         await markFingerprintRevoked(fp);
-      } catch {
-        /* ignore */
+      } catch (err) {
+        console.error('[auth] failed to revoke session fingerprint', err);
       }
     }
     if (claims) {
-      try {
-        await appendActivity({
-          kind: 'logout',
-          message: `Вихід: ${claims.username}`,
-          actor: claims.username,
-        });
-      } catch {
-        /* ignore */
-      }
+      await safeAudit({
+        kind: 'logout',
+        message: `Вихід: ${claims.username}`,
+        actor: claims.username,
+      });
     }
   } catch {
     /* ignore */

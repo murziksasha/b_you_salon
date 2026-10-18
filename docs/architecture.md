@@ -53,13 +53,14 @@ Single-instance: цілий файл перезаписується при `save
 
 ## Auth
 
-1. `POST /api/auth` — `verifyPassword` (timing-safe) проти `ADMIN_PASSWORD` + optional TOTP
-2. `createSession` — cookie `admin_session` = `token.expiry.hmac`
-3. `middleware.ts` захищає `/admin/*` (крім login)
-4. API `GET/PUT /api/site`, `POST /api/upload` перевіряють сесію
-5. 2FA setup: `GET/POST /api/auth/totp` (session + password re-auth)
-
-Secret: `SESSION_SECRET` (або fallback `ADMIN_PASSWORD` / dev default).
+1. `POST /api/auth` — multi-user (`data/admins.json`, scrypt) or env `ADMIN_PASSWORD` (gated by `ADMIN_ENV_LOGIN`: `always` | `auto` | `breakglass` | `off`, `lib/admin/env-login.ts`).
+2. Rate limit per IP (10/min) + per-username lockout (5 failures / 15 min, `lib/login-lockout.ts`).
+3. 2FA: personal TOTP per user (`admins.json` → `totp`, never listed); users without personal TOTP fall back to the global secret (`ADMIN_TOTP_SECRET` / `data/admin-totp.json`) — transitional.
+4. `createSession` — cookie `admin_session` = `token.expiry.claimsHex.hmac` (claim-less tokens rejected). Signing key: `SESSION_SECRET` (required in prod, >= 32 chars).
+5. Authorization uses the live `admins.json` row (`resolveAdminAccess`); deleted/disabled users lose access immediately.
+6. `middleware.ts` — deny-by-default for `/api/*` (except `PUBLIC_API`): IP allowlist (`TRUST_PROXY` decides whether proxy headers are trusted) + Origin check for state-changing methods; `/admin/*` cookie presence.
+7. Pages: `requirePageAccess` (server-side role check). API: `withAdmin` / `requireAdminRole`.
+8. Step-up for sensitive actions (users, sessions, 2FA): current user's own password (`lib/admin/reauth.ts`).
 
 ## Public rendering
 

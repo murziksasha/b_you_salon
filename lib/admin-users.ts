@@ -33,7 +33,11 @@ export type AdminUser = {
   grants?: AdminCapability[];
   createdAt: string;
   disabled?: boolean;
+  /** Personal TOTP (stage 7). Never returned by listAdminUsers. */
+  totp?: { secret: string; enabledAt: string };
 };
+
+export type PublicAdminUser = Omit<AdminUser, 'passwordHash' | 'totp'> & { totpEnabled: boolean };
 
 export type UserMutateResult = { ok: true } | { error: string };
 
@@ -97,9 +101,25 @@ function withUsersLock<T>(fn: () => Promise<T>): Promise<T> {
   return withFileMutex(adminsFilePath(), fn);
 }
 
-export async function listAdminUsers(): Promise<Omit<AdminUser, 'passwordHash'>[]> {
+export async function listAdminUsers(): Promise<PublicAdminUser[]> {
   const store = await readStore();
-  return store.users.map(({ passwordHash: _, ...u }) => u);
+  return store.users.map(({ passwordHash: _, totp, ...u }) => ({ ...u, totpEnabled: Boolean(totp?.secret) }));
+}
+
+/** Set (secret) or clear (null) a user's personal TOTP. */
+export async function setUserTotp(username: string, secret: string | null): Promise<UserMutateResult> {
+  return withUsersLock(async () => {
+    const store = await readStore();
+    const key = username.trim().toLowerCase();
+    const idx = store.users.findIndex((u) => u.username.toLowerCase() === key);
+    if (idx < 0) return { error: 'Not found' };
+    const next: AdminUser = { ...store.users[idx] };
+    if (secret) next.totp = { secret, enabledAt: new Date().toISOString() };
+    else delete next.totp;
+    store.users[idx] = next;
+    await writeStore(store);
+    return { ok: true };
+  });
 }
 
 export async function getAdminUserByUsername(username: string): Promise<AdminUser | null> {

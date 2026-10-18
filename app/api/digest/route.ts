@@ -4,7 +4,7 @@ import { listLeads } from '@/lib/leads';
 import { listOrders } from '@/lib/orders';
 import { buildEveningDigest, buildMorningDigest, buildSlaReminder } from '@/lib/process-digest';
 import { broadcastTelegram, telegramCanSend, telegramConfigured } from '@/lib/notify';
-import { appendActivity } from '@/lib/admin-activity';
+import { safeAudit } from '@/lib/api/audit';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,15 +44,11 @@ export async function POST(request: NextRequest) {
       }
       sent = await broadcastTelegram(text, 'ops');
       if (!sent) return NextResponse.json({ error: 'Send failed', text }, { status: 502 });
-      try {
-        await appendActivity({
+      await safeAudit({
           kind: 'other',
           message: `Digest ${kind} → Telegram`,
           actor: g.username,
         });
-      } catch {
-        /* ignore */
-      }
     }
     return NextResponse.json({ ok: true, kind, text, sent });
   } catch {

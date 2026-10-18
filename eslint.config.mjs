@@ -40,6 +40,16 @@ const config = [
       'react/no-danger': 'off',
     },
   },
+  {
+    // FSD: import features only through their public API (features/<name>/index.ts).
+    files: ['app/**', 'components/**', 'lib/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        { patterns: [{ group: ['@/features/*/*'], message: 'Import from @/features/<name> (index.ts) only.' }] },
+      ],
+    },
+  },
 ];
 
 export default config;

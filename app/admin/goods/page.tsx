@@ -1,3 +1,4 @@
+import { requirePageAccess } from '@/lib/admin/page-guard';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { GoodsEditor } from '@/components/admin/GoodsEditor';
 import { getSiteData } from '@/lib/site-data';
@@ -5,6 +6,7 @@ import { getSiteData } from '@/lib/site-data';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminGoodsPage() {
+  await requirePageAccess('/admin/goods');
   const site = await getSiteData();
   return (
     <AdminShell>
