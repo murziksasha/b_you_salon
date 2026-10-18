@@ -1,6 +1,13 @@
 {
   "entries": [
     {
+      "id": "b9db27db1ca5",
+      "at": "2026-09-29T04:53:35.836Z",
+      "kind": "login",
+      "message": "Вхід: admin",
+      "actor": "admin"
+    },
+    {
       "id": "12e801e8e013",
       "at": "2026-08-31T20:20:30.008Z",
       "kind": "login",
