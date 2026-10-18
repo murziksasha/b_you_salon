@@ -12,9 +12,30 @@ import {
   parseProductSort,
   type ProductSort,
 } from '@/lib/shop-catalog';
+import { ChevronDown } from 'lucide-react';
 import { ProductGrid } from './ProductGrid';
 
 const DEBOUNCE_MS = 250;
+const COLLAPSED_STORAGE_KEY = 'byou-shop-collapsed-groups';
+
+function readCollapsedGroups(): string[] {
+  try {
+    const raw = window.localStorage.getItem(COLLAPSED_STORAGE_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeCollapsedGroups(keys: string[]): void {
+  try {
+    if (keys.length) window.localStorage.setItem(COLLAPSED_STORAGE_KEY, JSON.stringify(keys));
+    else window.localStorage.removeItem(COLLAPSED_STORAGE_KEY);
+  } catch {
+    // Storage unavailable (private mode, quota) — collapse still works for this session.
+  }
+}
 
 function catalogKey(q: string, sort: ProductSort, category: string): string {
   return `${q.trim()}|${sort}|${category.trim()}`;
@@ -50,7 +71,24 @@ export function ShopCatalog({
   const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
   const [sort, setSort] = useState<ProductSort>(initialSort);
   const [category, setCategory] = useState(initialCategory);
+  // Collapsed category groups, keyed by group key (category name). Empty on SSR, restored after mount.
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
   const lastSyncedKey = useRef(catalogKey(initialQuery, initialSort, initialCategory));
+
+  useEffect(() => {
+    const stored = readCollapsedGroups();
+    if (stored.length) setCollapsed(new Set(stored));
+  }, []);
+
+  const toggleGroup = useCallback((key: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      writeCollapsedGroups([...next]);
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedQuery(query), DEBOUNCE_MS);
@@ -225,15 +263,38 @@ export function ShopCatalog({
       {filtered.length ? (
         showGrouped ? (
           <div className='shop-groups'>
-            {groups.map((group) => (
-              <section key={group.key} className='shop-group' aria-labelledby={`shop-group-${group.key}`}>
-                <h2 className='shop-group__title' id={`shop-group-${group.key}`}>
-                  {group.label}
-                  <span className='shop-group__count'>{group.total}</span>
-                </h2>
-                <ProductGrid products={group.products} />
-              </section>
-            ))}
+            {groups.map((group, index) => {
+              const isCollapsed = collapsed.has(group.key);
+              const titleId = `shop-group-title-${index}`;
+              const panelId = `shop-group-panel-${index}`;
+              return (
+                <section
+                  key={group.key}
+                  className={`shop-group${isCollapsed ? ' is-collapsed' : ''}`}
+                  aria-labelledby={titleId}
+                >
+                  <h2 className='shop-group__title'>
+                    <button
+                      type='button'
+                      id={titleId}
+                      className='shop-group__toggle'
+                      aria-expanded={!isCollapsed}
+                      aria-controls={panelId}
+                      onClick={() => toggleGroup(group.key)}
+                    >
+                      <span className='shop-group__label'>{group.label}</span>
+                      <span className='shop-group__count'>{group.total}</span>
+                      <ChevronDown className='shop-group__chevron' size={22} aria-hidden='true' />
+                    </button>
+                  </h2>
+                  <div id={panelId} className='shop-group__panel' inert={isCollapsed}>
+                    <div className='shop-group__panel-inner'>
+                      <ProductGrid products={group.products} />
+                    </div>
+                  </div>
+                </section>
+              );
+            })}
           </div>
         ) : (
           <ProductGrid products={filtered} />
