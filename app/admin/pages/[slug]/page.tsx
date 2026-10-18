@@ -1,5 +1,6 @@
+import { requirePageAccess } from '@/lib/admin/page-guard';
 import { AdminShell } from '@/components/admin/AdminShell';
-import { PageConstructor } from '@/components/admin/PageConstructor';
+import { PageConstructor } from '@/features/page-constructor';
 import { getSiteData } from '@/lib/site-data';
 import { notFound } from 'next/navigation';
 
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export default async function AdminPageEditor({ params }: Props) {
+  await requirePageAccess('/admin/pages');
   const { slug } = await params;
   const site = await getSiteData();
   const pageSlug = slug === 'home' ? '' : slug;

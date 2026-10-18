@@ -1,134 +1,71 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { verifyPassword } from '@/lib/auth';
+import { NextResponse } from 'next/server';
+import { verifyCurrentUserPassword } from '@/lib/admin/reauth';
 import {
   createAdminUser,
   deleteAdminUser,
   listAdminUsers,
+  setUserTotp,
   updateAdminUser,
-  type AdminRole,
 } from '@/lib/admin-users';
-import { isAdminRole, type AdminCapability } from '@/lib/admin-roles';
-import { appendActivity } from '@/lib/admin-activity';
-import { requireAdminRole } from '@/lib/require-role';
+import { revokeSessionsByUsername } from '@/lib/admin-sessions';
+import { safeAudit } from '@/lib/api/audit';
+import { apiError, withAdmin } from '@/lib/api/handler';
+import { CreateUserSchema, DeleteUserSchema, UpdateUserSchema, reAuthPassword } from '@/lib/schemas/admin';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
-  const g = await requireAdminRole('users');
-  if (!g.ok) return g.response;
+const reAuthFailed = () => apiError(403, 'reauth_failed', 'Потрібен ваш пароль');
+
+export const GET = withAdmin('users', null, async () => {
   const users = await listAdminUsers();
   return NextResponse.json({ users });
-}
+});
 
-export async function POST(request: NextRequest) {
-  const g = await requireAdminRole('users');
-  if (!g.ok) return g.response;
+export const POST = withAdmin('users', CreateUserSchema, async ({ access, body }) => {
+  if (!(await verifyCurrentUserPassword(access, reAuthPassword(body)))) return reAuthFailed();
+  const result = await createAdminUser({
+    username: body.username,
+    password: body.password,
+    role: body.role ?? 'operator',
+    grants: body.grants,
+  });
+  if ('error' in result) return apiError(400, 'invalid', result.error);
+  await safeAudit({
+    kind: 'security',
+    message: `Створено користувача ${result.username} (${result.role})`,
+    actor: access.username,
+  });
+  return NextResponse.json({ ok: true, user: result });
+});
 
-  try {
-    const body = (await request.json()) as {
-      username?: string;
-      password?: string;
-      role?: AdminRole;
-      grants?: AdminCapability[];
-      ownerPassword?: string;
-    };
-    if (!verifyPassword(body.ownerPassword || '')) {
-      return NextResponse.json({ error: 'Потрібен пароль власника' }, { status: 403 });
-    }
-    const role = isAdminRole(body.role) ? body.role : 'operator';
-    const result = await createAdminUser({
-      username: body.username || '',
-      password: body.password || '',
-      role,
-      grants: body.grants,
-    });
-    if ('error' in result) {
-      return NextResponse.json({ error: result.error }, { status: 400 });
-    }
-    try {
-      await appendActivity({
-        kind: 'security',
-        message: `Створено користувача ${result.username} (${result.role})`,
-        actor: g.username,
-      });
-    } catch {
-      /* ignore */
-    }
-    return NextResponse.json({ ok: true, user: result });
-  } catch {
-    return NextResponse.json({ error: 'Bad request' }, { status: 400 });
+export const PATCH = withAdmin('users', UpdateUserSchema, async ({ access, body }) => {
+  if (!(await verifyCurrentUserPassword(access, reAuthPassword(body)))) return reAuthFailed();
+  if (body.resetTotp) {
+    const target = (await listAdminUsers()).find((u) => u.id === body.id);
+    if (!target) return apiError(404, 'not_found', 'Not found');
+    await setUserTotp(target.username, null);
+    await revokeSessionsByUsername(target.username).catch((err) => console.error('[users] revoke failed', err));
+    await safeAudit({ kind: 'security', message: `Скинуто 2FA: ${target.username}`, actor: access.username });
   }
-}
-
-export async function PATCH(request: NextRequest) {
-  const g = await requireAdminRole('users');
-  if (!g.ok) return g.response;
-  try {
-    const body = (await request.json()) as {
-      id?: string;
-      role?: AdminRole;
-      disabled?: boolean;
-      password?: string;
-      grants?: AdminCapability[];
-      ownerPassword?: string;
-    };
-    if (!verifyPassword(body.ownerPassword || '')) {
-      return NextResponse.json({ error: 'Потрібен пароль власника' }, { status: 403 });
-    }
-    if (!body.id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
-    if (body.password !== undefined && body.password.length < 8) {
-      return NextResponse.json({ error: 'Password must be ≥8 chars' }, { status: 400 });
-    }
-    const result = await updateAdminUser(body.id, {
-      role: isAdminRole(body.role) ? body.role : undefined,
-      disabled: body.disabled,
-      password: body.password,
-      grants: body.grants,
-    });
-    if ('error' in result) {
-      const status = result.error === 'Not found' ? 404 : 400;
-      return NextResponse.json({ error: result.error }, { status });
-    }
-    try {
-      await appendActivity({
-        kind: 'security',
-        message: `Оновлено користувача ${body.id}`,
-        actor: g.username,
-      });
-    } catch {
-      /* ignore */
-    }
-    return NextResponse.json({ ok: true });
-  } catch {
-    return NextResponse.json({ error: 'Bad request' }, { status: 400 });
+  const result = await updateAdminUser(body.id, {
+    role: body.role,
+    disabled: body.disabled,
+    password: body.password,
+    grants: body.grants,
+  });
+  if ('error' in result) {
+    return apiError(result.error === 'Not found' ? 404 : 400, 'invalid', result.error);
   }
-}
+  await safeAudit({ kind: 'security', message: `Оновлено користувача ${body.id}`, actor: access.username });
+  return NextResponse.json({ ok: true });
+});
 
-export async function DELETE(request: NextRequest) {
-  const g = await requireAdminRole('users');
-  if (!g.ok) return g.response;
-  try {
-    const body = (await request.json()) as { id?: string; ownerPassword?: string };
-    if (!verifyPassword(body.ownerPassword || '')) {
-      return NextResponse.json({ error: 'Потрібен пароль власника' }, { status: 403 });
-    }
-    if (!body.id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
-    const result = await deleteAdminUser(body.id);
-    if ('error' in result) {
-      const status = result.error === 'Not found' ? 404 : 400;
-      return NextResponse.json({ error: result.error }, { status });
-    }
-    try {
-      await appendActivity({
-        kind: 'security',
-        message: `Видалено користувача ${body.id}`,
-        actor: g.username,
-      });
-    } catch {
-      /* ignore */
-    }
-    return NextResponse.json({ ok: true });
-  } catch {
-    return NextResponse.json({ error: 'Bad request' }, { status: 400 });
+export const DELETE = withAdmin('users', DeleteUserSchema, async ({ access, body }) => {
+  if (!(await verifyCurrentUserPassword(access, reAuthPassword(body)))) return reAuthFailed();
+  const result = await deleteAdminUser(body.id);
+  if ('error' in result) {
+    return apiError(result.error === 'Not found' ? 404 : 400, 'invalid', result.error);
   }
-}
+  await safeAudit({ kind: 'security', message: `Видалено користувача ${body.id}`, actor: access.username });
+  return NextResponse.json({ ok: true });
+});

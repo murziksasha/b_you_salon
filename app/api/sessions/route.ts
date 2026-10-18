@@ -1,5 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getSessionClaims, getSessionFingerprint, verifyPassword } from '@/lib/auth';
+import { NextResponse } from 'next/server';
+import { getSessionFingerprint } from '@/lib/auth';
+import { verifyCurrentUserPassword } from '@/lib/admin/reauth';
+import { apiError, withAdmin } from '@/lib/api/handler';
+import { RevokeSessionsSchema, reAuthPassword } from '@/lib/schemas/admin';
 import { requireAdminRole } from '@/lib/require-role';
 import {
   listSessions,
@@ -7,7 +10,7 @@ import {
   revokeAllSessions,
   revokeSession,
 } from '@/lib/admin-sessions';
-import { appendActivity } from '@/lib/admin-activity';
+import { safeAudit } from '@/lib/api/audit';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,42 +22,21 @@ export async function GET() {
   return NextResponse.json({ sessions, currentFingerprint: current });
 }
 
-export async function DELETE(request: NextRequest) {
-  const g = await requireAdminRole('security_owner');
-  if (!g.ok) return g.response;
-  const claims = await getSessionClaims();
-
-  try {
-    const body = (await request.json()) as {
-      id?: string;
-      all?: boolean;
-      ownerPassword?: string;
-    };
-    if (!verifyPassword(body.ownerPassword || '')) {
-      return NextResponse.json({ error: 'Потрібен пароль власника' }, { status: 403 });
-    }
-    if (body.all) {
-      const current = await getSessionFingerprint();
-      const n = await revokeAllSessions(current || undefined);
-      try {
-        await appendActivity({
-          kind: 'security',
-          message: `Відкликано сесії (${n})`,
-          actor: claims?.username,
-        });
-      } catch {
-        /* ignore */
-      }
-      return NextResponse.json({ ok: true, revoked: n });
-    }
-    if (!body.id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
-    const sessions = await listSessions();
-    const target = sessions.find((s) => s.id === body.id);
-    if (target) await markFingerprintRevoked(target.fingerprint);
-    const ok = await revokeSession(body.id);
-    if (!ok && !target) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    return NextResponse.json({ ok: true });
-  } catch {
-    return NextResponse.json({ error: 'Bad request' }, { status: 400 });
+export const DELETE = withAdmin('security_owner', RevokeSessionsSchema, async ({ access, body }) => {
+  if (!await verifyCurrentUserPassword(access, reAuthPassword(body))) {
+    return apiError(403, 'reauth_failed', 'Потрібен ваш пароль');
   }
-}
+  if (body.all) {
+    const current = await getSessionFingerprint();
+    const n = await revokeAllSessions(current || undefined);
+    await safeAudit({ kind: 'security', message: `Відкликано сесії (${n})`, actor: access.username });
+    return NextResponse.json({ ok: true, revoked: n });
+  }
+  if (!body.id) return apiError(400, 'invalid', 'Missing id');
+  const sessions = await listSessions();
+  const target = sessions.find((s) => s.id === body.id);
+  if (target) await markFingerprintRevoked(target.fingerprint);
+  const ok = await revokeSession(body.id);
+  if (!ok && !target) return apiError(404, 'not_found', 'Not found');
+  return NextResponse.json({ ok: true });
+});

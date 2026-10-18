@@ -21,6 +21,7 @@ type UserRow = {
   grants?: AdminCapability[];
   createdAt: string;
   disabled?: boolean;
+  totpEnabled?: boolean;
 };
 
 type SessionRow = {
@@ -156,7 +157,7 @@ export function UsersPanel() {
         password,
         role: roleFromPreset(preset),
         grants: preset === 'owner' ? undefined : grants,
-        ownerPassword,
+        confirmPassword: ownerPassword,
       }),
     });
     const json = (await res.json().catch(() => ({}))) as { error?: string };
@@ -190,7 +191,7 @@ export function UsersPanel() {
         grants: editPreset === 'owner' ? undefined : editGrants,
         disabled: editDisabled,
         password: editPassword || undefined,
-        ownerPassword,
+        confirmPassword: ownerPassword,
       }),
     });
     const json = (await res.json().catch(() => ({}))) as { error?: string };
@@ -203,12 +204,28 @@ export function UsersPanel() {
     await load();
   }
 
+  async function resetTotp(id: string) {
+    if (!confirm('Скинути 2FA цьому користувачу? Його сесії буде відкликано.')) return;
+    const res = await fetch('/api/users', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, resetTotp: true, confirmPassword: ownerPassword }),
+    });
+    if (!res.ok) {
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      showToast(json.error || 'Помилка', 'error');
+      return;
+    }
+    showToast('2FA скинуто', 'success');
+    await load();
+  }
+
   async function removeUser(id: string) {
     if (!confirm('Видалити користувача?')) return;
     const res = await fetch('/api/users', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, ownerPassword }),
+      body: JSON.stringify({ id, confirmPassword: ownerPassword }),
     });
     if (!res.ok) {
       const json = (await res.json().catch(() => ({}))) as { error?: string };
@@ -225,7 +242,7 @@ export function UsersPanel() {
     const res = await fetch('/api/sessions', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ all: true, ownerPassword }),
+      body: JSON.stringify({ all: true, confirmPassword: ownerPassword }),
     });
     const json = (await res.json().catch(() => ({}))) as { error?: string; revoked?: number };
     if (!res.ok) {
@@ -256,7 +273,7 @@ export function UsersPanel() {
       </p>
 
       <label className='admin-field admin-mb'>
-        Пароль власника (step-up для чутливих дій)
+        Ваш пароль (step-up для чутливих дій)
         <input
           type='password'
           className='admin-grow'
@@ -280,6 +297,7 @@ export function UsersPanel() {
                 <span className='admin-lead-meta'>
                   {u.role === 'owner' ? 'супер-адмін' : u.role}
                   {u.disabled ? ' · disabled' : ''}
+                  {u.totpEnabled ? ' · 2FA' : ' · без 2FA'}
                   {u.role !== 'owner' && u.grants?.length ? ` · ${u.grants.length} прав` : ''}
                 </span>
               </div>
@@ -291,6 +309,15 @@ export function UsersPanel() {
                 >
                   Права
                 </button>
+                {u.totpEnabled ? (
+                  <button
+                    type='button'
+                    className='admin-btn admin-btn--secondary admin-btn--sm'
+                    onClick={() => void resetTotp(u.id)}
+                  >
+                    Скинути 2FA
+                  </button>
+                ) : null}
                 <button
                   type='button'
                   className='admin-btn admin-btn--danger admin-btn--sm'

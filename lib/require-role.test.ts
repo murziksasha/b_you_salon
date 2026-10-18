@@ -43,7 +43,14 @@ describe('require-role', () => {
       expect(access?.grants).toContain('leads');
     });
 
-    it('falls back to cookie role for owner or legacy if user not in db', async () => {
+    it('denies deleted users even with a stale owner cookie', async () => {
+      vi.mocked(hasMultiUserMode).mockResolvedValue(true);
+      vi.mocked(getAdminUserByUsername).mockResolvedValue(null);
+      expect(await resolveAdminAccess('bob', 'owner')).toBeNull();
+      expect(await resolveAdminAccess('bob', 'legacy')).toBeNull();
+    });
+
+    it('falls back to cookie role for env admin if user not in db', async () => {
       vi.mocked(hasMultiUserMode).mockResolvedValue(true);
       vi.mocked(getAdminUserByUsername).mockResolvedValue(null);
 

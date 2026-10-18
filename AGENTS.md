@@ -1,4 +1,8 @@
-# Agent Profile: Minimalist & B_You Super Feat Guidelines
+# B_You — Agent Guidelines
+
+Two parts: **Agent behavior** (how to work) and **Project rules** (what the code must follow).
+
+# Part 1 — Agent behavior
 
 ## Core Principles
 
@@ -30,9 +34,8 @@
 - If build fails, fix it directly without entering infinite repair loops.
 - **Circuit Breaker:** Max 2 automated fix attempts per failure. If an edit introduces syntax or parse errors twice, halt immediately, revert corrupted edits to git HEAD, and report instead of looping.
 - **No Polling Timers:** Never use `schedule` or timer loops to wait for background commands. Stop calling tools and wait for reactive system wakeup.
-- **Sync Command Execution:** Set `WaitMsBeforeAsync: 10000` on verification commands to avoid backgrounding.
 - **Scoped Verification:** Run targeted checks on modified packages/paths (`npm run typecheck`, `npm test -- <path>`), not root sweeps during iterations.
-- **Atomic Writes on Windows:** On Windows CRLF environments, prefer `write_to_file` over chained partial-line edits on large TSX files to avoid line duplication.
+- **Large TSX on Windows (CRLF):** prefer whole-file writes over chained partial-line edits to avoid line duplication.
 - Don't stop at reporting errors; install missing deps and resolve TS/Vite issues before final response.
 - **Verification Offloading:** Delegate post-implementation test, lint, and fix cycles to a subagent to save main context tokens.
 
@@ -43,6 +46,8 @@
 - **Compact Reporting:** Subagent returns only high-level status, modified files, and test results -> main agent continues without log pollution.
 
 ---
+
+# Part 2 — Project rules
 
 ## Tech Stack & Conventions
 
@@ -87,3 +92,45 @@ Each backend domain module in `lib/` follows:
   - Always create the plan artifact with `RequestFeedback: true`.
   - **Halt immediately** upon creating the plan. Never start executing tasks or editing code automatically.
   - Explicitly ask the user for approval to proceed with the implementation.
+
+## Project map
+
+- `app/admin/*` — admin pages (server components). Every page calls `requirePageAccess('/admin/<x>')` (`lib/admin/page-guard.ts`).
+- `app/api/*/route.ts` — API. Admin routes use `withAdmin(cap, zodSchema, fn)` (`lib/api/handler.ts`) or `requireAdminRole(cap)`.
+- `components/admin/*` — admin UI (legacy location). `features/<name>/` — FSD features; import only via `@/features/<name>` (see `features/README.md` for migration status).
+- `lib/*` — domain logic + persistence; `lib/admin/*` — admin helpers (re-auth, env-login, page guard, save/upload).
+- `lib/schemas/*` — Zod schemas for API bodies.
+- `data/*` — runtime JSON (gitignored, never commit; `site.seed.json` is the only tracked file).
+
+## Checklist: new admin API route
+
+1. `export const POST = withAdmin('<capability>', Schema, async ({ access, body }) => ...)`.
+2. Zod schema in `lib/schemas/<domain>.ts`; errors via `apiError(status, code, message)`.
+3. Audit via `safeAudit(...)` (never empty `catch {}`).
+4. Sensitive actions: step-up with `verifyCurrentUserPassword(access, password)`.
+5. Middleware is deny-by-default: nothing to add unless the route is public (`PUBLIC_API` in `middleware.ts`).
+6. Add `route.test.ts`; `tests/api-route-guards.test.ts` fails if a route has no gate.
+
+## Checklist: new admin page
+
+1. `await requirePageAccess('/admin/<x>')` at the top of the page.
+2. Add a rule to `NAV_RULES` in `lib/admin-roles.ts`.
+
+## Commands
+
+- `npm run check` — typecheck + lint + unit tests (CI runs this).
+- `npm test -- <path>` — scoped tests. `npm run test:smoke` — Playwright smoke.
+- `npm run migrate:totp` — per-user 2FA report (dry-run); `-- --apply` makes a backup only.
+
+## Security env
+
+| Var | Meaning |
+|---|---|
+| `SESSION_SECRET` | Required in production, >= 32 chars. |
+| `ALLOW_LEGACY_SESSION_SECRET` | Temporary: allow weak secret / `ADMIN_PASSWORD` as signing key. |
+| `TRUST_PROXY` | `true` behind nginx; `false` when Next.js is exposed directly. |
+| `ADMIN_IP_ALLOWLIST` | Optional comma-separated IPs. |
+| `ADMIN_ENV_LOGIN` | `always` (default) / `auto` / `breakglass` / `off` — env `ADMIN_PASSWORD` login. |
+| `ADMIN_BREAKGLASS` | `1` enables env login in `breakglass` mode (audited + Telegram alert). |
+| `ADMIN_CSRF_CHECK` | `false` disables Origin check (debug only). |
+

@@ -1,3 +1,4 @@
+import { requirePageAccess } from '@/lib/admin/page-guard';
 import { notFound } from 'next/navigation';
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -29,6 +30,7 @@ export default async function AdminLivePreviewPage({
 }: {
   params: Promise<{ token: string }>;
 }) {
+  await requirePageAccess('/admin/preview');
   const { token } = await params;
   const page = await loadPreviewPage(token);
   if (!page) notFound();

@@ -1,9 +1,11 @@
+import { requirePageAccess } from '@/lib/admin/page-guard';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { MediaLibrary } from '@/components/admin/MediaLibrary';
 
 export const dynamic = 'force-dynamic';
 
-export default function AdminMediaPage() {
+export default async function AdminMediaPage() {
+  await requirePageAccess('/admin/media');
   return (
     <AdminShell>
       <h1>Медіатека</h1>
