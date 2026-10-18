@@ -27,11 +27,21 @@ vi.mock('@/lib/auth', () => ({
   getSessionClaims: vi.fn(),
 }));
 
+vi.mock('@/lib/feed-schedule', () => ({
+  readFeedSchedule: vi.fn().mockResolvedValue({ enabled: false }),
+  saveFeedSchedule: vi.fn().mockResolvedValue(undefined),
+  kyivDate: vi.fn(() => '2026-01-15'),
+  kyivIsAfter0400: vi.fn(() => false),
+  stampManualSuccessIfNeeded: vi.fn().mockResolvedValue(false),
+}));
+
 import { requireAdminRole } from '@/lib/require-role';
 import { rateLimit } from '@/lib/rate-limit';
 import { getSiteData, saveSiteData } from '@/lib/site-data';
 import { fetchAndStoreImage } from '@/lib/fetch-remote-image';
 import { appendActivity } from '@/lib/admin-activity';
+import { stampManualSuccessIfNeeded } from '@/lib/feed-schedule';
+import { acquireFeedImportLock, releaseFeedImportLock } from '@/lib/run-feed-import';
 import type { Product, SiteData } from '@/lib/types';
 import { POST } from './route';
 
@@ -40,6 +50,7 @@ describe('POST /api/import-feed', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    releaseFeedImportLock();
     vi.mocked(requireAdminRole).mockResolvedValue({
       ok: true,
       username: 'admin',
@@ -54,6 +65,7 @@ describe('POST /api/import-feed', () => {
   });
 
   afterEach(() => {
+    releaseFeedImportLock();
     global.fetch = originalFetch;
   });
 
@@ -138,7 +150,7 @@ describe('POST /api/import-feed', () => {
     expect(data.error).toBe('Feed contains no parseable products');
   });
 
-  it('successfully imports and updates products in catalog', async () => {
+  it('successfully imports and updates products in catalog (keeps existing inStock: false)', async () => {
     const feedJson = {
       products: [
         {
@@ -176,7 +188,7 @@ describe('POST /api/import-feed', () => {
       images: [],
       category: 'cosmetics',
       visible: true,
-      inStock: true,
+      inStock: false, // explicitly out of stock — must be preserved as false
       sortPin: true,
       relatedIds: ['prod-x'],
       createdAt: '2026-01-01T00:00:00.000Z',
@@ -207,7 +219,7 @@ describe('POST /api/import-feed', () => {
     const savedData = vi.mocked(saveSiteData).mock.calls[0]?.[0] as SiteData;
     expect(savedData.goods).toHaveLength(2);
 
-    // Existing product retained curated metadata
+    // Existing product retained curated metadata and inStock: false
     const updated = savedData.goods.find((g: Product) => g.code === 'EXISTING-1');
     expect(updated).toBeDefined();
     expect(updated?.title).toBe('Updated Name');
@@ -215,13 +227,31 @@ describe('POST /api/import-feed', () => {
     expect(updated?.visible).toBe(true);
     expect(updated?.sortPin).toBe(true);
     expect(updated?.relatedIds).toEqual(['prod-x']);
+    expect(updated?.inStock).toBe(false); // existing product inStock: false preserved!
 
-    // New product starts hidden (visible: false)
+    // New product starts hidden (visible: false) and inStock: true
     const newlyCreated = savedData.goods.find((g: Product) => g.code === 'NEW-1');
     expect(newlyCreated).toBeDefined();
     expect(newlyCreated?.title).toBe('New Product');
     expect(newlyCreated?.visible).toBe(false);
+    expect(newlyCreated?.inStock).toBe(true); // new product starts in stock
 
     expect(appendActivity).toHaveBeenCalled();
+    expect(stampManualSuccessIfNeeded).toHaveBeenCalled();
+  });
+
+  it('returns 409 when another import is already running', async () => {
+    acquireFeedImportLock();
+
+    const req = new NextRequest('http://localhost/api/import-feed', {
+      method: 'POST',
+      body: JSON.stringify({ url: 'https://example.com/feed.json' }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(409);
+    const data = await res.json();
+    expect(data.error).toContain('Імпорт уже виконується');
+
+    releaseFeedImportLock();
   });
 });

@@ -261,6 +261,73 @@
     line-height: 1.25;
   }
 
+  &__toggle {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: color 0.2s ease;
+
+    &:hover {
+      color: var(--by-gold, #c4a574);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--by-gold, #c4a574);
+      outline-offset: 4px;
+    }
+  }
+
+  &__chevron {
+    align-self: center;
+    flex-shrink: 0;
+    color: var(--by-gold, #c4a574);
+    transition: transform 0.25s ease;
+  }
+
+  &.is-collapsed &__chevron {
+    transform: rotate(-90deg);
+  }
+
+  &__panel {
+    display: grid;
+    grid-template-rows: 1fr;
+    transition: grid-template-rows 0.3s ease, opacity 0.3s ease;
+  }
+
+  &__panel-inner {
+    min-height: 0;
+  }
+
+  // Clip only while collapsed so card hover shadows are not cut off when expanded.
+  &.is-collapsed &__panel-inner {
+    overflow: hidden;
+  }
+
+  &.is-collapsed &__panel {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+
+  &.is-collapsed &__title {
+    margin-bottom: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &__toggle,
+    &__chevron,
+    &__panel {
+      transition: none;
+    }
+  }
+
   &__count {
     font-size: 0.95rem;
     font-weight: 600;
