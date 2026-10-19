@@ -90,6 +90,30 @@ test.describe('public smoke', () => {
 
   test('left door goes to shop, right door to salon', async ({ page }) => {
     await page.goto('/');
+    const contacts = page.locator('.doors__contact');
+    await expect(contacts).toHaveCount(2);
+    await expect(contacts.nth(0)).toHaveAttribute('href', '/shop');
+    await expect(contacts.nth(1)).toHaveAttribute('href', '/salon');
+    for (const contact of await contacts.all()) {
+      const href = await contact.getAttribute('href');
+      expect(href).not.toMatch(/^tel:/);
+    }
+
+    const headerPhone = page.locator('.by-header__phone');
+    await expect(headerPhone).toHaveAttribute('href', /^tel:/);
+
+    const stickyPhone = page.locator('.sticky-call__phone');
+    if (await stickyPhone.count()) {
+      await expect(stickyPhone).toHaveAttribute('href', /^tel:/);
+    }
+
+    await contacts.nth(0).click();
+    await expect(page).toHaveURL(/\/shop/);
+    await page.goto('/');
+    await contacts.nth(1).click();
+    await expect(page).toHaveURL(/\/salon/);
+
+    await page.goto('/');
     await page.locator('.doors__half--left').click();
     await expect(page).toHaveURL(/\/shop/);
     await page.goto('/');
