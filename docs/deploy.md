@@ -306,7 +306,7 @@ notepad .env
 | `SESSION_SECRET`     | длинная случайная строка (`openssl rand -hex 32` или любой 64-hex)             |
 | `COOKIE_SECURE`      | **`false`** (иначе cookie админки не сохранятся по HTTP)                       |
 | `PORT`               | `3000` (или другой свободный)                                                  |
-| `SITE_URL`           | публичный URL, напр. `http://service.home:3000` или `http://192.168.1.50:3000` |
+| `SITE_URL`           | публічний URL, напр. `https://beyou.properservice.keenetic.pro`                |
 | `DEPLOY_BRANCH`      | **`dev`** (GitHub default; `npm run update` checkouts this branch)             |
 | `SMTP_*` / `MAIL_*`  | если нужны заявки на почту                                                     |
 | `ADMIN_IP_ALLOWLIST` | опционально: IP, с которых можно в `/admin`                                    |
@@ -479,36 +479,48 @@ New-NetFirewallRule -DisplayName "ProperService Next.js" -Direction Inbound -Pro
 http://<LAN-IP-ноутбука>:3000/api/health
 ```
 
-### 8. KeenDNS / DNS Keenetic (доступ по имени)
+### 8. KeenDNS HTTPS (PWA та єдиний origin для студії та клієнтів)
 
-#### Только домашняя сеть (рекомендуется)
+Для встановлення PWA (Android, Windows, iPhone) та роботи сервіс-воркера використовується єдиний дійсний HTTPS origin:
+`https://beyou.properservice.keenetic.pro`.
+HTTP LAN URL (`http://service.home:3000`) **не** є адресою встановлення і **не** є адресою входу.
 
-1. Keenetic → DNS / доменные имена (название пункта зависит от прошивки).
-2. A-запись, например `service.home` → **статический IP ноутбука**.
-3. Клиенты должны брать DNS с роутера (обычно так по DHCP).
-4. Открыть: `http://service.home:3000`  
-   (порт **нужен** в URL, если это не 80).
+#### Схема KeenDNS 4-го рівня
 
-В `.env` на хосте:
+- KeeneticOS (версія 2.15+) підтримує хмарні домени 4-го рівня для локальних пристроїв.
+- Роутер отримує та автоматично оновлює безкоштовний Let's Encrypt SSL-сертифікат для домену.
+- Зовнішній доступ: роутер приймає HTTPS (порт 443 або дозволений хмарний порт Keenetic) і перенаправляє трафік на HTTP порт `3000` ноутбука-хоста (де запущено Next.js).
+- Ноутбук-хост **не повинен спати** (живлення від мережі: сон = «Ніколи»). Якщо ноутбук засне, відвідувачі побачать екран `offline.html`.
 
-```env
-SITE_URL=http://service.home:3000
-COOKIE_SECURE=false
-```
+#### Порядок дій оператора на хості (Host steps)
 
-После смены `.env`:
-
-```powershell
-npm run pm2:restart
-```
-
-#### Доступ из интернета (KeenDNS cloud / проброс портов)
-
-Только если осознанно нужно:
-
-1. Проброс на Keenetic: внешний TCP (80/443/3000) → `LAN-IP-ноутбука:3000`.
-2. Сильный `ADMIN_PASSWORD`, желательно `ADMIN_IP_ALLOWLIST` или VPN.
-3. Без HTTPS трафик и cookie видны; для публичной сети лучше TLS и тогда `COOKIE_SECURE=true`.
+1. **KeenDNS Cloud / Auto:**
+   - У веб-панелі Keenetic: Доменне ім'я → KeenDNS.
+   - Створіть домен 4-го рівня `beyou` для ноутбука-хоста (повне ім'я: `https://beyou.properservice.keenetic.pro`).
+   - Налаштуйте перенаправлення: HTTPS на роутері → HTTP на IP ноутбука, порт 3000.
+2. **Перевірка HTTPS з мобільного та Wi-Fi:**
+   - Зі смартфону через мобільний зв'язок (4G/5G) та з Wi-Fi салону відкрийте `https://beyou.properservice.keenetic.pro`.
+   - Переконайтеся у наявності захищеного замочка без попереджень.
+   - *Важливо:* Якщо адреса не відкривається всередині студійного Wi-Fi, налаштуйте в Keenetic підтримку Hairpin NAT (NAT loopback) або локальний DNS-запис на роутері. **Не повертайтесь** на незахищений HTTP LAN URL.
+3. **Особистий TOTP для кожного адміністратора:**
+   - Увійдіть в адмінку на HTTPS: `https://beyou.properservice.keenetic.pro/admin`.
+   - Перейдіть у **Налаштування → Безпека** та увімкніть особистий 2FA TOTP для **кожного** користувача з `admins.json`.
+4. **Увімкнення прапорців безпеки в `.env` на хості:**
+   - Відкрийте `.env` на ноутбуці-хості:
+     ```env
+     SITE_URL=https://beyou.properservice.keenetic.pro
+     COOKIE_SECURE=true
+     ADMIN_ENV_LOGIN=off
+     ADMIN_REQUIRE_TOTP=true
+     ```
+   - Перезапустіть PM2:
+     ```powershell
+     npm run pm2:restart
+     ```
+5. **Перевірка входу:**
+   - Спроба входу без 2FA має завершуватися помилкою блокування.
+   - Вхід за паролем із кодом особистого TOTP має проходити успішно.
+   - Резервний вхід (Break-glass): у разі аварії використовується `ADMIN_ENV_LOGIN=breakglass` та `ADMIN_BREAKGLASS=1` із паролем `ADMIN_PASSWORD` (супроводжується Telegram-алертом та записом в аудит). Missing personal secret не блокує break-glass.
 
 ### 9. Обновление сайта на хосте (после правок на dev)
 

@@ -10,6 +10,7 @@ import { markFingerprintRevoked, registerSession } from '@/lib/admin-sessions';
 import { assertAdminIp } from '@/lib/require-admin-ip';
 import { clientKey, rateLimit } from '@/lib/rate-limit';
 import { getTotpSecret, verifyTotp } from '@/lib/totp';
+import { decideTotpRequirement } from '@/lib/totp-login';
 import { clientIpFromHeaders } from '@/lib/admin-ip';
 import { parseSession } from '@/lib/session';
 import { resolveAdminAccess } from '@/lib/require-role';
@@ -62,12 +63,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: auth.error }, { status: 401 });
     }
 
-    // Personal TOTP wins; otherwise the global (env/file) secret applies (transitional mode).
-    const totpActive = auth.userTotpSecret
-      ? { secret: auth.userTotpSecret, source: 'user' as const }
-      : await getTotpSecret();
-    if (totpActive) {
-      if (!verifyTotp(totpActive.secret, totp)) {
+    const isBreakglass = Boolean(auth.viaEnvPassword && isBreakglassActive());
+    const globalTotp = await getTotpSecret();
+    const totpDecision = decideTotpRequirement({
+      requireTotp: process.env.ADMIN_REQUIRE_TOTP === 'true',
+      userTotpSecret: auth.userTotpSecret,
+      globalTotpSecret: globalTotp?.secret,
+      isBreakglass,
+    });
+
+    if (totpDecision.status === 'rejected_missing_personal') {
+      return NextResponse.json(
+        { error: totpDecision.error, code: totpDecision.code },
+        { status: 401 },
+      );
+    }
+
+    if (totpDecision.status === 'required') {
+      if (!verifyTotp(totpDecision.secret, totp)) {
         if (totp) recordLoginFailure(username);
         return NextResponse.json({ error: 'Invalid 2FA code', needTotp: true }, { status: 401 });
       }
@@ -105,7 +118,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      totp: Boolean(totpActive),
+      totp: totpDecision.status === 'required',
       user: auth.claims,
     });
   } catch {
