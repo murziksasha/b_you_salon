@@ -1,6 +1,12 @@
 /* Proper Service — lightweight offline shell (no build step). */
-const CACHE = 'ps-shell-v4';
-const PRECACHE = ['/offline.html', '/manifest.webmanifest', '/img/icons/logo.png', '/img/icons/favicon.ico'];
+const CACHE = 'ps-shell-v5';
+const PRECACHE = [
+  '/offline.html',
+  '/manifest.webmanifest',
+  '/img/icons/icon-192.png',
+  '/img/icons/icon-512.png',
+  '/img/icons/favicon.ico',
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

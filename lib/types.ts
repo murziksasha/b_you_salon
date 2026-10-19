@@ -342,6 +342,7 @@ export interface SiteData {
   shopLink?: MenuItem;
   pages: Page[];
   goods: Product[];
+  goodsCategories?: string[];
   services?: SalonService[];
   updatedAt?: string;
 }

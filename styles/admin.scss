@@ -943,6 +943,60 @@ body:has(.admin-body) {
     border-color: var(--admin-gold);
     color: var(--admin-gold-ink);
   }
+
+  &--add {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 10px;
+    font-weight: 600;
+  }
+
+  &--input {
+    width: 170px;
+    cursor: text;
+    background: #fff;
+    border-color: var(--admin-gold);
+    outline: none;
+
+    &:focus {
+      box-shadow: 0 0 0 2px rgba(196, 165, 116, 0.25);
+    }
+  }
+}
+
+.admin-chip-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.admin-chip__delete {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid #d0d7de;
+  background: #fff;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
+
+  &:hover {
+    background: #ef4444;
+    border-color: #ef4444;
+    color: #fff;
+  }
 }
 
 .admin-goods-reorder-hint {
@@ -975,6 +1029,14 @@ body:has(.admin-body) {
     background: var(--admin-surface-2);
     border-bottom: 1px solid var(--admin-line);
   }
+
+  &__check {
+    display: flex;
+    align-items: center;
+    padding: 0 4px;
+    cursor: pointer;
+  }
+
 
   &__toggle {
     display: inline-flex;

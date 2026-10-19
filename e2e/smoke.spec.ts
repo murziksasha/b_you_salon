@@ -69,9 +69,18 @@ test.describe('public smoke', () => {
   test('PWA manifest', async ({ request }) => {
     const res = await request.get('/manifest.webmanifest');
     expect(res.ok()).toBeTruthy();
-    const json = (await res.json()) as { name: string; start_url: string };
+    const json = (await res.json()) as {
+      name: string;
+      start_url: string;
+      icons?: Array<{ src: string; sizes: string; type: string; purpose?: string }>;
+    };
     expect(json.name).toContain('B_You');
     expect(json.start_url).toBe('/');
+    expect(json.icons).toBeDefined();
+    const icon192 = json.icons?.find((i) => i.sizes === '192x192');
+    const icon512 = json.icons?.find((i) => i.sizes === '512x512');
+    expect(icon192?.type).toBe('image/png');
+    expect(icon512?.type).toBe('image/png');
   });
 
   test('offline fallback page', async ({ request }) => {

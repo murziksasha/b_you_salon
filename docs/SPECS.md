@@ -23,7 +23,8 @@
 
 ## Моделі
 
-- `SiteData`: settings, headerMenu, headerMenuSalon, headerMenuShop, servicesNav, pages, goods, services.
+- `SiteData`: settings, headerMenu, headerMenuSalon, headerMenuShop, servicesNav, pages, goods, goodsCategories?, services.
+- `goodsCategories?: string[]` — збережений список іменованих категорій товарів (макс. 120 символів на назву, макс. 200 категорій, сортування за українським алфавітом). Не містить «Інше» та «Усі». Дозволяє існування категорій без товарів (0/0). Видалення категорії переносить її товари в «Інше». Публічна вітрина `/shop` відображає лише категорії з видимими товарами.
 - `SalonService`: slug → `/salon/{slug}`, priceFrom, category.
 - `Lead`: source `callback|booking`, zone, serviceId, comment.
 - `Order`: `source shop|consult`, `items[]` (consult — плейсхолдер «Консультація по товарах»), total, fulfillment `pickup|delivery`, address.

@@ -65,6 +65,7 @@ export async function fetchSiteData(): Promise<SiteData | null> {
 export async function patchSiteSection(
   section:
     | 'goods'
+    | 'goodsCategories'
     | 'services'
     | 'settings'
     | 'headerMenu'
