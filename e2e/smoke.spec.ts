@@ -69,9 +69,18 @@ test.describe('public smoke', () => {
   test('PWA manifest', async ({ request }) => {
     const res = await request.get('/manifest.webmanifest');
     expect(res.ok()).toBeTruthy();
-    const json = (await res.json()) as { name: string; start_url: string };
+    const json = (await res.json()) as {
+      name: string;
+      start_url: string;
+      icons?: Array<{ src: string; sizes: string; type: string; purpose?: string }>;
+    };
     expect(json.name).toContain('B_You');
     expect(json.start_url).toBe('/');
+    expect(json.icons).toBeDefined();
+    const icon192 = json.icons?.find((i) => i.sizes === '192x192');
+    const icon512 = json.icons?.find((i) => i.sizes === '512x512');
+    expect(icon192?.type).toBe('image/png');
+    expect(icon512?.type).toBe('image/png');
   });
 
   test('offline fallback page', async ({ request }) => {
@@ -89,6 +98,30 @@ test.describe('public smoke', () => {
   });
 
   test('left door goes to shop, right door to salon', async ({ page }) => {
+    await page.goto('/');
+    const contacts = page.locator('.doors__contact');
+    await expect(contacts).toHaveCount(2);
+    await expect(contacts.nth(0)).toHaveAttribute('href', '/shop');
+    await expect(contacts.nth(1)).toHaveAttribute('href', '/salon');
+    for (const contact of await contacts.all()) {
+      const href = await contact.getAttribute('href');
+      expect(href).not.toMatch(/^tel:/);
+    }
+
+    const headerPhone = page.locator('.by-header__phone');
+    await expect(headerPhone).toHaveAttribute('href', /^tel:/);
+
+    const stickyPhone = page.locator('.sticky-call__phone');
+    if (await stickyPhone.count()) {
+      await expect(stickyPhone).toHaveAttribute('href', /^tel:/);
+    }
+
+    await contacts.nth(0).click();
+    await expect(page).toHaveURL(/\/shop/);
+    await page.goto('/');
+    await contacts.nth(1).click();
+    await expect(page).toHaveURL(/\/salon/);
+
     await page.goto('/');
     await page.locator('.doors__half--left').click();
     await expect(page).toHaveURL(/\/shop/);

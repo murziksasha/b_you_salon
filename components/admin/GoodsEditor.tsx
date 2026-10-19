@@ -2,24 +2,36 @@
 
 import type { Product, SiteData } from '@/lib/types';
 import { createId } from '@/lib/id';
-import { patchSiteSection, saveSiteData } from '@/lib/admin/saveSite';
+import { saveSiteData } from '@/lib/admin/saveSite';
 import { moveByDir, reorderItems } from '@/lib/admin/reorder';
 import { useSaveShortcut, useUnsavedGuard } from '@/lib/admin/useUnsavedGuard';
 import {
   DEFAULT_CATEGORY,
   PRODUCT_SORT_OPTIONS,
   UNCATEGORIZED_KEY,
-  collectCategories,
+  deleteNamedCategory,
   displayCategory,
+  emptyCategoryGroups,
   filterAndSortProducts,
+  foldCategoryName,
+  formatBulkConfirmMessage,
+  getGroupCheckState,
   groupProductsByCategory,
   isDefaultCategory,
+  isDefaultCategoryFilter,
+  mergeCategoryNames,
+  moveGoodsCategory,
   normalizeCategoryInput,
-  renameCategoryInGoods,
+  renameStoredCategory,
+  setGoodsVisibility,
+  toggleGroupSelection,
+  upsertCategoryName,
+  validateCategoryName,
   type ProductSort,
   type VisibilityFilter,
 } from '@/lib/shop-catalog';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Plus, X } from 'lucide-react';
 import { formatUsageTooltip, planProductMediaPurge, PRODUCT_PLACEHOLDER_IMAGE } from '@/lib/media-usage';
 import { showToast } from './AdminToast';
 import { ProductMediaEditor } from './ProductMediaEditor';
@@ -60,7 +72,10 @@ function reorderReason(opts: {
 }
 
 export function GoodsEditor({ initialData }: { initialData: SiteData }) {
-  const [data, setData] = useState(initialData);
+  const [data, setData] = useState<SiteData>(() => ({
+    ...initialData,
+    goodsCategories: mergeCategoryNames(initialData.goodsCategories, initialData.goods),
+  }));
   const [editing, setEditing] = useState<Product | null>(null);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -75,8 +90,11 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
   const [renamingKey, setRenamingKey] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [selected, setSelected] = useState<Record<string, boolean>>({});
-  const [bulkCategory, setBulkCategory] = useState('');
+  const [bulkTargetCategory, setBulkTargetCategory] = useState('');
   const [bulkPct, setBulkPct] = useState('');
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [newCatValue, setNewCatValue] = useState('');
+  const addCategoryInputRef = useRef<HTMLInputElement>(null);
   const orderToastAt = useRef(0);
   const editFormRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
@@ -171,24 +189,13 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
     async (nextData?: SiteData) => {
       const payload = nextData ?? data;
       setSaving(true);
-      const result = await patchSiteSection('goods', payload.goods, payload.updatedAt);
+      const full = await saveSiteData(payload);
       setSaving(false);
-      if (!result.ok) {
-        if (!result.conflict) {
-          const full = await saveSiteData(payload);
-          if (full.ok) {
-            setData({ ...payload, updatedAt: full.updatedAt || payload.updatedAt });
-            setDirty(false);
-            showToast('Збережено', 'success');
-            return true;
-          }
-          showToast(full.error, 'error');
-          return false;
-        }
-        showToast(result.error, 'error');
+      if (!full.ok) {
+        showToast(full.error, 'error');
         return false;
       }
-      setData({ ...payload, updatedAt: result.updatedAt || payload.updatedAt });
+      setData({ ...payload, updatedAt: full.updatedAt || payload.updatedAt });
       setDirty(false);
       showToast('Збережено', 'success');
       return true;
@@ -210,30 +217,52 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
     return { all, visible, hidden: all - visible };
   }, [data.goods]);
 
-  /** Named + «Інше» when present — for select/chips/datalist. */
-  const categorySuggestions = useMemo(() => collectCategories(data.goods), [data.goods]);
+  /** Named categories from stored array, Ukrainian sorted. */
+  const namedCategories = useMemo(() => {
+    return [...(data.goodsCategories || [])].sort((a, b) => a.localeCompare(b, 'uk'));
+  }, [data.goodsCategories]);
 
-  const categoryChipStats = useMemo(() => {
-    return categorySuggestions.map(cat => {
-      const items =
-        cat === DEFAULT_CATEGORY
-          ? data.goods.filter(g => isDefaultCategory(g))
-          : data.goods.filter(g => (g.category || '').trim() === cat);
+  /** True when at least one product is in the default bucket. */
+  const hasDefaultCategoryGoods = useMemo(() => {
+    return data.goods.some(g => isDefaultCategory(g));
+  }, [data.goods]);
+
+  /** Suggestions for select / category dropdown (named categories + «Інше» if default products exist). */
+  const categorySuggestions = useMemo(() => {
+    return hasDefaultCategoryGoods ? [...namedCategories, DEFAULT_CATEGORY] : namedCategories;
+  }, [namedCategories, hasDefaultCategoryGoods]);
+
+  const namedCategoryStats = useMemo(() => {
+    return namedCategories.map(cat => {
+      const items = data.goods.filter(g => (g.category || '').trim() === cat);
       return {
         cat,
         total: items.length,
         visible: items.filter(g => g.visible).length,
       };
     });
-  }, [data.goods, categorySuggestions]);
+  }, [namedCategories, data.goods]);
+
+  const defaultCategoryStats = useMemo(() => {
+    if (!hasDefaultCategoryGoods) return null;
+    const items = data.goods.filter(g => isDefaultCategory(g));
+    return {
+      cat: DEFAULT_CATEGORY,
+      total: items.length,
+      visible: items.filter(g => g.visible).length,
+    };
+  }, [hasDefaultCategoryGoods, data.goods]);
 
   const categoryCounts = useMemo(() => {
     const map: Record<string, number> = {};
-    for (const item of categoryChipStats) {
+    for (const item of namedCategoryStats) {
       map[item.cat] = item.total;
     }
+    if (defaultCategoryStats) {
+      map[DEFAULT_CATEGORY] = defaultCategoryStats.total;
+    }
     return map;
-  }, [categoryChipStats]);
+  }, [namedCategoryStats, defaultCategoryStats]);
 
   const filtersActive = useMemo(() => {
     return Boolean(query.trim()) || visibility !== 'all' || Boolean(categoryFilter.trim()) || viewSort !== 'manual';
@@ -261,8 +290,17 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
 
   const groups = useMemo(() => {
     const products = filtered.map(f => f.product);
-    return groupProductsByCategory(products);
-  }, [filtered]);
+    let emptyToShow: string[] = [];
+    if (!query.trim() && visibility === 'all') {
+      const allEmpty = emptyCategoryGroups(data.goodsCategories || [], data.goods);
+      if (!categoryFilter.trim()) {
+        emptyToShow = allEmpty;
+      } else if (allEmpty.includes(categoryFilter)) {
+        emptyToShow = [categoryFilter];
+      }
+    }
+    return groupProductsByCategory(products, { emptyCategories: emptyToShow });
+  }, [filtered, data.goods, data.goodsCategories, query, visibility, categoryFilter]);
 
   const blockReason = reorderReason({ query, visibility, categoryFilter, viewSort });
   const canReorder = !blockReason;
@@ -310,6 +348,83 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
     });
     setDirty(true);
     showToast(msg, 'success');
+  }
+
+  async function handleBulkVisibility(visible: boolean) {
+    if (!selectedIds.length) {
+      showToast('Оберіть товари', 'info');
+      return;
+    }
+
+    const { goods: nextGoods, changedCount, alreadyInTargetCount } = setGoodsVisibility(
+      data.goods,
+      selectedIds,
+      visible,
+    );
+
+    if (changedCount === 0) {
+      showToast(visible ? 'Усі обрані товари вже показано' : 'Усі обрані товари вже приховано', 'info');
+      return;
+    }
+
+    const confirmMsg = formatBulkConfirmMessage({
+      action: visible ? 'show' : 'hide',
+      changedCount,
+      alreadyInTargetCount,
+      dirty,
+    });
+
+    if (confirmMsg && !confirm(confirmMsg)) return;
+
+    const nextData: SiteData = { ...data, goods: nextGoods };
+    setData(nextData);
+    setDirty(true);
+    showToast(
+      visible
+        ? `Показано ${changedCount} товар(ів). Зберігаємо…`
+        : `Приховано ${changedCount} товар(ів). Зберігаємо…`,
+      'info',
+    );
+    await save(nextData);
+  }
+
+  async function handleBulkMove() {
+    if (!selectedIds.length) {
+      showToast('Оберіть товари', 'info');
+      return;
+    }
+    const target = bulkTargetCategory.trim();
+    if (!target) {
+      showToast('Оберіть групу', 'info');
+      return;
+    }
+
+    const { goods: nextGoods, changedCount, alreadyInTargetCount } = moveGoodsCategory(
+      data.goods,
+      selectedIds,
+      target,
+    );
+
+    if (changedCount === 0) {
+      showToast('Усі обрані товари вже в цій групі', 'info');
+      return;
+    }
+
+    const confirmMsg = formatBulkConfirmMessage({
+      action: 'move',
+      targetCategoryLabel: target,
+      changedCount,
+      alreadyInTargetCount,
+      dirty,
+    });
+
+    if (confirmMsg && !confirm(confirmMsg)) return;
+
+    const nextData: SiteData = { ...data, goods: nextGoods };
+    setData(nextData);
+    setDirty(true);
+    showToast(`Категорія «${target}»: перенесено ${changedCount} товар(ів). Зберігаємо…`, 'info');
+    await save(nextData);
   }
 
   function exportCsv() {
@@ -387,6 +502,8 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
 
     let created = 0;
     let updated = 0;
+    let refusedCategories = 0;
+    let categoriesSoFar = [...(data.goodsCategories || [])];
     const goods = [...data.goods];
     for (const line of lines.slice(1)) {
       const cols = parseLine(line);
@@ -397,11 +514,45 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
       const id = iId >= 0 ? (cols[iId] || '').trim() : '';
       let found = id ? goods.findIndex(g => g.id === id) : -1;
       if (found < 0 && code) found = goods.findIndex(g => (g.code || '') === code);
+
+      let assignedCat: string | undefined = undefined;
+      let catCellValid = true;
+      if (iCat >= 0) {
+        const rawCat = (cols[iCat] || '').trim();
+        if (!rawCat || isDefaultCategoryFilter(rawCat)) {
+          assignedCat = undefined;
+        } else {
+          const val = validateCategoryName(rawCat, categoriesSoFar);
+          if (val.valid) {
+            const up = upsertCategoryName(categoriesSoFar, val.name);
+            categoriesSoFar = up.categories;
+            assignedCat = up.canonical;
+          } else {
+            const fold = foldCategoryName(rawCat);
+            const match = categoriesSoFar.find(c => foldCategoryName(c) === fold);
+            if (match) {
+              assignedCat = match;
+            } else {
+              refusedCategories++;
+              catCellValid = false;
+            }
+          }
+        }
+      }
+
+      const prevProduct = found >= 0 ? goods[found] : null;
+      const categoryValue =
+        iCat >= 0
+          ? catCellValid
+            ? assignedCat
+            : prevProduct?.category
+          : prevProduct?.category;
+
       const patch: Partial<Product> = {
         title,
         price,
         code: code.length >= 2 ? code : undefined,
-        category: iCat >= 0 ? normalizeCategoryInput(cols[iCat]) : undefined,
+        category: categoryValue,
         visible: iVis >= 0 ? cols[iVis] === '1' || cols[iVis].toLowerCase() === 'true' : true,
         inStock: iStock >= 0 ? !(cols[iStock] === '0' || cols[iStock].toLowerCase() === 'false') : true,
         badge: iBadge >= 0 ? cols[iBadge] || undefined : undefined,
@@ -425,9 +576,14 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
         created++;
       }
     }
-    setData({ ...data, goods });
+    setData({ ...data, goods, goodsCategories: categoriesSoFar });
     setDirty(true);
-    showToast(`Імпорт: +${created} нових, ${updated} оновлено. Збережіть.`, 'success');
+    showToast(
+      `Імпорт: +${created} нових, ${updated} оновлено${
+        refusedCategories ? `, відхилено категорій: ${refusedCategories}` : ''
+      }. Збережіть.`,
+      'success',
+    );
   }
 
   async function importFeed() {
@@ -643,16 +799,22 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
     }
     const goods = [...data.goods];
     const idx = goods.findIndex(g => g.id === editing.id);
+    const catNorm = normalizeCategoryInput(editing.category);
+    let nextCategories = data.goodsCategories || [];
+    if (catNorm) {
+      const up = upsertCategoryName(nextCategories, catNorm);
+      nextCategories = up.categories;
+    }
     const stamped: Product = {
       ...editing,
-      category: normalizeCategoryInput(editing.category),
+      category: catNorm,
       code: codeTrimmed.length >= 2 ? codeTrimmed : undefined,
       updatedAt: new Date().toISOString(),
       createdAt: editing.createdAt || new Date().toISOString(),
     };
     if (idx >= 0) goods[idx] = stamped;
     else goods.push(stamped);
-    const nextData = { ...data, goods };
+    const nextData = { ...data, goods, goodsCategories: nextCategories };
     const ok = await save(nextData);
     if (!ok) return;
     setEditing(null);
@@ -814,6 +976,69 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
     markOrderDirty();
   }
 
+  function handleDeleteCategory(cat: string) {
+    const count = data.goods.filter(g => (g.category || '').trim() === cat).length;
+    const confirmText =
+      count > 0
+        ? `Видалити категорію «${cat}»? ${count} товар(ів) буде перенесено в «${DEFAULT_CATEGORY}».`
+        : `Видалити порожню категорію «${cat}»?`;
+
+    if (!confirm(confirmText)) return;
+
+    const { goods: nextGoods, categories: nextCats, movedCount } = deleteNamedCategory(
+      data.goods,
+      data.goodsCategories || [],
+      cat,
+    );
+
+    setData({ ...data, goods: nextGoods, goodsCategories: nextCats });
+    setDirty(true);
+
+    if (categoryFilter === cat) {
+      if (movedCount > 0) {
+        setCategoryFilter(DEFAULT_CATEGORY);
+      } else {
+        setCategoryFilter('');
+      }
+    }
+
+    if (editing && (editing.category || '').trim() === cat) {
+      setEditing(prev => (prev ? { ...prev, category: '' } : null));
+    }
+
+    if (movedCount > 0) {
+      showToast(`Категорію «${cat}» видалено. ${movedCount} товар(ів) перенесено в «${DEFAULT_CATEGORY}»`, 'success');
+    } else {
+      showToast(`Порожню категорію «${cat}» видалено`, 'success');
+    }
+  }
+
+  function commitAddCategory() {
+    const trimmed = newCatValue.trim();
+    if (!trimmed) {
+      setIsAddingCategory(false);
+      setNewCatValue('');
+      return;
+    }
+    const val = validateCategoryName(trimmed, data.goodsCategories || []);
+    if (!val.valid) {
+      showToast(val.error, 'error');
+      return;
+    }
+    const { categories: nextCats, canonical } = upsertCategoryName(data.goodsCategories || [], val.name);
+    setData({ ...data, goodsCategories: nextCats });
+    setDirty(true);
+    setIsAddingCategory(false);
+    setNewCatValue('');
+    setCategoryFilter(canonical);
+    showToast(`Категорію «${canonical}» додано`, 'success');
+  }
+
+  function cancelAddCategory() {
+    setIsAddingCategory(false);
+    setNewCatValue('');
+  }
+
   function commitRename(fromKey: string) {
     // Default «Інше» bucket is fixed — assign a real name by editing products or
     // only rename named groups.
@@ -826,13 +1051,18 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
       setRenamingKey(null);
       return;
     }
-    setData({ ...data, goods: renameCategoryInGoods(data.goods, fromKey, nextName) });
+    const res = renameStoredCategory(data.goods, data.goodsCategories || [], fromKey, nextName);
+    if (!res.success) {
+      showToast(res.error || 'Неприпустима назва категорії', 'error');
+      return;
+    }
+    setData({ ...data, goods: res.goods, goodsCategories: res.categories });
     setDirty(true);
     setRenamingKey(null);
     if (categoryFilter === fromKey) {
-      setCategoryFilter(normalizeCategoryInput(nextName) ?? DEFAULT_CATEGORY);
+      setCategoryFilter(res.targetName);
     }
-    showToast(`Категорію перейменовано: ${normalizeCategoryInput(nextName) ?? DEFAULT_CATEGORY}`, 'success');
+    showToast(`Категорію перейменовано: ${res.targetName}`, 'success');
   }
 
   function renderProductRow(product: Product, index: number) {
@@ -1125,32 +1355,43 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
             <button
               type='button'
               className='admin-btn admin-btn--secondary admin-btn--sm'
-              onClick={() => applyBulk(p => ({ ...p, visible: true }), 'Опубліковано')}
+              disabled={saving}
+              onClick={() => void handleBulkVisibility(true)}
             >
-              Опублікувати
+              Показати
             </button>
             <button
               type='button'
               className='admin-btn admin-btn--secondary admin-btn--sm'
-              onClick={() => applyBulk(p => ({ ...p, visible: false }), 'Приховано')}
+              disabled={saving}
+              onClick={() => void handleBulkVisibility(false)}
             >
               Приховати
             </button>
-            <input
-              className='admin-field-sm'
-              placeholder='Категорія bulk'
-              value={bulkCategory}
-              onChange={e => setBulkCategory(e.target.value)}
-              list='goods-category-suggestions'
-            />
+            <select
+              className='admin-select admin-field-sm'
+              value={bulkTargetCategory}
+              onChange={e => setBulkTargetCategory(e.target.value)}
+              disabled={saving}
+              aria-label='Оберіть групу'
+            >
+              <option value='' disabled>
+                Оберіть групу
+              </option>
+              {namedCategories.map(cat => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+              <option value={DEFAULT_CATEGORY}>{DEFAULT_CATEGORY}</option>
+            </select>
             <button
               type='button'
               className='admin-btn admin-btn--secondary admin-btn--sm'
-              onClick={() =>
-                applyBulk(p => ({ ...p, category: normalizeCategoryInput(bulkCategory) }), 'Категорію змінено')
-              }
+              disabled={saving || !bulkTargetCategory}
+              onClick={() => void handleBulkMove()}
             >
-              Категорія
+              Перенести
             </button>
             <input
               className='admin-field-sm'
@@ -1269,32 +1510,97 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
           </div>
         </div>
 
-        {categoryChipStats.length ? (
-          <div className='admin-goods-chips' role='group' aria-label='Швидкий фільтр категорій'>
-            <button
-              type='button'
-              className={`admin-chip${categoryFilter === '' ? ' is-active' : ''}`}
-              onClick={() => setCategoryFilter('')}
-            >
-              Усі ({counts.all})
-            </button>
-            {categoryChipStats.map(({ cat, total, visible }) => {
-              const filterValue = cat === DEFAULT_CATEGORY ? DEFAULT_CATEGORY : cat;
-              const isActive =
-                categoryFilter === filterValue || (cat === DEFAULT_CATEGORY && categoryFilter === UNCATEGORIZED_KEY);
-              return (
+        <div className='admin-goods-chips' role='group' aria-label='Швидкий фільтр категорій'>
+          <button
+            type='button'
+            className={`admin-chip${categoryFilter === '' ? ' is-active' : ''}`}
+            onClick={() => setCategoryFilter('')}
+          >
+            Усі ({counts.all})
+          </button>
+          {namedCategoryStats.map(({ cat, total, visible }) => {
+            const isActive = categoryFilter === cat;
+            return (
+              <div key={cat} className={`admin-chip-wrapper${isActive ? ' is-active' : ''}`}>
                 <button
-                  key={cat}
                   type='button'
                   className={`admin-chip${isActive ? ' is-active' : ''}`}
-                  onClick={() => setCategoryFilter(isActive ? '' : filterValue)}
+                  onClick={() => setCategoryFilter(isActive ? '' : cat)}
                 >
                   {cat} ({visible}/{total})
                 </button>
-              );
-            })}
-          </div>
-        ) : null}
+                <button
+                  type='button'
+                  className='admin-chip__delete'
+                  aria-label={`Видалити категорію ${cat}`}
+                  title={`Видалити категорію ${cat}`}
+                  onClick={e => {
+                    e.stopPropagation();
+                    handleDeleteCategory(cat);
+                  }}
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            );
+          })}
+          {defaultCategoryStats ? (
+            <button
+              type='button'
+              className={`admin-chip${
+                categoryFilter === DEFAULT_CATEGORY || categoryFilter === UNCATEGORIZED_KEY ? ' is-active' : ''
+              }`}
+              onClick={() => {
+                const active = categoryFilter === DEFAULT_CATEGORY || categoryFilter === UNCATEGORIZED_KEY;
+                setCategoryFilter(active ? '' : DEFAULT_CATEGORY);
+              }}
+            >
+              {DEFAULT_CATEGORY} ({defaultCategoryStats.visible}/{defaultCategoryStats.total})
+            </button>
+          ) : null}
+          {isAddingCategory ? (
+            <input
+              ref={addCategoryInputRef}
+              type='text'
+              className='admin-chip admin-chip--input'
+              placeholder='Назва категорії…'
+              value={newCatValue}
+              autoFocus
+              maxLength={120}
+              onChange={e => setNewCatValue(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  commitAddCategory();
+                } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  cancelAddCategory();
+                }
+              }}
+              onBlur={() => {
+                if (!newCatValue.trim()) {
+                  cancelAddCategory();
+                } else {
+                  commitAddCategory();
+                }
+              }}
+              aria-label='Нова категорія'
+            />
+          ) : (
+            <button
+              type='button'
+              className='admin-chip admin-chip--add'
+              onClick={() => {
+                setIsAddingCategory(true);
+                setNewCatValue('');
+              }}
+              aria-label='Додати категорію'
+              title='Додати категорію'
+            >
+              <Plus size={14} />
+            </button>
+          )}
+        </div>
       </div>
 
       {blockReason ? (
@@ -1481,16 +1787,49 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
       <StickySaveBar dirty={dirty && !editing} saving={saving} onSave={() => void save()} label='Зберегти всі' />
 
       <div className='admin-card admin-goods-list'>
-        {!data.goods.length ? <p>Товарів ще немає. Натисніть «+ Товар».</p> : null}
-        {data.goods.length && !filtered.length ? <p className='admin-hint'>Нічого не знайдено</p> : null}
+        {listMode === 'flat' && !filtered.length ? (
+          !data.goods.length ? (
+            <p>Товарів ще немає. Натисніть «+ Товар».</p>
+          ) : (
+            <p className='admin-hint'>Нічого не знайдено</p>
+          )
+        ) : null}
+        {listMode === 'grouped' && !groups.length ? (
+          !data.goods.length ? (
+            <p>Товарів ще немає. Натисніть «+ Товар».</p>
+          ) : (
+            <p className='admin-hint'>Нічого не знайдено</p>
+          )
+        ) : null}
 
         {listMode === 'flat'
           ? filtered.map(({ product, index }) => renderProductRow(product, index))
           : groups.map(group => {
               const isCollapsed = Boolean(collapsed[group.key]);
+              const groupIds = group.products.map(p => p.id);
+              const checkState = getGroupCheckState(groupIds, selected);
               return (
                 <section key={group.key} className='admin-goods-group'>
                   <header className='admin-goods-group__head'>
+                    <label
+                      className='admin-goods-group__check'
+                      title={`Обрати всі товари групи «${group.label}»`}
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <input
+                        type='checkbox'
+                        ref={el => {
+                          if (el) el.indeterminate = checkState === 'some';
+                        }}
+                        checked={checkState === 'all'}
+                        disabled={saving || group.products.length === 0}
+                        onChange={() => {
+                          setSelected(prev => toggleGroupSelection(prev, groupIds));
+                        }}
+                        onClick={e => e.stopPropagation()}
+                        aria-label={`Обрати всі товари групи «${group.label}»`}
+                      />
+                    </label>
                     <button
                       type='button'
                       className='admin-goods-group__toggle'
@@ -1554,9 +1893,11 @@ export function GoodsEditor({ initialData }: { initialData: SiteData }) {
                     <button
                       type='button'
                       className='admin-btn admin-btn--secondary admin-btn--sm'
-                      disabled={saving}
+                      disabled={saving || group.total === 0}
                       title={
-                        group.visibleCount < group.total
+                        group.total === 0
+                          ? 'У цій категорії немає товарів'
+                          : group.visibleCount < group.total
                           ? `Опублікувати всі ${group.total} товарів категорії «${group.label}»`
                           : `Приховати всі ${group.total} товарів категорії «${group.label}» (без видалення)`
                       }

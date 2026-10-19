@@ -255,6 +255,7 @@ export const siteDataSchema = z.object({
   shopLink: menuItemSchema.optional(),
   pages: z.array(pageSchema).max(80),
   goods: z.array(productSchema).max(50_000),
+  goodsCategories: z.array(str(120)).max(200).optional(),
   services: z.array(salonServiceSchema).max(200).optional(),
   updatedAt: strOpt(40),
 });

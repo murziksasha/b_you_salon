@@ -7,6 +7,7 @@ import { countLeads } from '@/lib/leads';
 import { countOrders } from '@/lib/orders';
 import { getSiteData } from '@/lib/site-data';
 import { getTotpSecret } from '@/lib/totp';
+import { getAdminUserByUsername } from '@/lib/admin-users';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -25,6 +26,10 @@ export default async function AdminDashboard() {
     (process.env.ADMIN_PASSWORD?.length ?? 0) >= 8;
   const hasSessionSecret = (process.env.SESSION_SECRET?.length ?? 0) >= 32;
   const totp = await getTotpSecret();
+  const currentUser = access.username ? await getAdminUserByUsername(access.username) : null;
+  const hasPersonalTotp = Boolean(currentUser?.totp?.secret);
+  const requireTotp = process.env.ADMIN_REQUIRE_TOTP === 'true';
+  const siteUrlIsHttps = (process.env.SITE_URL || '').startsWith('https://');
 
   let openLeads = 0;
   try {
@@ -90,7 +95,7 @@ export default async function AdminDashboard() {
           hasPhone={hasPhone}
           goodsCount={site.goods.length}
           smtpConfigured={smtpConfigured}
-          totpHint={Boolean(totp)}
+          totpHint={hasPersonalTotp || Boolean(totp)}
         />
       )}
 
@@ -146,16 +151,27 @@ export default async function AdminDashboard() {
               {hasSessionSecret ? '✓' : '!'} SESSION_SECRET
               {!hasSessionSecret ? ' — задайте окремий секрет для cookie (≥32 символи)' : ''}
             </li>
-            <li className={cookieSecure === 'false' || cookieSecure === undefined ? 'is-ok' : 'is-info'}>
-              COOKIE_SECURE={cookieSecure ?? '(auto)'}
-              {cookieSecure !== 'false' ? ' — для HTTP через Keen DNS зазвичай false' : ' (OK для HTTP у LAN)'}
-            </li>
+            {siteUrlIsHttps ? (
+              <li className={cookieSecure === 'true' ? 'is-ok' : 'is-warn'}>
+                {cookieSecure === 'true' ? '✓' : '!'} COOKIE_SECURE={cookieSecure ?? '(auto)'}
+                {cookieSecure === 'true' ? ' (OK для HTTPS)' : ' — для HTTPS задайте COOKIE_SECURE=true'}
+              </li>
+            ) : (
+              <li className={cookieSecure === 'false' || cookieSecure === undefined ? 'is-ok' : 'is-info'}>
+                COOKIE_SECURE={cookieSecure ?? '(auto)'}
+                {cookieSecure !== 'false' ? ' — для HTTP через Keen DNS зазвичай false' : ' (OK для HTTP у LAN)'}
+              </li>
+            )}
             <li className={smtpConfigured ? 'is-ok' : 'is-warn'}>
               {smtpConfigured ? '✓' : '!'} SMTP
               {!smtpConfigured ? ' — email вимкнено; заявки/замовлення все одно в журналах' : ''}
             </li>
-            <li className={totp ? 'is-ok' : 'is-info'}>
-              {totp ? '✓ 2FA TOTP увімкнено' : '2FA вимкнено — увімкніть у Налаштуваннях'}
+            <li className={hasPersonalTotp ? 'is-ok' : requireTotp ? 'is-warn' : 'is-info'}>
+              {hasPersonalTotp
+                ? '✓ Особистий 2FA TOTP увімкнено'
+                : requireTotp
+                  ? '! Особистий 2FA не налаштовано — ADMIN_REQUIRE_TOTP=true, налаштуйте в Налаштуваннях'
+                  : '2FA вимкнено — увімкніть у Налаштуваннях'}
             </li>
             <li className={process.env.ADMIN_IP_ALLOWLIST ? 'is-ok' : 'is-info'}>
               {process.env.ADMIN_IP_ALLOWLIST

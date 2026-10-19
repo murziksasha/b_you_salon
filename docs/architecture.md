@@ -23,6 +23,7 @@ flowchart LR
 - `headerMenu`, `servicesNav`, `shopLink`
 - `pages[]` — кожна сторінка: `slug`, meta, `sections[]`
 - `goods[]` — товари магазину (`Product`: title, price, image, visible, optional `category` / `code`, …)
+- `goodsCategories[]` — збережений перелік іменованих категорій товарів (`SiteData.goodsCategories?: string[]`). Дозволяє тримати порожні категорії `(0/0)`. Видалення категорії переносить товари в «Інше».
 
 Окремі журнали (не в `site.json`):
 
@@ -34,11 +35,11 @@ flowchart LR
 
 ### Каталог: пошук / фільтри / сортування
 
-Без окремої БД — in-memory над `goods[]`:
+Без окремої БД — in-memory над `goods[]` та `goodsCategories[]`:
 
-- `lib/shop-catalog.ts` — `filterAndSortProducts`, `parseProductSort`, `collectCategories` (+ unit tests)
-- Публічний UI: `components/shop/ShopCatalog.tsx` на `/shop` (client toolbar + URL `?q=&sort=&category=`)
-- Адмінка: ті самі утиліти в `GoodsEditor` (видимість + view-sort; DnD лише в «чистому» режимі)
+- `lib/shop-catalog.ts` — чисті доменні хелпери: `filterAndSortProducts`, `parseProductSort`, `collectCategories`, `validateCategoryName`, `mergeCategoryNames`, `deleteNamedCategory`, `renameStoredCategory`, `upsertCategoryName`, `emptyCategoryGroups`, `groupProductsByCategory` (+ unit tests)
+- Публічний UI: `components/shop/ShopCatalog.tsx` на `/shop` (client toolbar + URL `?q=&sort=&category=`). Категорії виводяться лише з видимих товарів (`collectCategories`).
+- Адмінка: `GoodsEditor` керує товарами та категоріями. Рядок чіпів: «Усі», іменовані категорії (українське сортування, хрестик видалення з підтвердженням), «Інше» (дефолтний кошик для товарів без категорії), «+» для додавання порожньої категорії. У режимі «Групи» порожні категорії рендеряться заголовками перед «Інше».
 - Default sort `manual` = порядок масиву після DnD; `shop-grid` на головній — перші 8 без toolbar
 
 ## Data access

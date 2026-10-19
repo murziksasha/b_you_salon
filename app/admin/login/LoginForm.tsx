@@ -63,6 +63,7 @@ export function LoginForm() {
         }
         const json = (await res.json().catch(() => ({}))) as {
           error?: string;
+          code?: string;
           needTotp?: boolean;
         };
         if (json.needTotp) setNeedTotp(true);
@@ -71,11 +72,13 @@ export function LoginForm() {
             ? 'ADMIN_PASSWORD не налаштовано в .env — скопіюйте з .env.example і перезапустіть сервер'
             : res.status === 403
               ? 'Доступ заборонено з цієї IP-адреси'
-              : json.needTotp
-                ? 'Потрібен код 2FA (TOTP)'
-                : json.error === 'Invalid 2FA code'
-                  ? 'Невірний код 2FA'
-                  : 'Невірний пароль',
+              : json.code === 'PERSONAL_TOTP_REQUIRED'
+                ? 'Вхід заблоковано: для вашого облікового запису не налаштовано особистий 2FA (TOTP)'
+                : json.needTotp
+                  ? 'Потрібен код 2FA (TOTP)'
+                  : json.error === 'Invalid 2FA code'
+                    ? 'Невірний код 2FA'
+                    : 'Невірний пароль',
         );
         setLoading(false);
         return;
