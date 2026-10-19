@@ -225,6 +225,7 @@ export function siteSectionCapability(section: string): AdminCapability | null {
     case 'shopLink':
       return 'content';
     case 'goods':
+    case 'goodsCategories':
       return 'goods';
     case 'services':
     case 'servicesNav':
