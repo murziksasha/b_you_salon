@@ -11,12 +11,12 @@ export function DoorsHeroSection({ section }: { section: DoorsHeroSectionType })
         {section.kicker ? <p className='doors__kicker'>{section.kicker}</p> : null}
         {contacts ? (
           <div className='doors__contacts'>
-            <a className='doors__contact' href={`tel:${contacts.left.phoneTel}`}>
+            <a className='doors__contact' href={section.left.href}>
               <span className='doors__contact-label'>{contacts.left.label}</span>
               <span className='doors__contact-phone'>{contacts.left.phoneDisplay}</span>
             </a>
             <span className='doors__contacts-split' aria-hidden />
-            <a className='doors__contact' href={`tel:${contacts.right.phoneTel}`}>
+            <a className='doors__contact' href={section.right.href}>
               <span className='doors__contact-label'>{contacts.right.label}</span>
               <span className='doors__contact-phone'>{contacts.right.phoneDisplay}</span>
             </a>
