@@ -25,10 +25,12 @@ RUN apk add --no-cache wget libc6-compat \
   && addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nextjs
 
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/data ./data
+# Standalone output can contain an empty public/ tree. Copy the real public/
+# after it so sw.js, offline.html, and icons are not replaced.
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/data ./data
 
 RUN mkdir -p /app/data /app/public/uploads \
   && chown -R nextjs:nodejs /app/data /app/public /app/.next

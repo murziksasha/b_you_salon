@@ -672,7 +672,7 @@ body:has(.admin-body) {
   margin-bottom: 20px;
 }
 
-/* Toolbar stays in normal document flow (no sticky overlay over sections). */
+/* Constructor toolbar stays in document flow. Sticky top panel is only .admin-goods-toolbar. */
 .admin-constructor-toolbar {
   .admin-toolbar {
     margin-bottom: 0;
@@ -868,16 +868,24 @@ body:has(.admin-body) {
 }
 
 /* ——— Goods / shop catalog admin ——— */
+/* Pins inside .admin-main (the admin scroll parent). Other admin toolbars stay in flow. */
 .admin-goods-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
   display: flex;
   flex-direction: column;
   gap: 10px;
   margin-bottom: 14px;
   padding: 12px 14px;
-  background: #fff;
+  background: var(--admin-surface);
   border-radius: 12px;
   border: 1px solid #e5e7eb;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+#smtp {
+  scroll-margin-top: 12px;
 }
 
 .admin-goods-toolbar__row {

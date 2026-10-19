@@ -430,7 +430,7 @@ export function OnboardingChecklist({
     { ok: hasLogo, label: 'Логотип у налаштуваннях', href: '/admin/settings' },
     { ok: hasPhone, label: 'Телефон шапки', href: '/admin/settings' },
     { ok: goodsCount > 0, label: 'Хоча б 1 товар', href: '/admin/goods' },
-    { ok: smtpConfigured, label: 'SMTP для листів', href: '/admin/settings' },
+    { ok: smtpConfigured, label: 'SMTP для листів', href: '/admin/settings#smtp' },
     { ok: totpHint, label: '2FA (рекомендовано)', href: '/admin/settings' },
   ];
   const done = items.filter((i) => i.ok).length;
@@ -442,18 +442,26 @@ export function OnboardingChecklist({
         Онбординг {done}/{items.length}
       </h2>
       <ul className='admin-checklist'>
-        {items.map((i) => (
-          <li key={i.label} className={i.ok ? 'is-ok' : 'is-warn'}>
-            {i.ok ? '✓' : '!'}{' '}
-            {i.ok ? (
-              i.label
-            ) : (
-              <Link href={i.href} onClick={() => showToast('Заповніть цей пункт', 'info')}>
-                {i.label}
-              </Link>
-            )}
-          </li>
-        ))}
+        {items.map((i) => {
+          const linked = !i.ok || i.href.includes('#');
+          return (
+            <li key={i.label} className={i.ok ? 'is-ok' : 'is-warn'}>
+              {i.ok ? '✓' : '!'}{' '}
+              {linked ? (
+                <Link
+                  href={i.href}
+                  onClick={() => {
+                    if (!i.ok) showToast('Заповніть цей пункт', 'info');
+                  }}
+                >
+                  {i.label}
+                </Link>
+              ) : (
+                i.label
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
