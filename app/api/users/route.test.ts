@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest, NextResponse } from 'next/server';
 
 vi.mock('@/lib/require-role', () => ({ requireAdminRole: vi.fn() }));
-vi.mock('@/lib/admin/reauth', () => ({ verifyCurrentUserPassword: vi.fn() }));
+vi.mock('@/lib/admin/reauth', () => ({ verifySensitiveReauth: vi.fn() }));
 vi.mock('@/lib/api/audit', () => ({ safeAudit: vi.fn() }));
 vi.mock('@/lib/admin-users', () => ({
   listAdminUsers: vi.fn(async () => []),
@@ -14,7 +14,7 @@ vi.mock('@/lib/admin-users', () => ({
 vi.mock('@/lib/admin-sessions', () => ({ revokeSessionsByUsername: vi.fn(async () => 0) }));
 
 import { requireAdminRole } from '@/lib/require-role';
-import { verifyCurrentUserPassword } from '@/lib/admin/reauth';
+import { verifySensitiveReauth } from '@/lib/admin/reauth';
 import { listAdminUsers, setUserTotp } from '@/lib/admin-users';
 import { DELETE, GET, PATCH, POST } from './route';
 
@@ -31,7 +31,7 @@ function req(method: string, body?: unknown) {
 describe('/api/users', () => {
   beforeEach(() => {
     vi.mocked(requireAdminRole).mockResolvedValue(owner);
-    vi.mocked(verifyCurrentUserPassword).mockResolvedValue(true);
+    vi.mocked(verifySensitiveReauth).mockResolvedValue(true);
   });
 
   it('returns gate response when forbidden', async () => {
@@ -49,7 +49,7 @@ describe('/api/users', () => {
   });
 
   it('requires re-auth password', async () => {
-    vi.mocked(verifyCurrentUserPassword).mockResolvedValue(false);
+    vi.mocked(verifySensitiveReauth).mockResolvedValue(false);
     const res = await POST(req('POST', { username: 'bob', password: 'longenough', confirmPassword: 'x' }));
     expect(res.status).toBe(403);
   });
@@ -57,7 +57,10 @@ describe('/api/users', () => {
   it('creates a user (ownerPassword alias accepted)', async () => {
     const res = await POST(req('POST', { username: 'bob', password: 'longenough', ownerPassword: 'pw' }));
     expect(res.status).toBe(200);
-    expect(verifyCurrentUserPassword).toHaveBeenCalledWith(expect.objectContaining({ username: 'owner' }), 'pw');
+    expect(verifySensitiveReauth).toHaveBeenCalledWith(
+      expect.objectContaining({ username: 'owner' }),
+      { password: 'pw', totp: undefined },
+    );
   });
 
   it('deletes a user', async () => {

@@ -10,6 +10,7 @@ import { markFingerprintRevoked, registerSession } from '@/lib/admin-sessions';
 import { assertAdminIp } from '@/lib/require-admin-ip';
 import { clientKey, rateLimit } from '@/lib/rate-limit';
 import { getTotpSecret, verifyTotp } from '@/lib/totp';
+import { resolveActorTotpSecret } from '@/lib/admin/reauth';
 import { decideTotpRequirement } from '@/lib/totp-login';
 import { clientIpFromHeaders } from '@/lib/admin-ip';
 import { parseSession } from '@/lib/session';
@@ -63,21 +64,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: auth.error }, { status: 401 });
     }
 
-    const isBreakglass = Boolean(auth.viaEnvPassword && isBreakglassActive());
-    const globalTotp = await getTotpSecret();
+    const identity = auth.viaEnvPassword ? 'env' : 'file';
+    const globalTotp = identity === 'env' ? await getTotpSecret() : null;
     const totpDecision = decideTotpRequirement({
-      requireTotp: process.env.ADMIN_REQUIRE_TOTP === 'true',
-      userTotpSecret: auth.userTotpSecret,
-      globalTotpSecret: globalTotp?.secret,
-      isBreakglass,
+      identity,
+      personalSecret: auth.userTotpSecret,
+      globalSecret: globalTotp?.secret,
     });
-
-    if (totpDecision.status === 'rejected_missing_personal') {
-      return NextResponse.json(
-        { error: totpDecision.error, code: totpDecision.code },
-        { status: 401 },
-      );
-    }
 
     if (totpDecision.status === 'required') {
       if (!verifyTotp(totpDecision.secret, totp)) {
@@ -135,8 +128,10 @@ export async function GET() {
   if (!access) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
+  const factor = await resolveActorTotpSecret(access);
   return NextResponse.json({
     ok: true,
+    totpEnabled: Boolean(factor),
     user: { username: access.username, role: access.role, grants: access.grants },
   });
 }

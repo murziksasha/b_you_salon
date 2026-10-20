@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verifySensitiveReauth } from '@/lib/admin/reauth';
+import { apiError } from '@/lib/api/handler';
 import { createSiteBackupFromData, deleteBackupFile, listSiteBackups, readBackupFile } from '@/lib/backup';
+import { RestoreBackupSchema, reAuthPassword } from '@/lib/schemas/admin';
 import { getSiteData, saveSiteData } from '@/lib/site-data';
 import { parseSiteData } from '@/lib/validation';
-import { requireAdminRole } from '@/lib/require-role';
+import { requireAdminRole, type AdminAccess } from '@/lib/require-role';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,7 +22,8 @@ async function requireAdminOrCron(request: NextRequest, action: 'backup' | 'rest
 
   const g = await requireAdminRole(action);
   if (!g.ok) return { ok: false as const, response: g.response };
-  return { ok: true as const, via: 'admin' as const };
+  const { ok: _ok, ...access } = g;
+  return { ok: true as const, via: 'admin' as const, access: access as AdminAccess };
 }
 
 /** List backups or download one file. */
@@ -60,9 +64,17 @@ export async function POST(request: NextRequest) {
   }
 
   if (body.action === 'restore') {
+    const parsed = RestoreBackupSchema.safeParse(body);
+    if (!parsed.success) return apiError(400, 'validation', 'Bad request', parsed.error.issues);
     const gate = await requireAdminOrCron(request, 'restore_backup');
     if (!gate.ok) return gate.response;
-    const name = body.file || '';
+    if (gate.via !== 'admin') return apiError(403, 'forbidden', 'Forbidden');
+    const allowed = await verifySensitiveReauth(gate.access, {
+      password: reAuthPassword(parsed.data),
+      totp: parsed.data.totp,
+    });
+    if (!allowed) return apiError(403, 'reauth_failed', 'Невірний пароль або код 2FA');
+    const name = parsed.data.file;
     const raw = await readBackupFile(name);
     if (!raw) return NextResponse.json({ error: 'Backup not found' }, { status: 404 });
 
@@ -72,9 +84,9 @@ export async function POST(request: NextRequest) {
     } catch {
       return NextResponse.json({ error: 'Invalid backup JSON' }, { status: 400 });
     }
-    const parsed = parseSiteData(parsedJson);
-    if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    const site = parseSiteData(parsedJson);
+    if (!site.success) {
+      return NextResponse.json({ error: site.error }, { status: 400 });
     }
 
     // Snapshot current state before overwrite
@@ -85,7 +97,7 @@ export async function POST(request: NextRequest) {
       // continue restore even if pre-restore snapshot fails
     }
 
-    await saveSiteData(parsed.data);
+    await saveSiteData(site.data);
     return NextResponse.json({ ok: true, restored: name });
   }
 
