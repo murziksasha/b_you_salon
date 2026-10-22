@@ -1,4 +1,6 @@
-import { expect, test } from '@playwright/test';
+import { readFileSync } from 'fs';
+import path from 'path';
+import { expect, test, type Page } from '@playwright/test';
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'e2e-test-password';
 
@@ -88,13 +90,36 @@ test.describe('public smoke', () => {
     expect(res.ok()).toBeTruthy();
     const html = await res.text();
     expect(html).toContain('Офлайн');
+    expect(html).toContain('B_You');
+    expect(html).not.toContain('Proper Service');
   });
 
   test('service worker script', async ({ request }) => {
     const res = await request.get('/sw.js');
     expect(res.ok()).toBeTruthy();
     const body = await res.text();
-    expect(body).toContain('ps-shell');
+    expect(body).toContain('byou-shell');
+    const start = body.indexOf('async function networkNavigation');
+    const end = body.indexOf('function isStaticAsset');
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    const navigation = body.slice(start, end);
+    expect(navigation).not.toContain('cache.put');
+    expect(navigation).not.toContain('caches.open');
+    expect(navigation).toContain("caches.match('/offline.html')");
+
+    const register = readFileSync(path.join(process.cwd(), 'components', 'PwaRegister.tsx'), 'utf8');
+    expect(register).toContain("const SW_VERSION = '6'");
+    expect(register).toContain('/sw.js?v=${SW_VERSION}');
+    expect(register).toContain("scope: '/'");
+    expect(register).toContain('controllerchange');
+    expect(register).toContain('serviceWorker.controller');
+
+    const docker = readFileSync(path.join(process.cwd(), 'Dockerfile'), 'utf8');
+    const standaloneAt = docker.indexOf('/app/.next/standalone');
+    const publicAt = docker.lastIndexOf('/app/public ./public');
+    expect(standaloneAt).toBeGreaterThan(-1);
+    expect(publicAt).toBeGreaterThan(standaloneAt);
   });
 
   test('left door goes to shop, right door to salon', async ({ page }) => {
@@ -376,5 +401,116 @@ test.describe.serial('admin rate-limit', () => {
     expect(lastStatus).toBe(429);
     expect(typeof lastJson.retryAfter).toBe('number');
     expect(lastJson.retryAfter).toBeGreaterThan(0);
+  });
+});
+
+async function loginAdmin(page: Page) {
+  await page.goto('/admin/login');
+  await page.fill('#admin-password', ADMIN_PASSWORD);
+  await page.getByRole('button', { name: /увійти/i }).click();
+  await expect(page).toHaveURL(/\/admin\/?$/, { timeout: 15_000 });
+}
+
+test.describe.serial('admin mail card and goods toolbar', () => {
+  test('owner follows SMTP для листів to the mail card', async ({ page }) => {
+    await loginAdmin(page);
+    await page.goto('/admin');
+    await expect(page.getByRole('heading', { name: /огляд|dashboard/i })).toBeVisible({ timeout: 15_000 });
+
+    const link = page.getByRole('link', { name: 'SMTP для листів' });
+    if (await link.count()) {
+      await link.click();
+    } else {
+      await page.goto('/admin/settings#smtp');
+    }
+
+    await expect(page).toHaveURL(/\/admin\/settings#smtp/);
+    const card = page.locator('#smtp');
+    await expect(card).toBeVisible();
+    await expect(card.getByRole('heading', { name: 'Пошта (SMTP)' })).toBeVisible();
+    await expect(page.locator('#smtp-pass')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Зберегти в .env' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Перезапустити сайт' })).toBeVisible();
+
+    const place = await page.evaluate(() => {
+      const main = document.querySelector('.admin-main');
+      const smtp = document.getElementById('smtp');
+      if (!main || !smtp) return null;
+      const mainBox = main.getBoundingClientRect();
+      const cardBox = smtp.getBoundingClientRect();
+      return { mainTop: mainBox.top, mainBottom: mainBox.bottom, cardTop: cardBox.top };
+    });
+    expect(place).toBeTruthy();
+    expect(place!.cardTop).toBeGreaterThanOrEqual(place!.mainTop - 2);
+    expect(place!.cardTop).toBeLessThan(place!.mainBottom);
+  });
+
+  test('non-owner does not see the SMTP password field', async ({ page }) => {
+    await loginAdmin(page);
+    await page.route('**/api/auth', async (route) => {
+      if (route.request().method() !== 'GET') {
+        await route.continue();
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ok: true,
+          user: {
+            username: 'editor1',
+            role: 'editor',
+            grants: ['settings', 'dashboard_view'],
+          },
+        }),
+      });
+    });
+
+    await page.goto('/admin/settings#smtp');
+    const card = page.locator('#smtp');
+    await expect(card.getByText('Пошту може змінити лише власник.')).toBeVisible();
+    await expect(page.locator('#smtp-pass')).toHaveCount(0);
+    await expect(card.getByRole('button', { name: 'Зберегти в .env' })).toHaveCount(0);
+  });
+
+  test('goods pilot card stays at the top of the admin pane', async ({ page }) => {
+    await loginAdmin(page);
+    await page.goto('/admin/goods');
+    const main = page.locator('.admin-main');
+    const toolbar = page.locator('.admin-goods-toolbar');
+    await expect(toolbar).toBeVisible({ timeout: 15_000 });
+
+    const before = await main.evaluate((el) => ({
+      scrollHeight: el.scrollHeight,
+      clientHeight: el.clientHeight,
+    }));
+    expect(before.scrollHeight).toBeGreaterThan(before.clientHeight + 80);
+
+    await main.evaluate((el) => {
+      el.scrollTop = Math.min(900, el.scrollHeight);
+    });
+    await expect.poll(async () => main.evaluate((el) => el.scrollTop)).toBeGreaterThan(80);
+
+    const place = await page.evaluate(() => {
+      const mainEl = document.querySelector('.admin-main');
+      const bar = document.querySelector('.admin-goods-toolbar');
+      const title = document.querySelector('.admin-main > h1');
+      if (!mainEl || !bar || !title) return null;
+      const mainBox = mainEl.getBoundingClientRect();
+      const barBox = bar.getBoundingClientRect();
+      const titleBox = title.getBoundingClientRect();
+      const paddingTop = Number.parseFloat(getComputedStyle(mainEl).paddingTop) || 0;
+      return {
+        mainTop: mainBox.top,
+        paddingTop,
+        barTop: barBox.top,
+        titleBottom: titleBox.bottom,
+      };
+    });
+    expect(place).toBeTruthy();
+    const stuckAtPaneTop = Math.abs(place!.barTop - place!.mainTop) < 2;
+    const stuckBelowPadding = Math.abs(place!.barTop - (place!.mainTop + place!.paddingTop)) < 2;
+    expect(stuckAtPaneTop || stuckBelowPadding).toBeTruthy();
+    expect(place!.titleBottom).toBeLessThanOrEqual(place!.barTop + 1);
   });
 });

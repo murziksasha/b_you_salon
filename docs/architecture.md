@@ -186,7 +186,9 @@ Leads (callback) and orders (shop) are **separate** files and admin sections.
 
 - Email: nodemailer → `MAIL_TO` (contact + orders)
 - Telegram: `TELEGRAM_BOT_TOKEN` + paired subscribers (`data/telegram-subscribers.json`) and optional `TELEGRAM_CHAT_ID` (`lib/notify.ts`). Pushes include masked phone + inline keyboard (copy / Viber https-redirect `/r/viber` / admin / claim). Skip if quiet hours or the phone already has another open inbox item. Updates: `POST /api/telegram/webhook` (secret header) when `TELEGRAM_WEBHOOK_SECRET` + public https `SITE_URL`; otherwise pm2 `byou-telegram` long-poll. Digest + catch-up run in Next.js (`lib/telegram-digest-runner.ts`).
-- Admin SMTP test: `POST /api/smtp-test` (session)
+- Admin SMTP test: `POST /api/smtp-test` (session, capability `ops`) — uses the **running** `process.env`, not the unsaved `.env` edit
+- Owner mail setup: `GET/PUT /api/smtp-config` and `POST /api/smtp-restart` (`security_owner` only). `lib/env-file.ts` updates just `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`, `MAIL_TO` in the project `.env` (`PROJECT_ROOT` or cwd) via temp file + rename. Empty password leaves `SMTP_PASS`. UI card `#smtp` says the file is stored but mail stays on the old process until restart. Dashboard checklist stays on `process.env`.
+- Restart: `pm2 describe byou` must report this project's cwd (a dev admin cannot retarget production). Then, after the HTTP response is flushed, `pm2 restart ecosystem.config.cjs --update-env`. Missing `pm2` returns an error and leaves `.env` as saved. The site drops for a few seconds.
 
 ### Partial site API
 
@@ -209,6 +211,7 @@ Leads (callback) and orders (shop) are **separate** files and admin sections.
 ## Admin shell
 
 - Viewport-locked layout (`admin-shell` 100dvh, `overflow: hidden`): only `admin-main` scrolls; sidebar stays visible.
+- Goods (`/admin/goods`, `components/admin/GoodsEditor.tsx`): `.admin-goods-toolbar` is the only sticky admin toolbar — `position: sticky; top: 0; z-index: 30`, opaque `var(--admin-surface)`. Save, import, search, and filters stay at the top of `.admin-main`. The page title may scroll away. Constructor and other `.admin-toolbar` blocks stay in normal flow.
 - Services editor (`/admin/services`): **Редагувати** / **+ Послуга** jumps `admin-main` to `#service-edit-form` (form sits above the list; hash via `replaceState`). Same idea as goods (`#goods-edit-form`).
 - Desktop collapse to icons: `AdminShell` + `localStorage` key `admin-nav-collapsed`; labels hidden via `.admin-shell--nav-collapsed`.
 
@@ -253,10 +256,11 @@ In-memory sliding window (`lib/rate-limit.ts`), single-instance:
 ## PWA / offline
 
 - `public/manifest.webmanifest` — installable shell
-- `public/sw.js` — precache offline page + static assets; network-first for navigations
-- `public/offline.html` — fallback when offline
-- `components/PwaRegister.tsx` — registers SW (not on `/admin`)
-- Admin / API never cached by SW
+- `public/sw.js` — cache `byou-shell-v6`. Precaches `offline.html`, the manifest, and icons one file at a time. Does **not** cache HTML or `/_next`. Navigations are network-only; on failure the response is `/offline.html`. Static images and fonts may be cache-first. `/admin`, `/api`, `/uploads` are not intercepted. `skipWaiting` + `clients.claim`; activate deletes every other cache.
+- `public/offline.html` — B_You offline fallback (Ukrainian, studio colors)
+- `components/PwaRegister.tsx` — registers `/sw.js?v=6` with scope `/` (not on `/admin`). If a worker already controls the tab, `controllerchange` reloads once so the open tab picks up the new shell. The first install does not reload.
+- Docker image copies `public/` **after** the standalone output so an empty standalone `public/` cannot replace `sw.js`.
+- Manual service-worker unregister is not the normal fix after deploy.
 
 ## E2E smoke
 
