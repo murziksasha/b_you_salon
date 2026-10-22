@@ -79,6 +79,8 @@ describe('navAllowedForRole', () => {
     expect(navAllowedForRole('operator', '/admin/ops')).toBe(false);
     expect(navAllowedForRole('editor', '/admin/goods')).toBe(true);
     expect(navAllowedForRole('editor', '/admin/settings')).toBe(true);
+    expect(navAllowedForRole('operator', '/admin/settings')).toBe(true);
+    expect(navAllowedForRole('operator', '/admin/settings', ['inbox'])).toBe(true);
   });
 
   it('custom grants drive nav', () => {

@@ -14,6 +14,8 @@ type Ctx = {
   username: string;
   role: AdminRole | 'legacy';
   grants: AdminCapability[];
+  totpEnabled: boolean;
+  setTotpEnabled: (on: boolean) => void;
   loading: boolean;
   can: (action: string) => boolean;
   canNav: (href: string) => boolean;
@@ -24,6 +26,8 @@ const AdminRoleContext = createContext<Ctx>({
   username: 'admin',
   role: 'legacy',
   grants: [],
+  totpEnabled: false,
+  setTotpEnabled: () => {},
   loading: true,
   can: () => true,
   canNav: () => true,
@@ -34,6 +38,7 @@ export function AdminRoleProvider({ children }: { children: React.ReactNode }) {
   const [username, setUsername] = useState('admin');
   const [role, setRole] = useState<AdminRole | 'legacy'>('legacy');
   const [grants, setGrants] = useState<AdminCapability[]>([]);
+  const [totpEnabled, setTotpEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -42,8 +47,10 @@ export function AdminRoleProvider({ children }: { children: React.ReactNode }) {
         const res = await fetch('/api/auth');
         if (!res.ok) return;
         const json = (await res.json()) as {
+          totpEnabled?: boolean;
           user?: { username?: string; role?: string; grants?: string[] };
         };
+        setTotpEnabled(json.totpEnabled === true);
         if (json.user?.username) setUsername(json.user.username);
         const r = json.user?.role;
         if (r === 'owner' || r === 'editor' || r === 'operator' || r === 'legacy') {
@@ -65,12 +72,14 @@ export function AdminRoleProvider({ children }: { children: React.ReactNode }) {
       username,
       role,
       grants,
+      totpEnabled,
+      setTotpEnabled,
       loading,
       can: (action: string) => roleCan(role, action, grants),
       canNav: (href: string) => navAllowedForRole(role, href, grants),
       fallbackPath: firstAllowedAdminPath(role, grants),
     }),
-    [username, role, grants, loading],
+    [username, role, grants, totpEnabled, loading],
   );
 
   return <AdminRoleContext.Provider value={value}>{children}</AdminRoleContext.Provider>;

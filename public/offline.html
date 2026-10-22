@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#02a653" />
-    <title>Офлайн — Proper Service</title>
+    <meta name="theme-color" content="#0d0d0d" />
+    <title>Офлайн — B_You</title>
     <style>
       * {
         box-sizing: border-box;
@@ -15,57 +15,59 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        font-family: system-ui, -apple-system, sans-serif;
-        background: #f4f6f8;
-        color: #1a1a1a;
+        font-family: Georgia, 'Times New Roman', serif;
+        background: #0d0d0d;
+        color: #f5ede4;
         padding: 24px;
       }
       .card {
-        background: #fff;
-        border-radius: 12px;
-        padding: 32px 28px;
+        background: #1c1917;
+        border: 1px solid rgba(196, 165, 116, 0.35);
+        border-radius: 16px;
+        padding: 36px 28px;
         max-width: 420px;
         width: 100%;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
         text-align: center;
       }
       .brand {
-        color: #02a653;
-        font-weight: 700;
-        letter-spacing: 0.02em;
-        margin-bottom: 8px;
+        color: #c4a574;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        margin-bottom: 12px;
+        font-size: 1.35rem;
       }
       h1 {
         margin: 0 0 12px;
-        font-size: 1.35rem;
+        font-size: 1.5rem;
+        font-weight: 600;
       }
       p {
-        margin: 0 0 20px;
-        color: #555;
+        margin: 0 0 22px;
+        color: #c4b8aa;
         line-height: 1.5;
+        font-family: system-ui, -apple-system, sans-serif;
       }
       button {
-        background: #02a653;
-        color: #fff;
+        background: #c4a574;
+        color: #1a1208;
         border: none;
-        border-radius: 8px;
-        padding: 10px 18px;
+        border-radius: 999px;
+        padding: 12px 22px;
         font-size: 1rem;
+        font-family: system-ui, -apple-system, sans-serif;
         cursor: pointer;
       }
       button:hover {
-        filter: brightness(0.95);
+        background: #d4af37;
       }
     </style>
   </head>
   <body>
     <div class="card">
-      <div class="brand">Proper Service</div>
+      <div class="brand">B_You</div>
       <h1>Немає з’єднання</h1>
-      <p>
-        Сторінка недоступна офлайн. Перевірте мережу (Wi‑Fi / Keen DNS) і спробуйте
-        ще раз.
-      </p>
+      <p>Сторінка студії зараз недоступна. Перевірте інтернет і спробуйте ще раз.</p>
       <button type="button" onclick="location.reload()">Спробувати знову</button>
     </div>
   </body>

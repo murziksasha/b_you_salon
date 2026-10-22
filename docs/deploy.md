@@ -30,7 +30,7 @@ docker compose up -d --build
 
 - [ ] `ADMIN_PASSWORD` — сильний, не `changeme`
 - [ ] `SESSION_SECRET` — довгий random (напр. `openssl rand -hex 32`)
-- [ ] SMTP для production (інакше заявки лише в логи)
+- [ ] SMTP для production (інакше заявки лише в логи). Власник може записати `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`, `MAIL_TO` в **Налаштування → Пошта (SMTP)**. Файл оновлюється одразу, процес — після **Перезапустити сайт**. Кнопка відмовляє, якщо `pm2 describe byou` показує інший cwd.
 - [ ] `SITE_URL` — **публічний** https URL (sitemap.xml, Open Graph / WhatsApp, Telegram webhook). Не `localhost`. Приклад: `https://beyou.properservice.keenetic.pro`. Після зміни — рестарт і повторний шеринг (кеш месенджера).
 - [ ] `TELEGRAM_BOT_TOKEN` + `TELEGRAM_WEBHOOK_SECRET` (`openssl rand -hex 24`) — webhook `POST /api/telegram/webhook`. Без публічного https `SITE_URL` лишається pm2 long-poll.
 - [ ] `NODE_ENV=production` (в образі вже)
@@ -100,10 +100,10 @@ npm run update
 Якщо сайт «голий» (HTML є, стилів/JS немає) і в Network у CSS/JS статус **400** або type **html**:
 
 1. Зробіть повний rebuild + restart (`npm run update`, або `docker compose up -d --build`).
-2. У браузері: DevTools → Application → Service Workers → **Unregister**, потім hard reload (Ctrl+Shift+R).
+2. Відкрита вкладка сама один раз перезавантажиться, коли новий worker (`/sw.js?v=6`) перебере контроль. Ручне Unregister у DevTools більше не є звичайним кроком. Якщо вкладка лишилась зі старим бандлом — оновіть її (Ctrl+F5).
 3. Перевірте, що `/_next/static/css/*.css` віддає `200` і `Content-Type: text/css`, а не HTML-сторінку помилки.
 
-Service worker (`public/sw.js`) **не** кешує `/_next/*` (з `ps-shell-v4`), щоб після деплою не змішувались старі/нові чанки.
+Service worker (`public/sw.js`, кеш `byou-shell-v6`) **не** кешує HTML і `/_next/*`. Навігації йдуть лише в мережу. Після деплою версійований worker перебирає відкриту вкладку і перезавантажує її один раз. Образ Docker копіює `public/` після standalone-виводу, щоб порожнє дерево не затерло `sw.js`.
 
 Перевірка: `http://localhost:3000/api/health` (або ваш `PORT`).  
 LAN/KeenDNS: firewall inbound TCP на цей порт; `COOKIE_SECURE=false` для HTTP — див. розділ нижче.
@@ -308,7 +308,7 @@ notepad .env
 | `PORT`               | `3000` (или другой свободный)                                                  |
 | `SITE_URL`           | публічний URL, напр. `https://beyou.properservice.keenetic.pro`                |
 | `DEPLOY_BRANCH`      | **`dev`** (GitHub default; `npm run update` checkouts this branch)             |
-| `SMTP_*` / `MAIL_*`  | если нужны заявки на почту                                                     |
+| `SMTP_*` / `MAIL_*`  | шесть ключей почты (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`, `MAIL_TO`). Владелец пишет их из админки; процесс подхватывает после рестарта. Пустой пароль в форме не стирает `SMTP_PASS`. |
 | `ADMIN_IP_ALLOWLIST` | опционально: IP, с которых можно в `/admin`                                    |
 
 Без Docker переменная `NGINX_PORT` **не используется** — наружу идёт `PORT`.
@@ -504,23 +504,24 @@ HTTP LAN URL (`http://service.home:3000`) **не** є адресою встан�
    - *Важливо:* Якщо адреса не відкривається всередині студійного Wi-Fi, налаштуйте в Keenetic підтримку Hairpin NAT (NAT loopback) або локальний DNS-запис на роутері. **Не повертайтесь** на незахищений HTTP LAN URL.
 3. **Особистий TOTP для кожного адміністратора:**
    - Увійдіть в адмінку на HTTPS: `https://beyou.properservice.keenetic.pro/admin`.
-   - Перейдіть у **Налаштування → Безпека** та увімкніть особистий 2FA TOTP для **кожного** користувача з `admins.json`.
+   - Кожен користувач з `admins.json` відкриває **Налаштування** і вмикає **свій** 2FA. Код власника на інших не діє.
+   - Користувач із вимкненим 2FA входить лише паролем. `ADMIN_REQUIRE_TOTP` для цих облікових записів нічого не змінює.
 4. **Увімкнення прапорців безпеки в `.env` на хості:**
    - Відкрийте `.env` на ноутбуці-хості:
      ```env
      SITE_URL=https://beyou.properservice.keenetic.pro
      COOKIE_SECURE=true
      ADMIN_ENV_LOGIN=off
-     ADMIN_REQUIRE_TOTP=true
      ```
+   - `ADMIN_REQUIRE_TOTP` можна не задавати. Глобальний `ADMIN_TOTP_SECRET` / `data/admin-totp.json` питається лише при вході через `ADMIN_PASSWORD`.
    - Перезапустіть PM2:
      ```powershell
      npm run pm2:restart
      ```
 5. **Перевірка входу:**
-   - Спроба входу без 2FA має завершуватися помилкою блокування.
-   - Вхід за паролем із кодом особистого TOTP має проходити успішно.
-   - Резервний вхід (Break-glass): у разі аварії використовується `ADMIN_ENV_LOGIN=breakglass` та `ADMIN_BREAKGLASS=1` із паролем `ADMIN_PASSWORD` (супроводжується Telegram-алертом та записом в аудит). Missing personal secret не блокує break-glass.
+   - Користувач із увімкненим особистим 2FA входить паролем і **своїм** кодом. Чужий або глобальний код не підходить.
+   - Користувач із вимкненим 2FA входить лише паролем, навіть якщо в власника 2FA увімкнено.
+   - Резервний вхід (Break-glass): `ADMIN_ENV_LOGIN=breakglass` та `ADMIN_BREAKGLASS=1` із паролем `ADMIN_PASSWORD` (Telegram-алерт і аудит). Якщо глобальний TOTP задано, цей вхід питає глобальний код. Якщо ні — лише пароль.
 
 ### 9. Обновление сайта на хосте (после правок на dev)
 
