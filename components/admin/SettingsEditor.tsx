@@ -5,7 +5,7 @@ import { saveSiteData } from '@/lib/admin/saveSite';
 import { resolveSaveConflict } from '@/lib/admin/handleSaveResult';
 import { useSaveShortcut, useUnsavedGuard } from '@/lib/admin/useUnsavedGuard';
 import { createId } from '@/lib/id';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { showToast } from './AdminToast';
 import { BackupPanel } from './BackupPanel';
 import { ImageField } from './ImageField';
@@ -31,6 +31,253 @@ function emptyPhone(): PhoneEntry {
 function emptySocial(type = 'telegram'): SocialLink {
   const preset = SOCIAL_PRESETS.find((p) => p.type === type) || SOCIAL_PRESETS[1];
   return { id: createId(), type: preset.type, url: '', icon: preset.icon };
+}
+
+type SmtpForm = {
+  host: string;
+  port: string;
+  user: string;
+  from: string;
+  to: string;
+  hasPassword: boolean;
+  pendingRestart: boolean;
+};
+
+function SmtpSettingsCard() {
+  const { can, loading } = useAdminRole();
+  const owner = !loading && can('security_owner');
+  const [form, setForm] = useState<SmtpForm>({
+    host: '',
+    port: '',
+    user: '',
+    from: '',
+    to: '',
+    hasPassword: false,
+    pendingRestart: false,
+  });
+  const [password, setPassword] = useState('');
+  const [clearPassword, setClearPassword] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [restarting, setRestarting] = useState(false);
+  const [notice, setNotice] = useState('');
+
+  useEffect(() => {
+    function scrollToSmtp() {
+      if (window.location.hash !== '#smtp') return;
+      document.getElementById('smtp')?.scrollIntoView({ block: 'start' });
+    }
+    scrollToSmtp();
+    const frame = window.requestAnimationFrame(scrollToSmtp);
+    window.addEventListener('hashchange', scrollToSmtp);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener('hashchange', scrollToSmtp);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!owner) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch('/api/smtp-config');
+        const json = (await res.json().catch(() => ({}))) as Partial<SmtpForm> & { error?: string };
+        if (!res.ok) {
+          if (!cancelled) showToast(json.error || 'Не вдалося прочитати пошту', 'error');
+          return;
+        }
+        if (cancelled) return;
+        setForm({
+          host: json.host || '',
+          port: json.port || '',
+          user: json.user || '',
+          from: json.from || '',
+          to: json.to || '',
+          hasPassword: Boolean(json.hasPassword),
+          pendingRestart: Boolean(json.pendingRestart),
+        });
+      } catch {
+        if (!cancelled) showToast('Мережева помилка', 'error');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [owner]);
+
+  async function saveMail() {
+    setSaving(true);
+    setNotice('');
+    try {
+      const res = await fetch('/api/smtp-config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host: form.host,
+          port: form.port,
+          user: form.user,
+          from: form.from,
+          to: form.to,
+          password,
+          clearPassword,
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as Partial<SmtpForm> & { error?: string };
+      if (!res.ok) {
+        showToast(json.error || 'Не вдалося зберегти', 'error');
+        return;
+      }
+      setForm({
+        host: json.host || '',
+        port: json.port || '',
+        user: json.user || '',
+        from: json.from || '',
+        to: json.to || '',
+        hasPassword: Boolean(json.hasPassword),
+        pendingRestart: Boolean(json.pendingRestart),
+      });
+      setPassword('');
+      setClearPassword(false);
+      setNotice('Пошту записано в .env. Листи з цими даними підуть після перезапуску сайту.');
+      showToast('Збережено в .env', 'success');
+    } catch {
+      showToast('Мережева помилка', 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function restartSite() {
+    const confirmed = window.confirm('Сайт на кілька секунд стане недоступним. Перезапустити?');
+    if (!confirmed) return;
+    setRestarting(true);
+    try {
+      const res = await fetch('/api/smtp-restart', { method: 'POST' });
+      const json = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+      if (!res.ok) {
+        showToast(json.error || 'Не вдалося перезапустити', 'error');
+        return;
+      }
+      showToast(json.message || 'Перезапуск почався. Сайт на кілька секунд буде недоступний.', 'success');
+    } catch {
+      showToast('Мережева помилка', 'error');
+    } finally {
+      setRestarting(false);
+    }
+  }
+
+  return (
+    <div className='admin-card' id='smtp'>
+      <h2 className='admin-h2'>Пошта (SMTP)</h2>
+      {loading ? (
+        <p className='admin-hint'>Завантаження…</p>
+      ) : owner ? (
+        <>
+          <p className='admin-hint admin-mb'>
+            Запис у файл .env цього проєкту. Порожній пароль лишає поточний. Чеклист на Огляді зеленіє лише
+            після перезапуску — тест SMTP і листи з форм ідуть зі вже запущеного процесу.
+          </p>
+          {form.pendingRestart ? (
+            <p className='admin-dirty' role='status'>
+              У .env інші дані, ніж у запущеному процесі. Листи підуть зі старих, доки не перезапустите сайт.
+            </p>
+          ) : null}
+          <label>
+            Сервер
+            <input
+              id='smtp-host'
+              value={form.host}
+              autoComplete='off'
+              placeholder='smtp.gmail.com'
+              onChange={(e) => setForm((prev) => ({ ...prev, host: e.target.value }))}
+            />
+          </label>
+          <label>
+            Порт
+            <input
+              id='smtp-port'
+              inputMode='numeric'
+              value={form.port}
+              autoComplete='off'
+              placeholder='465'
+              onChange={(e) => setForm((prev) => ({ ...prev, port: e.target.value }))}
+            />
+          </label>
+          <label>
+            Користувач
+            <input
+              id='smtp-user'
+              value={form.user}
+              autoComplete='off'
+              onChange={(e) => setForm((prev) => ({ ...prev, user: e.target.value }))}
+            />
+          </label>
+          <label>
+            Пароль
+            <input
+              id='smtp-pass'
+              type='password'
+              value={password}
+              autoComplete='new-password'
+              disabled={clearPassword}
+              placeholder={form.hasPassword ? 'Залишити поточний' : ''}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </label>
+          <label className='admin-check'>
+            <input
+              type='checkbox'
+              checked={clearPassword}
+              onChange={(e) => setClearPassword(e.target.checked)}
+            />
+            Стерти збережений пароль
+          </label>
+          <label>
+            Від кого
+            <input
+              id='smtp-from'
+              value={form.from}
+              autoComplete='off'
+              onChange={(e) => setForm((prev) => ({ ...prev, from: e.target.value }))}
+            />
+          </label>
+          <label>
+            Кому
+            <input
+              id='smtp-to'
+              value={form.to}
+              autoComplete='off'
+              onChange={(e) => setForm((prev) => ({ ...prev, to: e.target.value }))}
+            />
+          </label>
+          {notice ? (
+            <p className='admin-dirty' role='status'>
+              {notice}
+            </p>
+          ) : null}
+          <div className='admin-row admin-row--wrap'>
+            <button type='button' className='admin-btn' disabled={saving} onClick={() => void saveMail()}>
+              {saving ? 'Збереження…' : 'Зберегти в .env'}
+            </button>
+            <button
+              type='button'
+              className='admin-btn admin-btn--secondary'
+              disabled={restarting}
+              onClick={() => void restartSite()}
+            >
+              {restarting ? 'Перезапуск…' : 'Перезапустити сайт'}
+            </button>
+          </div>
+          <p className='admin-hint'>
+            Перезапуск на кілька секунд робить сайт недоступним. Він спрацьовує лише якщо pm2-процес byou
+            запущено з цього каталогу.
+          </p>
+        </>
+      ) : (
+        <p className='admin-hint'>Пошту може змінити лише власник.</p>
+      )}
+    </div>
+  );
 }
 
 export function SettingsEditor({ initialData }: { initialData: SiteData }) {
@@ -337,6 +584,8 @@ export function SettingsEditor({ initialData }: { initialData: SiteData }) {
       </div>
       </>
       ) : null}
+
+      <SmtpSettingsCard />
 
       <TotpSetupPanel />
 
