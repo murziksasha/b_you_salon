@@ -499,18 +499,15 @@ test.describe.serial('admin mail card and goods toolbar', () => {
       const mainBox = mainEl.getBoundingClientRect();
       const barBox = bar.getBoundingClientRect();
       const titleBox = title.getBoundingClientRect();
-      const paddingTop = Number.parseFloat(getComputedStyle(mainEl).paddingTop) || 0;
       return {
         mainTop: mainBox.top,
-        paddingTop,
         barTop: barBox.top,
         titleBottom: titleBox.bottom,
       };
     });
     expect(place).toBeTruthy();
     const stuckAtPaneTop = Math.abs(place!.barTop - place!.mainTop) < 2;
-    const stuckBelowPadding = Math.abs(place!.barTop - (place!.mainTop + place!.paddingTop)) < 2;
-    expect(stuckAtPaneTop || stuckBelowPadding).toBeTruthy();
+    expect(stuckAtPaneTop).toBeTruthy();
     expect(place!.titleBottom).toBeLessThanOrEqual(place!.barTop + 1);
   });
 });

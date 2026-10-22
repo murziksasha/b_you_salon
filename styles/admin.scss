@@ -40,6 +40,7 @@ body:has(.admin-body) {
   --admin-radius: 16px;
   --admin-nav-w: 276px;
   --admin-topbar-h: 56px;
+  --admin-main-pad-top: 24px;
   --admin-serif: var(--font-serif), 'Cormorant Garamond', 'Times New Roman', serif;
   --admin-sans: var(--font-sans), 'Manrope', system-ui, sans-serif;
   --admin-script: var(--font-script), 'Great Vibes', cursive;
@@ -451,7 +452,8 @@ body:has(.admin-body) {
 }
 
 .admin-main {
-  padding: 24px 32px 48px;
+  --admin-main-pad-top: 24px;
+  padding: var(--admin-main-pad-top) 32px 48px;
   min-width: 0;
   min-height: 0;
   flex: 1 1 auto;
@@ -868,10 +870,10 @@ body:has(.admin-body) {
 }
 
 /* ——— Goods / shop catalog admin ——— */
-/* Pins inside .admin-main (the admin scroll parent). Other admin toolbars stay in flow. */
+/* Sticks to the top edge of .admin-main (negative top cancels pane padding). Other admin toolbars stay in flow. */
 .admin-goods-toolbar {
   position: sticky;
-  top: 0;
+  top: calc(var(--admin-main-pad-top) * -1);
   z-index: 30;
   display: flex;
   flex-direction: column;
@@ -2371,7 +2373,8 @@ body:has(.admin-body) {
   }
 
   .admin-main {
-    padding: 20px 16px calc(28px + env(safe-area-inset-bottom, 0));
+    --admin-main-pad-top: 20px;
+    padding: var(--admin-main-pad-top) 16px calc(28px + env(safe-area-inset-bottom, 0));
 
     > h1 {
       font-size: 1.7rem;
@@ -2384,6 +2387,12 @@ body:has(.admin-body) {
 
   .admin-card {
     padding: 16px;
+  }
+}
+
+@media (max-width: 900px) {
+  .admin-main {
+    --admin-main-pad-top: 20px;
   }
 }
 
@@ -2403,7 +2412,8 @@ body:has(.admin-body) {
   }
 
   .admin-main {
-    padding: 16px 12px calc(24px + env(safe-area-inset-bottom, 0));
+    --admin-main-pad-top: 16px;
+    padding: var(--admin-main-pad-top) 12px calc(24px + env(safe-area-inset-bottom, 0));
   }
 }
 
@@ -2937,7 +2947,8 @@ kbd {
   padding: 8px 0;
 }
 .admin-body--compact .admin-main {
-  padding-top: 16px;
+  --admin-main-pad-top: 16px;
+  padding-top: var(--admin-main-pad-top);
 }
 .admin-shortcuts-table {
   width: 100%;
