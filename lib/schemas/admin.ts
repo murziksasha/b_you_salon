@@ -8,6 +8,8 @@ export const CapabilitySchema = z.enum(ADMIN_CAPABILITIES);
 const ReAuth = {
   confirmPassword: z.string().max(256).optional(),
   ownerPassword: z.string().max(256).optional(),
+  /** Actor's own TOTP. Required by the server only when that actor has 2FA on. */
+  totp: z.string().max(16).optional(),
 };
 
 export function reAuthPassword(body: { confirmPassword?: string; ownerPassword?: string }): string {
@@ -41,5 +43,11 @@ export const DeleteUserSchema = z.object({
 export const RevokeSessionsSchema = z.object({
   id: z.string().min(1).max(128).optional(),
   all: z.boolean().optional(),
+  ...ReAuth,
+});
+
+export const RestoreBackupSchema = z.object({
+  action: z.literal('restore'),
+  file: z.string().min(1).max(200),
   ...ReAuth,
 });

@@ -13,9 +13,11 @@ interface BackupInfo {
 
 /** Export / import + server-side rolling backups + restore. */
 export function BackupPanel() {
-  const { can } = useAdminRole();
+  const { can, totpEnabled } = useAdminRole();
   const [busy, setBusy] = useState(false);
   const [backups, setBackups] = useState<BackupInfo[]>([]);
+  const [restorePassword, setRestorePassword] = useState('');
+  const [restoreTotp, setRestoreTotp] = useState('');
 
   const loadList = useCallback(async () => {
     try {
@@ -83,7 +85,12 @@ export function BackupPanel() {
       const res = await fetch('/api/backup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'restore', file: name }),
+        body: JSON.stringify({
+          action: 'restore',
+          file: name,
+          confirmPassword: restorePassword,
+          ...(totpEnabled ? { totp: restoreTotp } : {}),
+        }),
       });
       if (!res.ok) {
         const j = (await res.json().catch(() => ({}))) as { error?: string };
@@ -183,6 +190,36 @@ export function BackupPanel() {
           Оновити список
         </button>
       </div>
+
+      {can('restore_backup') ? (
+        <div className='admin-mb'>
+          <label className='admin-field admin-mb'>
+            Ваш пароль (для відновлення)
+            <input
+              type='password'
+              autoComplete='current-password'
+              value={restorePassword}
+              onChange={(e) => setRestorePassword(e.target.value)}
+              disabled={busy}
+            />
+          </label>
+          {totpEnabled ? (
+            <label className='admin-field'>
+              Ваш код 2FA
+              <input
+                type='text'
+                inputMode='numeric'
+                autoComplete='one-time-code'
+                maxLength={6}
+                placeholder='000000'
+                value={restoreTotp}
+                onChange={(e) => setRestoreTotp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                disabled={busy}
+              />
+            </label>
+          ) : null}
+        </div>
+      ) : null}
 
       {backups.length ? (
         <ul className='admin-backup-list'>

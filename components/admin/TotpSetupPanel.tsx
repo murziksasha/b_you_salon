@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { showToast } from './AdminToast';
+import { useAdminRole } from './AdminRoleContext';
 
 type TotpSource = 'env' | 'file';
 
@@ -11,6 +12,7 @@ interface TotpStatus {
   managedByEnv: boolean;
   fileConfigured: boolean;
   enabledAt: string | null;
+  scope?: 'user';
 }
 
 interface SetupDraft {
@@ -22,6 +24,7 @@ interface SetupDraft {
 type Phase = 'idle' | 'setup' | 'disable';
 
 export function TotpSetupPanel() {
+  const { setTotpEnabled } = useAdminRole();
   const [status, setStatus] = useState<TotpStatus | null>(null);
   const [loadError, setLoadError] = useState('');
   const [phase, setPhase] = useState<Phase>('idle');
@@ -132,6 +135,7 @@ export function TotpSetupPanel() {
         return;
       }
       showToast('2FA увімкнено', 'success');
+      setTotpEnabled(true);
       resetForm();
       await load();
     } catch {
@@ -167,6 +171,7 @@ export function TotpSetupPanel() {
         return;
       }
       showToast('2FA вимкнено', 'success');
+      setTotpEnabled(false);
       resetForm();
       await load();
     } catch {
@@ -209,8 +214,9 @@ export function TotpSetupPanel() {
     <div className='admin-card admin-totp-panel'>
       <h2 className='admin-h2'>Безпека · 2FA (TOTP)</h2>
       <p className='admin-hint admin-mb'>
-        Другий фактор для входу в адмінку. Google Authenticator, Aegis, 1Password тощо. Secret
-        зберігається в <code>data/admin-totp.json</code> (не в <code>site.json</code>).
+        {status.scope === 'user'
+          ? 'Це ваш особистий код для входу і чутливих дій. Він не збігається з кодом власника і не лежить у data/admin-totp.json.'
+          : 'Цей секрет лише для входу через ADMIN_PASSWORD (env / break-glass). Користувачі з admins.json мають власний 2FA. Файл: data/admin-totp.json.'}
       </p>
 
       <ul className='admin-checklist admin-mb'>
@@ -232,8 +238,9 @@ export function TotpSetupPanel() {
       {status.managedByEnv ? (
         <div className='admin-totp-env-note'>
           <p>
-            2FA задано через <code>ADMIN_TOTP_SECRET</code> у <code>.env</code>. Керування з адмінки
-            (QR / вимкнення) недоступне — змініть або приберіть змінну і перезапустіть сервер.
+            2FA задано через <code>ADMIN_TOTP_SECRET</code> у <code>.env</code>. Він діє лише для
+            env-входу, не для користувачів з <code>admins.json</code>. Керування з адмінки (QR /
+            вимкнення) недоступне — змініть або приберіть змінну і перезапустіть сервер.
           </p>
           {status.fileConfigured ? (
             <p className='admin-hint'>

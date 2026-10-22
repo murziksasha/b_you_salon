@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { verifyCurrentUserPassword } from '@/lib/admin/reauth';
+import { verifySensitiveReauth } from '@/lib/admin/reauth';
 import {
   createAdminUser,
   deleteAdminUser,
@@ -10,11 +10,19 @@ import {
 import { revokeSessionsByUsername } from '@/lib/admin-sessions';
 import { safeAudit } from '@/lib/api/audit';
 import { apiError, withAdmin } from '@/lib/api/handler';
+import type { AdminAccess } from '@/lib/require-role';
 import { CreateUserSchema, DeleteUserSchema, UpdateUserSchema, reAuthPassword } from '@/lib/schemas/admin';
 
 export const dynamic = 'force-dynamic';
 
-const reAuthFailed = () => apiError(403, 'reauth_failed', 'Потрібен ваш пароль');
+const reAuthFailed = () => apiError(403, 'reauth_failed', 'Невірний пароль або код 2FA');
+
+function reauth(
+  access: Pick<AdminAccess, 'username' | 'role'>,
+  body: { confirmPassword?: string; ownerPassword?: string; totp?: string },
+) {
+  return verifySensitiveReauth(access, { password: reAuthPassword(body), totp: body.totp });
+}
 
 export const GET = withAdmin('users', null, async () => {
   const users = await listAdminUsers();
@@ -22,7 +30,7 @@ export const GET = withAdmin('users', null, async () => {
 });
 
 export const POST = withAdmin('users', CreateUserSchema, async ({ access, body }) => {
-  if (!(await verifyCurrentUserPassword(access, reAuthPassword(body)))) return reAuthFailed();
+  if (!(await reauth(access, body))) return reAuthFailed();
   const result = await createAdminUser({
     username: body.username,
     password: body.password,
@@ -39,7 +47,7 @@ export const POST = withAdmin('users', CreateUserSchema, async ({ access, body }
 });
 
 export const PATCH = withAdmin('users', UpdateUserSchema, async ({ access, body }) => {
-  if (!(await verifyCurrentUserPassword(access, reAuthPassword(body)))) return reAuthFailed();
+  if (!(await reauth(access, body))) return reAuthFailed();
   if (body.resetTotp) {
     const target = (await listAdminUsers()).find((u) => u.id === body.id);
     if (!target) return apiError(404, 'not_found', 'Not found');
@@ -61,7 +69,7 @@ export const PATCH = withAdmin('users', UpdateUserSchema, async ({ access, body 
 });
 
 export const DELETE = withAdmin('users', DeleteUserSchema, async ({ access, body }) => {
-  if (!(await verifyCurrentUserPassword(access, reAuthPassword(body)))) return reAuthFailed();
+  if (!(await reauth(access, body))) return reAuthFailed();
   const result = await deleteAdminUser(body.id);
   if ('error' in result) {
     return apiError(result.error === 'Not found' ? 404 : 400, 'invalid', result.error);

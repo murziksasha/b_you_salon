@@ -47,3 +47,6 @@ yarn-error.log*
 /playwright/.cache/
 # test coverage
 /coverage/
+
+# grill me artifacts
+.grill/

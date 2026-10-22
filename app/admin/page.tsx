@@ -6,8 +6,7 @@ import { DashboardExtras, OnboardingChecklist } from '@/components/admin/Dashboa
 import { countLeads } from '@/lib/leads';
 import { countOrders } from '@/lib/orders';
 import { getSiteData } from '@/lib/site-data';
-import { getTotpSecret } from '@/lib/totp';
-import { getAdminUserByUsername } from '@/lib/admin-users';
+import { resolveActorTotpSecret } from '@/lib/admin/reauth';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -25,10 +24,8 @@ export default async function AdminDashboard() {
     process.env.ADMIN_PASSWORD !== 'changeme' &&
     (process.env.ADMIN_PASSWORD?.length ?? 0) >= 8;
   const hasSessionSecret = (process.env.SESSION_SECRET?.length ?? 0) >= 32;
-  const totp = await getTotpSecret();
-  const currentUser = access.username ? await getAdminUserByUsername(access.username) : null;
-  const hasPersonalTotp = Boolean(currentUser?.totp?.secret);
-  const requireTotp = process.env.ADMIN_REQUIRE_TOTP === 'true';
+  const actorTotp = await resolveActorTotpSecret(access);
+  const totpOn = Boolean(actorTotp);
   const siteUrlIsHttps = (process.env.SITE_URL || '').startsWith('https://');
 
   let openLeads = 0;
@@ -95,7 +92,7 @@ export default async function AdminDashboard() {
           hasPhone={hasPhone}
           goodsCount={site.goods.length}
           smtpConfigured={smtpConfigured}
-          totpHint={hasPersonalTotp || Boolean(totp)}
+          totpHint={totpOn}
         />
       )}
 
@@ -166,12 +163,12 @@ export default async function AdminDashboard() {
               {smtpConfigured ? '✓' : '!'} SMTP
               {!smtpConfigured ? ' — email вимкнено; заявки/замовлення все одно в журналах' : ''}
             </li>
-            <li className={hasPersonalTotp ? 'is-ok' : requireTotp ? 'is-warn' : 'is-info'}>
-              {hasPersonalTotp
-                ? '✓ Особистий 2FA TOTP увімкнено'
-                : requireTotp
-                  ? '! Особистий 2FA не налаштовано — ADMIN_REQUIRE_TOTP=true, налаштуйте в Налаштуваннях'
-                  : '2FA вимкнено — увімкніть у Налаштуваннях'}
+            <li className={totpOn ? 'is-ok' : 'is-info'}>
+              {totpOn
+                ? actorTotp?.source === 'global'
+                  ? '✓ 2FA env-входу увімкнено'
+                  : '✓ Ваш 2FA увімкнено'
+                : '2FA вимкнено — увімкніть у Налаштуваннях'}
             </li>
             <li className={process.env.ADMIN_IP_ALLOWLIST ? 'is-ok' : 'is-info'}>
               {process.env.ADMIN_IP_ALLOWLIST

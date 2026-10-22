@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import QRCode from 'qrcode';
-import { verifyCurrentUserPassword } from '@/lib/admin/reauth';
+import { verifySensitiveReauth } from '@/lib/admin/reauth';
 import { requireAdminRole } from '@/lib/require-role';
 import { roleCan } from '@/lib/admin-roles';
 import { getAdminUserByUsername, setUserTotp, type AdminUser } from '@/lib/admin-users';
@@ -93,9 +93,10 @@ export async function POST(request: NextRequest) {
 
   const action = typeof body.action === 'string' ? body.action : '';
   const password = typeof body.password === 'string' ? body.password : '';
+  const code = typeof body.code === 'string' ? body.code : '';
 
-  if (!(await verifyCurrentUserPassword(gate.access, password))) {
-    return NextResponse.json({ error: 'Invalid password' }, { status: 401 });
+  if (!(await verifySensitiveReauth(gate.access, { password, totp: code }))) {
+    return NextResponse.json({ error: 'Невірний пароль або код 2FA' }, { status: 403 });
   }
 
   const dbUser = await getAdminUserByUsername(gate.access.username);
