@@ -11,7 +11,7 @@ import {
 import { stampManualSuccessIfNeeded } from '@/lib/feed-schedule';
 
 export async function POST(request: NextRequest) {
-  const g = await requireAdminRole('editor');
+  const g = await requireAdminRole('goods');
   if (!g.ok) return g.response;
 
   // Rate-limit: 5 imports per 5 minutes
