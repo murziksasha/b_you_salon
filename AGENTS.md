@@ -63,7 +63,7 @@ Shell is Windows PowerShell. Chain commands with `;`, not `&&`.
 - **Icons:** `lucide-react` (named imports).
 - **State Management:** React state, URL search params (`useSearchParams`), and native `localStorage` for client preferences (`byou-theme`, `byou-cookie-consent`).
 - **Admin Preferences:** Admin does not use the public theme switch or cookie banner.
-- **Admin scroll:** Only `.admin-main` scrolls. On `/admin/goods`, `.admin-goods-toolbar` (save, import, search, filters) is `position: sticky; top: 0; z-index: 30` with an opaque `var(--admin-surface)` background. The page title may scroll away. Other admin toolbars stay in normal document flow.
+- **Admin scroll:** Only `.admin-main` scrolls. On `/admin/goods`, the goods toolbar sticks to the top edge of `.admin-main` (negative `top` cancels pane padding), opaque `var(--admin-surface)`, title may scroll away. Other admin toolbars stay in normal document flow.
 - **Component Pattern:** Named exports with explicit typed props (`export function Component(props: Props)` or `export const Component: React.FC<Props> = ...`). Path alias `@/*`.
 - **Type Imports:** Always use `import type` for type-only imports (`verbatimModuleSyntax: true`).
 - **Sanitization:** All CMS HTML strings pass through `sanitizeHtml()` before `dangerouslySetInnerHTML`. JSON-LD and the theme/cookie boot scripts are not CMS HTML.
