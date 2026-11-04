@@ -11,9 +11,19 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
       - run: npm ci
       - run: npm run check
+      - name: Production dependency audit
+        run: npm audit --omit=dev
+      - name: Production build
+        run: npm run build
+      - name: Smoke E2E Tests
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:smoke
+        env:
+          CI: 1
       - name: No empty source files in features/
         run: test -z "$(find features -type f -size 0 2>/dev/null)"

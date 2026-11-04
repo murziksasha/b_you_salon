@@ -84,10 +84,8 @@ export async function authenticateLogin(input: { password: string; username?: st
   return { ok: false, error: 'Invalid password' };
 }
 
-export async function createSession(claims?: SessionClaims): Promise<string> {
+export async function setSessionCookie(token: string): Promise<void> {
   const cookieStore = await cookies();
-  const token = await createSessionToken(claims);
-
   cookieStore.set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: cookieSecureEnabled(),
@@ -95,6 +93,11 @@ export async function createSession(claims?: SessionClaims): Promise<string> {
     path: '/',
     maxAge: SESSION_MAX_AGE_SECONDS,
   });
+}
+
+export async function createSession(claims?: SessionClaims): Promise<string> {
+  const token = await createSessionToken(claims);
+  await setSessionCookie(token);
   return token;
 }
 
@@ -114,16 +117,16 @@ export async function getSession(): Promise<boolean> {
   const value = cookieStore.get(SESSION_COOKIE)?.value;
   if (!(await isValidSession(value))) return false;
   const parsed = await parseSession(value);
-  if (parsed.fingerprint && !(await isSessionAllowed(parsed.fingerprint))) return false;
-  return true;
+  if (!parsed.valid || !parsed.fingerprint) return false;
+  return await isSessionAllowed(parsed.fingerprint);
 }
 
 export async function getSessionClaims(): Promise<SessionClaims | null> {
   const cookieStore = await cookies();
   const value = cookieStore.get(SESSION_COOKIE)?.value;
   const parsed = await parseSession(value);
-  if (!parsed.valid) return null;
-  if (parsed.fingerprint && !(await isSessionAllowed(parsed.fingerprint))) return null;
+  if (!parsed.valid || !parsed.fingerprint) return null;
+  if (!(await isSessionAllowed(parsed.fingerprint))) return null;
   return parsed.claims || null;
 }
 

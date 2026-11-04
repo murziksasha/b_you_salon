@@ -6,6 +6,7 @@ import { RestoreBackupSchema, reAuthPassword } from '@/lib/schemas/admin';
 import { getSiteData, saveSiteData } from '@/lib/site-data';
 import { parseSiteData } from '@/lib/validation';
 import { requireAdminRole, type AdminAccess } from '@/lib/require-role';
+import { timingSafeCompare } from '@/lib/timing-safe';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,7 +15,7 @@ function cronAuthorized(request: NextRequest): boolean {
   if (!secret) return false;
   const auth = request.headers.get('authorization') || '';
   const header = request.headers.get('x-backup-secret') || '';
-  return auth === `Bearer ${secret}` || header === secret;
+  return timingSafeCompare(auth, `Bearer ${secret}`) || timingSafeCompare(header, secret);
 }
 
 async function requireAdminOrCron(request: NextRequest, action: 'backup' | 'restore_backup') {

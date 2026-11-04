@@ -1,41 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import type { Product } from '@/lib/types';
 import {
   PRODUCT_SORT_OPTIONS,
-  collectCategories,
-  filterAndSortProducts,
-  groupProductsByCategory,
-  hasActiveCatalogParams,
   parseProductSort,
+  type ProductCardDTO,
   type ProductSort,
 } from '@/lib/shop-catalog';
-import { ChevronDown } from 'lucide-react';
 import { ProductGrid } from './ProductGrid';
 
 const DEBOUNCE_MS = 250;
-const COLLAPSED_STORAGE_KEY = 'byou-shop-collapsed-groups';
-
-function readCollapsedGroups(): string[] {
-  try {
-    const raw = window.localStorage.getItem(COLLAPSED_STORAGE_KEY);
-    const parsed: unknown = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeCollapsedGroups(keys: string[]): void {
-  try {
-    if (keys.length) window.localStorage.setItem(COLLAPSED_STORAGE_KEY, JSON.stringify(keys));
-    else window.localStorage.removeItem(COLLAPSED_STORAGE_KEY);
-  } catch {
-    // Storage unavailable (private mode, quota) — collapse still works for this session.
-  }
-}
 
 function catalogKey(q: string, sort: ProductSort, category: string): string {
   return `${q.trim()}|${sort}|${category.trim()}`;
@@ -53,48 +29,62 @@ function readParamsFromLocation(): { q: string; sort: ProductSort; category: str
   };
 }
 
-export function ShopCatalog({
-  products,
-  initialQuery = '',
-  initialSort = 'manual',
-  initialCategory = '',
-}: {
-  products: Product[];
+export interface ShopCatalogProps {
+  /** First batch of 36 cards from SSR */
+  initialItems?: ProductCardDTO[];
+  /** Legacy prop for backward compatibility */
+  products?: Product[];
+  initialTotal?: number;
+  initialHasMore?: boolean;
+  categories?: string[];
   initialQuery?: string;
   initialSort?: ProductSort;
   initialCategory?: string;
-}) {
-  const router = useRouter();
+}
+
+export function ShopCatalog({
+  initialItems = [],
+  products = [],
+  initialTotal,
+  initialHasMore = false,
+  categories = [],
+  initialQuery = '',
+  initialSort = 'manual',
+  initialCategory = '',
+}: ShopCatalogProps) {
   const pathname = usePathname();
+
+  // Initialize with initialItems or fallback to products
+  const startingItems: (Product | ProductCardDTO)[] = initialItems.length ? initialItems : products;
+  const startingTotal = typeof initialTotal === 'number' ? initialTotal : startingItems.length;
+
+  const [items, setItems] = useState<(Product | ProductCardDTO)[]>(startingItems);
+  const [total, setTotal] = useState(startingTotal);
+  const [hasMore, setHasMore] = useState(initialHasMore);
+  const [page, setPage] = useState(1);
 
   const [query, setQuery] = useState(initialQuery);
   const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
   const [sort, setSort] = useState<ProductSort>(initialSort);
   const [category, setCategory] = useState(initialCategory);
-  // Collapsed category groups, keyed by group key (category name). Empty on SSR, restored after mount.
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
+
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+
+  const activeFilterKeyRef = useRef(catalogKey(initialQuery, initialSort, initialCategory));
+  const inFlightControllerRef = useRef<AbortController | null>(null);
   const lastSyncedKey = useRef(catalogKey(initialQuery, initialSort, initialCategory));
+  const isFirstRender = useRef(true);
 
-  useEffect(() => {
-    const stored = readCollapsedGroups();
-    if (stored.length) setCollapsed(new Set(stored));
-  }, []);
-
-  const toggleGroup = useCallback((key: string) => {
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      writeCollapsedGroups([...next]);
-      return next;
-    });
-  }, []);
-
+  // Debounce search typing
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedQuery(query), DEBOUNCE_MS);
     return () => window.clearTimeout(t);
   }, [query]);
 
+  // Sync URL query params
   const syncUrl = useCallback(
     (next: { q: string; sort: ProductSort; category: string }) => {
       const key = catalogKey(next.q, next.sort, next.category);
@@ -107,16 +97,77 @@ export function ShopCatalog({
       if (next.sort !== 'manual') params.set('sort', next.sort);
       if (next.category.trim()) params.set('category', next.category.trim());
       const qs = params.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      const targetUrl = qs ? `${pathname}?${qs}` : pathname;
+      if (typeof window !== 'undefined') {
+        window.history.replaceState(null, '', targetUrl);
+      }
     },
-    [pathname, router],
+    [pathname],
   );
 
+  // Fetch page 1 when filters change (skip initial mount)
   useEffect(() => {
-    syncUrl({ q: debouncedQuery, sort, category });
-  }, [debouncedQuery, sort, category, syncUrl]);
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
 
-  // Browser back/forward without useSearchParams (avoids Suspense fallback-only UI)
+    const currentKey = catalogKey(debouncedQuery, sort, category);
+    activeFilterKeyRef.current = currentKey;
+    syncUrl({ q: debouncedQuery, sort, category });
+
+    // Cancel in-flight page-1 request
+    if (inFlightControllerRef.current) {
+      inFlightControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    inFlightControllerRef.current = controller;
+
+    setLoading(true);
+    setFetchError(null);
+    setItems([]); // Clear stale cards when filters change
+    setPage(1);
+
+    const params = new URLSearchParams();
+    if (debouncedQuery.trim()) params.set('q', debouncedQuery.trim());
+    if (sort !== 'manual') params.set('sort', sort);
+    if (category.trim()) params.set('category', category.trim());
+    params.set('page', '1');
+    params.set('pageSize', '36');
+
+    fetch(`/api/catalog?${params.toString()}`, { signal: controller.signal })
+      .then((res) => {
+        if (!res.ok) throw new Error(`Catalog fetch returned ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        if (controller.signal.aborted) return;
+        if (activeFilterKeyRef.current !== currentKey) return;
+        setItems(data.items || []);
+        setTotal(data.total || 0);
+        setHasMore(Boolean(data.hasMore));
+        setFetchError(null);
+      })
+      .catch((err: unknown) => {
+        if ((err as Error)?.name === 'AbortError') return;
+        if (activeFilterKeyRef.current !== currentKey) return;
+        setFetchError('Не вдалося завантажити товари. Перевірте зʼєднання або спробуйте знову.');
+        setItems([]);
+        setTotal(0);
+        setHasMore(false);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted && activeFilterKeyRef.current === currentKey) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      controller.abort();
+    };
+  }, [debouncedQuery, sort, category, syncUrl, retryCount]);
+
+  // Back/forward browser navigation
   useEffect(() => {
     function onPopState() {
       const next = readParamsFromLocation();
@@ -132,31 +183,38 @@ export function ShopCatalog({
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
-  const categories = useMemo(() => collectCategories(products), [products]);
+  // "Показати більше" (append next 36 cards)
+  const handleLoadMore = useCallback(() => {
+    // Disable show-more while page one is loading or page two is pending
+    if (loading || loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    const nextPage = page + 1;
+    const requestedKey = catalogKey(debouncedQuery, sort, category);
 
-  const filtered = useMemo(
-    () =>
-      filterAndSortProducts(products, {
-        query: debouncedQuery,
-        sort,
-        category: category || undefined,
-      }),
-    [products, debouncedQuery, sort, category],
-  );
+    const params = new URLSearchParams();
+    if (debouncedQuery.trim()) params.set('q', debouncedQuery.trim());
+    if (sort !== 'manual') params.set('sort', sort);
+    if (category.trim()) params.set('category', category.trim());
+    params.set('page', String(nextPage));
+    params.set('pageSize', '36');
 
-  const active = hasActiveCatalogParams({ query: debouncedQuery, sort, category });
-
-  /** Grouped sections when browsing full catalog in manual order (mirrors admin groups). */
-  const showGrouped =
-    sort === 'manual' &&
-    !debouncedQuery.trim() &&
-    !category.trim() &&
-    categories.length >= 2;
-
-  const groups = useMemo(
-    () => (showGrouped ? groupProductsByCategory(filtered) : []),
-    [showGrouped, filtered],
-  );
+    fetch(`/api/catalog?${params.toString()}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        // Discard page-2 response if filters changed while request was in-flight
+        if (!data?.items || activeFilterKeyRef.current !== requestedKey) return;
+        setItems((prev) => [...prev, ...data.items]);
+        setPage(nextPage);
+        setHasMore(Boolean(data.hasMore));
+        setTotal(data.total || 0);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (activeFilterKeyRef.current === requestedKey) {
+          setLoadingMore(false);
+        }
+      });
+  }, [loading, loadingMore, hasMore, page, debouncedQuery, sort, category]);
 
   function reset() {
     setQuery('');
@@ -165,14 +223,7 @@ export function ShopCatalog({
     setCategory('');
   }
 
-  if (!products.length) {
-    return (
-      <div className='shop-empty'>
-        <p>Наразі в каталозі немає опублікованих товарів.</p>
-        <p className='shop-empty__hint'>Зателефонуйте — підкажемо догляд під вашу шкіру.</p>
-      </div>
-    );
-  }
+  const active = Boolean(debouncedQuery.trim() || sort !== 'manual' || category.trim());
 
   return (
     <div className='shop-catalog'>
@@ -225,7 +276,7 @@ export function ShopCatalog({
           ) : null}
 
           {active ? (
-            <button type='button' className='shop-toolbar__reset' onClick={reset} aria-label='Скинути фільтри'>
+            <button type='button' className='by-btn by-btn--ghost shop-toolbar__reset' onClick={reset}>
               Скинути
             </button>
           ) : null}
@@ -255,50 +306,48 @@ export function ShopCatalog({
       ) : null}
 
       <p className='shop-catalog__meta' aria-live='polite'>
-        {filtered.length === products.length
-          ? `Товарів: ${products.length}`
-          : `Знайдено ${filtered.length} з ${products.length}`}
+        {loading
+          ? 'Пошук товарів…'
+          : fetchError
+            ? 'Помилка завантаження'
+            : total === 0
+              ? 'Нічого не знайдено'
+              : items.length >= total
+                ? `Товарів: ${total}`
+                : `Показано ${items.length} з ${total}`}
       </p>
 
-      {filtered.length ? (
-        showGrouped ? (
-          <div className='shop-groups'>
-            {groups.map((group, index) => {
-              const isCollapsed = collapsed.has(group.key);
-              const titleId = `shop-group-title-${index}`;
-              const panelId = `shop-group-panel-${index}`;
-              return (
-                <section
-                  key={group.key}
-                  className={`shop-group${isCollapsed ? ' is-collapsed' : ''}`}
-                  aria-labelledby={titleId}
-                >
-                  <h2 className='shop-group__title'>
-                    <button
-                      type='button'
-                      id={titleId}
-                      className='shop-group__toggle'
-                      aria-expanded={!isCollapsed}
-                      aria-controls={panelId}
-                      onClick={() => toggleGroup(group.key)}
-                    >
-                      <span className='shop-group__label'>{group.label}</span>
-                      <span className='shop-group__count'>{group.total}</span>
-                      <ChevronDown className='shop-group__chevron' size={22} aria-hidden='true' />
-                    </button>
-                  </h2>
-                  <div id={panelId} className='shop-group__panel' inert={isCollapsed}>
-                    <div className='shop-group__panel-inner'>
-                      <ProductGrid products={group.products} />
-                    </div>
-                  </div>
-                </section>
-              );
-            })}
-          </div>
-        ) : (
-          <ProductGrid products={filtered} />
-        )
+      {fetchError ? (
+        <div className='shop-empty' style={{ margin: '2rem 0' }}>
+          <p>{fetchError}</p>
+          <button
+            type='button'
+            className='by-btn shop-empty__btn'
+            onClick={() => setRetryCount((c) => c + 1)}
+          >
+            Спробувати знову
+          </button>
+        </div>
+      ) : items.length ? (
+        <>
+          <ProductGrid products={items} />
+          {hasMore ? (
+            <div className='shop-catalog__more' style={{ textAlign: 'center', marginTop: '2rem' }}>
+              <button
+                type='button'
+                className='by-btn by-btn--outline shop-catalog__more-btn'
+                onClick={handleLoadMore}
+                disabled={loading || loadingMore}
+              >
+                {loadingMore ? 'Завантаження…' : 'Показати більше'}
+              </button>
+            </div>
+          ) : null}
+        </>
+      ) : loading ? (
+        <div className='shop-empty'>
+          <p>Завантаження каталогу…</p>
+        </div>
       ) : (
         <div className='shop-empty'>
           <p>Нічого не знайдено за вашим запитом.</p>

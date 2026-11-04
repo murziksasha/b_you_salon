@@ -13,6 +13,7 @@ vi.mock('@/lib/rate-limit', () => ({
 vi.mock('@/lib/site-data', () => ({
   getSiteData: vi.fn(),
   saveSiteData: vi.fn(),
+  withSiteDataLock: vi.fn(async (fn: () => Promise<unknown>) => fn()),
 }));
 
 vi.mock('@/lib/fetch-remote-image', () => ({

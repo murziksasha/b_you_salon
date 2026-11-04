@@ -45,8 +45,11 @@ yarn-error.log*
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+/.data-e2e/
+/.uploads-e2e/
+
 # test coverage
 /coverage/
 
-# grill me artifacts
-.grill/
+# local scratch
+*.local.json

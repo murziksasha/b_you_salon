@@ -3,6 +3,7 @@ import { appendOrder, type Fulfillment, type Order, type OrderItemSnapshot } fro
 import { escapeText } from './sanitize';
 import { CONSULT_PRODUCT_TITLE } from './shop-consult';
 import { autoNotifyNewOrder } from './telegram-auto-notify';
+import { formatKyivDateTime } from './quiet-hours';
 
 export async function placeShopOrder(input: {
   phone: string;
@@ -34,7 +35,7 @@ export async function placeShopOrder(input: {
   const safeTitle = escapeText(titleLine);
   const safeComment = input.comment ? escapeText(input.comment) : '—';
   const priceStr = total.toLocaleString('uk-UA');
-  const when = new Date().toLocaleString('uk-UA');
+  const when = formatKyivDateTime();
   const pagePath = input.pagePath || (consult ? '/' : '/cart');
   const pageLink = siteUrl ? `${siteUrl}${pagePath}` : pagePath;
   const adminUrl = siteUrl ? `${siteUrl}/admin/orders` : undefined;

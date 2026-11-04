@@ -1,4 +1,5 @@
 import type { Product } from './types';
+import type { ProductCardDTO } from './shop-catalog';
 
 export const CART_STORAGE_KEY = 'byou-cart';
 export const MAX_QTY = 99;
@@ -6,10 +7,17 @@ export const MAX_LINES = 30;
 
 export type CartLine = { id: string; qty: number };
 
+export type CartProduct = Pick<Product, 'id' | 'title' | 'price'> & {
+  image?: string;
+  code?: string;
+  visible?: boolean;
+  inStock?: boolean;
+};
+
 export type HydratedCartLine = {
   id: string;
   qty: number;
-  product?: Product;
+  product?: CartProduct;
   available: boolean;
   reason?: 'missing' | 'hidden' | 'oos';
 };
@@ -61,13 +69,20 @@ export function cartCount(lines: CartLine[]): number {
   return lines.reduce((sum, l) => sum + l.qty, 0);
 }
 
-export function hydrateCart(lines: CartLine[], products: Product[]): HydratedCartLine[] {
+export function hydrateCart(
+  lines: CartLine[],
+  products: Array<Product | ProductCardDTO | CartProduct>,
+): HydratedCartLine[] {
   const byId = new Map(products.map((p) => [p.id, p]));
   return lines.map((line) => {
     const product = byId.get(line.id);
     if (!product) return { ...line, available: false, reason: 'missing' as const };
-    if (!product.visible) return { ...line, product, available: false, reason: 'hidden' as const };
-    if (product.inStock === false) return { ...line, product, available: false, reason: 'oos' as const };
+    if ('visible' in product && product.visible === false) {
+      return { ...line, product, available: false, reason: 'hidden' as const };
+    }
+    if (product.inStock === false) {
+      return { ...line, product, available: false, reason: 'oos' as const };
+    }
     return { ...line, product, available: true };
   });
 }

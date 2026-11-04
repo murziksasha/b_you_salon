@@ -19,10 +19,18 @@ describe('csv', () => {
       expect(csvField('line1\nline2')).toBe('"line1\nline2"');
       expect(csvField('line1\r\nline2')).toBe('"line1\r\nline2"');
     });
+
+    it('mitigates CSV formula injection on triggers (=, +, -, @, \\t, \\r)', () => {
+      expect(csvField('=1+1')).toBe("'=1+1");
+      expect(csvField('+cmd|')).toBe("'+cmd|");
+      expect(csvField('-123')).toBe("'-123");
+      expect(csvField('@SUM(A1:A5)')).toBe("'@SUM(A1:A5)");
+      expect(csvField('\tformula')).toBe("'\tformula");
+    });
   });
 
   describe('toCsv', () => {
-    it('formats headers and rows into CSV with CRLF line breaks', () => {
+    it('prepends UTF-8 BOM and formats headers and rows into CSV with CRLF', () => {
       const headers = ['ID', 'Name', 'Notes'];
       const rows = [
         ['1', 'Anna', 'Normal text'],
@@ -30,7 +38,8 @@ describe('csv', () => {
       ];
 
       const csv = toCsv(headers, rows);
-      expect(csv).toBe('ID,Name,Notes\r\n1,Anna,Normal text\r\n2,Oleg,"Has, comma and ""quotes"""\r\n');
+      expect(csv.startsWith('\uFEFF')).toBe(true);
+      expect(csv).toBe('\uFEFFID,Name,Notes\r\n1,Anna,Normal text\r\n2,Oleg,"Has, comma and ""quotes"""\r\n');
     });
   });
 });

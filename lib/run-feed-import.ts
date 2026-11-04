@@ -1,4 +1,4 @@
-import { getSiteData, saveSiteData } from './site-data';
+import { getSiteData, saveSiteData, withSiteDataLock } from './site-data';
 import { createId } from './id';
 import { PRODUCT_PLACEHOLDER_IMAGE } from './media-usage';
 import {
@@ -11,6 +11,7 @@ import {
 } from './feed-import';
 import { fetchAndStoreImage } from './fetch-remote-image';
 import type { Product } from './types';
+import { safeFetch } from './ssrf';
 
 export class FeedFetchError extends Error {
   constructor(message: string) {
@@ -70,7 +71,7 @@ async function fetchFeed(url: string, signal?: AbortSignal): Promise<string> {
   // Link external abort to internal controller
   signal?.addEventListener('abort', () => controller.abort(), { once: true });
   try {
-    const res = await fetch(url, {
+    const res = await safeFetch(url, {
       signal: controller.signal,
       headers: { Accept: 'application/json, application/xml, text/xml, */*' },
     });
@@ -246,6 +247,20 @@ async function _run(opts: RunFeedImportOptions): Promise<RunFeedImportResult> {
   }
 
   onStatus?.('Збереження каталогу…');
-  await saveSiteData({ ...siteData, goods });
+  await withSiteDataLock(async () => {
+    const current = await getSiteData();
+    const goodsModified =
+      current.goods.length !== siteData.goods.length ||
+      current.goods.some((g, idx) => {
+        const orig = siteData.goods[idx];
+        return !orig || orig.id !== g.id || orig.updatedAt !== g.updatedAt;
+      });
+
+    if (goodsModified) {
+      throw new Error('Goods catalog was modified concurrently during import');
+    }
+
+    await saveSiteData({ ...current, goods });
+  });
   return { created, updated, failed: errors.length, format, aborted: false, errors, total };
 }

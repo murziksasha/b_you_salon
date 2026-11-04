@@ -1,4 +1,5 @@
 import type { Product } from './types';
+import { stripHtmlToPlainText } from './feed-import';
 
 export type ProductSort = 'manual' | 'price-asc' | 'price-desc' | 'title-asc' | 'title-desc';
 
@@ -730,3 +731,87 @@ export function formatBulkConfirmMessage(opts: {
   return parts.join('\n\n');
 }
 
+
+
+export interface ProductCardDTO {
+  id: string;
+  title: string;
+  price: number;
+  image: string;
+  category?: string;
+  badge?: string;
+  inStock?: boolean;
+  code?: string;
+  promoText?: string;
+  shortDesc?: string;
+}
+
+export function toProductCardDTO(product: Product): ProductCardDTO {
+  const plain = product.description ? stripHtmlToPlainText(product.description).trim() : '';
+  const shortDesc = plain.length > 200 ? `${plain.slice(0, 200).trimEnd()}…` : plain || undefined;
+  return {
+    id: product.id,
+    title: product.title,
+    price: product.price,
+    image: product.image,
+    category: product.category || undefined,
+    badge: product.badge ? String(product.badge) : undefined,
+    inStock: product.inStock !== false,
+    code: product.code || undefined,
+    promoText: product.promoText || undefined,
+    shortDesc,
+  };
+}
+
+export const CATALOG_PAGE_SIZE = 36;
+
+export interface CatalogQueryParams {
+  query?: string;
+  sort?: ProductSort;
+  category?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface CatalogQueryResult {
+  items: ProductCardDTO[];
+  total: number;
+  hasMore: boolean;
+  page: number;
+  pageSize: number;
+}
+
+export function queryCatalog(
+  products: Product[],
+  params: CatalogQueryParams = {},
+): CatalogQueryResult {
+  const page = Math.max(1, Math.floor(Number(params.page) || 1));
+  const pageSize = Math.max(1, Math.min(100, Math.floor(Number(params.pageSize) || CATALOG_PAGE_SIZE)));
+  const query = (params.query || '').trim();
+  const sort = params.sort || 'manual';
+  const category = (params.category || '').trim();
+
+  // Hidden products are strictly excluded from public catalog
+  const visibleProducts = products.filter((p) => p.visible);
+
+  const filtered = filterAndSortProducts(visibleProducts, {
+    query,
+    sort,
+    category: category || undefined,
+    visibility: 'visible',
+  });
+
+  const total = filtered.length;
+  const startIndex = (page - 1) * pageSize;
+  const pageProducts = filtered.slice(startIndex, startIndex + pageSize);
+  const items = pageProducts.map(toProductCardDTO);
+  const hasMore = startIndex + pageSize < total;
+
+  return {
+    items,
+    total,
+    hasMore,
+    page,
+    pageSize,
+  };
+}

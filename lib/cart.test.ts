@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { addLine, availableCartItems, cartTotal, clampQty, hydrateCart, parseCartLines } from './cart';
+import { addLine, availableCartItems, cartTotal, clampQty, hydrateCart, mergeLine, parseCartLines } from './cart';
 import type { Product } from './types';
+import type { ProductCardDTO } from './shop-catalog';
 
 const products: Product[] = [
   { id: 'a', title: 'A', description: '', price: 100, image: '/a.jpg', visible: true, inStock: true },
   { id: 'b', title: 'B', description: '', price: 50, image: '/b.jpg', visible: true, inStock: false },
   { id: 'c', title: 'C', description: '', price: 10, image: '/c.jpg', visible: false },
+];
+
+const dtos: ProductCardDTO[] = [
+  { id: 'a', title: 'A', price: 100, image: '/a.jpg', inStock: true },
+  { id: 'b', title: 'B', price: 50, image: '/b.jpg', inStock: false },
 ];
 
 describe('cart', () => {
@@ -21,7 +27,7 @@ describe('cart', () => {
     expect(addLine(lines, 'a', 3)[0].qty).toBe(5);
   });
 
-  it('hydrates and drops unavailable', () => {
+  it('hydrates and drops unavailable with Product', () => {
     const hydrated = hydrateCart(
       [
         { id: 'a', qty: 2 },
@@ -36,5 +42,32 @@ describe('cart', () => {
     expect(cartTotal(items)).toBe(200);
     expect(hydrated.find((h) => h.id === 'b')?.reason).toBe('oos');
     expect(hydrated.find((h) => h.id === 'c')?.reason).toBe('hidden');
+    expect(hydrated.find((h) => h.id === 'missing')?.reason).toBe('missing');
+  });
+
+  it('hydrates with ProductCardDTO', () => {
+    const hydrated = hydrateCart(
+      [
+        { id: 'a', qty: 3 },
+        { id: 'b', qty: 1 },
+        { id: 'missing', qty: 1 },
+      ],
+      dtos,
+    );
+    const items = availableCartItems(hydrated);
+    expect(items).toEqual([{ id: 'a', title: 'A', price: 100, qty: 3, code: undefined, image: '/a.jpg' }]);
+    expect(cartTotal(items)).toBe(300);
+    expect(hydrated.find((h) => h.id === 'b')?.reason).toBe('oos');
+    expect(hydrated.find((h) => h.id === 'missing')?.reason).toBe('missing');
+  });
+
+  it('hydrates updated line quantities correctly when lines change during lookup', () => {
+    let lines = [{ id: 'a', qty: 1 }];
+    // Quantity changed while lookup was pending
+    lines = mergeLine(lines, 'a', 4);
+    const hydrated = hydrateCart(lines, dtos);
+    const items = availableCartItems(hydrated);
+    expect(items[0].qty).toBe(4);
+    expect(cartTotal(items)).toBe(400);
   });
 });

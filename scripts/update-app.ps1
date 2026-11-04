@@ -1,6 +1,6 @@
 # Host update — one command: npm run update
 # backup CMS JSON, fetch, checkout deploy branch, ff-only pull, install if needed,
-# always build, pm2 restart byou, health check.
+# candidate build into .next.candidate, atomic cutover with journal snapshot and rollback on health failure.
 #
 # Deploy branch (first match wins): -Branch, env DEPLOY_BRANCH, .env DEPLOY_BRANCH, else `dev`.
 #
@@ -22,6 +22,7 @@ Set-Location $Root
 
 $AppName = "byou"
 $LegacyAppName = "properservice"
+$TgName = "byou-telegram"
 $Eco = Join-Path $Root "ecosystem.config.cjs"
 $HealthTimeoutSec = 30
 
@@ -63,7 +64,7 @@ function Read-DeployBranch {
   if ($env:DEPLOY_BRANCH) { return $env:DEPLOY_BRANCH.Trim() }
   $fromFile = Read-DotEnvValue "DEPLOY_BRANCH"
   if ($fromFile) { return $fromFile }
-  return "dev"
+  return "main"
 }
 
 function Get-FileSha256 {
@@ -74,8 +75,6 @@ function Get-FileSha256 {
 
 function Invoke-Git {
   param([string]$GitArgs)
-  # Out-Host: git stdout ("Already up to date.") must not join the return value.
-  # `$code = Invoke-Git ...` would otherwise become an array and `-ne 0` a filter.
   Write-Host "    git $GitArgs"
   cmd.exe /c "git $GitArgs" | Out-Host
   if ($null -eq $LASTEXITCODE) { return 0 }
@@ -143,8 +142,6 @@ function Get-NextCmdShim {
   return (Join-Path $Root "node_modules\.bin\next.cmd")
 }
 
-# Folder node_modules is not enough: a leftover/partial tree still skips npm ci
-# and `npm run build` then dies with "'next' is not recognized".
 function Test-DepsReady {
   if (-not (Test-Path (Join-Path $Root "node_modules"))) { return $false }
   if (-not (Test-Path (Get-NextJsBin))) { return $false }
@@ -171,13 +168,14 @@ function Invoke-NpmInstall {
 }
 
 function Backup-CmsJson {
+  param([string]$Prefix = "pre-update")
   $dataDir = Join-Path $Root "data"
   if (-not (Test-Path $dataDir)) {
     Write-Warning "data/ missing - nothing to backup"
     return $null
   }
   $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
-  $dest = Join-Path $dataDir "backups\pre-update-$stamp"
+  $dest = Join-Path $dataDir "backups\$Prefix-$stamp"
   New-Item -ItemType Directory -Force -Path $dest | Out-Null
   $copied = 0
   Get-ChildItem -Path $dataDir -Filter "*.json" -File -ErrorAction SilentlyContinue | ForEach-Object {
@@ -186,20 +184,6 @@ function Backup-CmsJson {
   }
   Write-Host "CMS backup: $dest ($copied json file(s))"
   return $dest
-}
-
-function Restore-RuntimeJsonFromBackup {
-  param([string]$BackupPath)
-  if (-not $BackupPath -or -not (Test-Path $BackupPath)) { return }
-  $dataDir = Join-Path $Root "data"
-  $restored = 0
-  Get-ChildItem -Path $BackupPath -Filter "*.json" -File -ErrorAction SilentlyContinue |
-    Where-Object { $_.Name -ne "site.seed.json" } |
-    ForEach-Object {
-      Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $dataDir $_.Name) -Force
-      $restored++
-    }
-  Write-Host "CMS restore: $restored runtime JSON file(s) restored from $BackupPath"
 }
 
 function Get-TrackedDirtyEntries {
@@ -224,28 +208,28 @@ function Get-TrackedDirtyEntries {
 }
 
 function Invoke-AppBuild {
+  param([string]$CandidateDir = ".next.candidate")
   $logDir = Join-Path $Root "logs"
   if (-not (Test-Path $logDir)) {
     New-Item -ItemType Directory -Force -Path $logDir | Out-Null
   }
   $buildLog = Join-Path $logDir "update-build.log"
+  $candidatePath = Join-Path $Root $CandidateDir
+  if (Test-Path $candidatePath) {
+    Remove-Item -Recurse -Force -LiteralPath $candidatePath -ErrorAction SilentlyContinue
+  }
+  $env:NEXT_DIST_DIR = $CandidateDir
   $nextJs = Get-NextJsBin
   $binDir = Join-Path $Root "node_modules\.bin"
   if (Test-Path $binDir) {
     $env:Path = "$binDir;$env:Path"
   }
-  # Prefer the package binary: Git Bash/cmd shims (`next.cmd`) are often missing
-  # even when node_modules/next is present. Fall back to npm run build.
+  Write-Host "==> Building candidate into $CandidateDir..."
+  Write-Host "    log: $buildLog"
   if (Test-Path $nextJs) {
-    Write-Host "==> node node_modules/next/dist/bin/next build"
-    Write-Host "    log: $buildLog"
     cmd.exe /c "node node_modules\next\dist\bin\next build > logs\update-build.log 2>&1"
   }
   else {
-    Write-Host "==> npm run build"
-    Write-Host "    log: $buildLog"
-    # cmd so LASTEXITCODE is npm's (a PowerShell pipeline would report Tee-Object's 0).
-    # Relative log path: repo root can contain spaces (cmd quoting).
     cmd.exe /c "npm run build > logs\update-build.log 2>&1"
   }
   $code = $LASTEXITCODE
@@ -254,7 +238,37 @@ function Invoke-AppBuild {
     Get-Content -Path $buildLog | ForEach-Object { Write-Host $_ }
     $text = Get-Content -Path $buildLog -Raw -ErrorAction SilentlyContinue
   }
-  return @{ Code = $code; Log = $text }
+  # Clear environment variable after build
+  Remove-Item Env:\NEXT_DIST_DIR -ErrorAction SilentlyContinue
+  return @{ Code = $code; Log = $text; CandidateDir = $CandidateDir }
+}
+
+function Invoke-RollbackBuild {
+  param([string]$Reason)
+  Write-Host "!! $Reason Initiating rollback to previous build..."
+  $activeNext = Join-Path $Root ".next"
+  $prevNext = Join-Path $Root ".next.prev"
+  $failedNext = Join-Path $Root ".next.failed"
+
+  if (Test-Path $prevNext) {
+    cmd.exe /c "pm2 stop $AppName $TgName >nul 2>&1" | Out-Null
+    if (Test-Path $failedNext) {
+      Remove-Item -Recurse -Force -LiteralPath $failedNext -ErrorAction SilentlyContinue
+    }
+    if (Test-Path $activeNext) {
+      Move-Item -LiteralPath $activeNext -Destination $failedNext -Force
+    }
+    Move-Item -LiteralPath $prevNext -Destination $activeNext -Force
+    Write-Host "Restored previous build from .next.prev. Restarting PM2 on previous build..."
+    cmd.exe /c "pm2 restart $AppName --update-env >nul 2>&1" | Out-Null
+    cmd.exe /c "pm2 restart $TgName --update-env >nul 2>&1" | Out-Null
+    cmd.exe /c "pm2 status"
+  }
+  else {
+    Write-Warning "No .next.prev found; cannot restore previous build directory."
+  }
+  Write-Error "Update failed: $Reason Previous build was restored (if available). Runtime journals (data/*.json) were strictly preserved (never overwritten). Check: npm run pm2:logs"
+  exit 1
 }
 
 Update-SessionPath
@@ -289,10 +303,9 @@ if ($deployHint -eq "startProjectOnHost") {
   Write-Warning "DEPLOY_BRANCH=startProjectOnHost is obsolete. GitHub default is 'dev'. Set DEPLOY_BRANCH=dev in .env, then re-run npm run update."
 }
 
-$backupDir = $null
 if (-not $SkipBackup) {
   Write-Host "==> Backup CMS JSON (data/*.json)..."
-  $backupDir = Backup-CmsJson
+  Backup-CmsJson -Prefix "pre-update" | Out-Null
 }
 else {
   Write-Host "==> SkipBackup: not copying data/*.json"
@@ -371,9 +384,10 @@ if (-not $SkipPull) {
     Write-Host '  git fetch origin'
     Write-Host "  git checkout $want"
     Write-Host "  git reset --hard origin/$want"
-    Write-Host '  Get-ChildItem "data\backups\pre-reset-$stamp\*.json" |'
-    Write-Host '    Where-Object { $_.Name -ne "site.seed.json" } |'
-    Write-Host '    ForEach-Object { Copy-Item $_.FullName "data\$($_.Name)" -Force }'
+    Write-Host '  # Restore only site.json from pre-reset backup if needed; NEVER overwrite leads.json or orders.json'
+    Write-Host '  if (Test-Path "data\backups\pre-reset-$stamp\site.json") {'
+    Write-Host '    Copy-Item "data\backups\pre-reset-$stamp\site.json" "data\site.json" -Force'
+    Write-Host '  }'
     Write-Host '  npm run update'
     Write-Host ""
     Write-Error "Update stopped. Do not reset automatically. Run the one-time commands above on the host machine."
@@ -382,46 +396,18 @@ if (-not $SkipPull) {
 
   $dirtyEntries = Get-TrackedDirtyEntries
   if ($dirtyEntries.Count -gt 0) {
-    $nonRuntime = @()
-    $runtimePaths = @()
-    foreach ($entry in $dirtyEntries) {
-      if ($entry.Path -match '^data/[^/]+\.json$' -and $entry.Path -ne 'data/site.seed.json') {
-        $runtimePaths += $entry.Path
-      }
-      else {
-        $nonRuntime += $entry.RawLine
-      }
-    }
-
-    if ($nonRuntime.Count -gt 0) {
-      Write-Host "Tracked files have local changes:"
-      $nonRuntime | ForEach-Object { Write-Host "  $_" }
-      Write-Error "Refuse to pull over a dirty tree. Commit/stash on a dev machine, or restore host files. Do not run npm run seed on the host."
-      exit 1
-    }
-
-    if ($runtimePaths.Count -gt 0) {
-      Write-Host "Restoring dirty tracked runtime data JSON to HEAD before fast-forward..."
-      foreach ($rp in $runtimePaths) {
-        $code = Invoke-Git "restore --worktree --source=HEAD -- $rp"
-        if ($code -ne 0) {
-          Restore-RuntimeJsonFromBackup $backupDir
-          Write-Error "git restore --worktree --source=HEAD -- $rp failed (exit $code)"
-          exit $code
-        }
-      }
-    }
+    Write-Host "Tracked files have local changes:"
+    $dirtyEntries | ForEach-Object { Write-Host "  $($_.RawLine)" }
+    Write-Error "Refuse to pull over a dirty tree. Aborting update. Resolve tracked-file conflicts manually before running npm run update."
+    exit 1
   }
 
   Write-Host "==> git pull --ff-only origin $head..."
   $code = Invoke-Git "pull --ff-only origin $head"
   if ($code -ne 0) {
-    Restore-RuntimeJsonFromBackup $backupDir
     Write-Error "git pull --ff-only origin $head failed (exit $code). Fix history on the dev machine; do not force-pull on the host."
     exit $code
   }
-
-  Restore-RuntimeJsonFromBackup $backupDir
 }
 else {
   Write-Host "==> SkipPull: using the files already on disk"
@@ -453,70 +439,91 @@ else {
   Write-Host "==> Dependencies unchanged, skipping npm ci"
 }
 
-Write-Host "==> Build (always; existing .next is not reused)..."
-$build = Invoke-AppBuild
-$stoppedForLock = $false
-
-if ($build.Code -ne 0 -and (Test-LockishBuildError $build.Log)) {
-  Write-Host "Build hit a file lock (likely next start holding .next). Stopping pm2 $AppName and retrying..."
-  cmd.exe /c "pm2 stop $AppName >nul 2>&1" | Out-Null
-  $stoppedForLock = $true
-  $build = Invoke-AppBuild
-}
-
-if ($build.Code -ne 0 -and (Test-MissingNextBuildError $build.Log)) {
-  Write-Host "Build could not find Next.js. Stopping pm2 $AppName, running npm ci, retrying..."
-  cmd.exe /c "pm2 stop $AppName >nul 2>&1" | Out-Null
-  $stoppedForLock = $true
-  Invoke-NpmInstall
-  $build = Invoke-AppBuild
-}
+Write-Host "==> Building candidate (.next.candidate)..."
+$build = Invoke-AppBuild -CandidateDir ".next.candidate"
 
 if ($build.Code -ne 0) {
-  Write-Error "next build failed (exit $($build.Code)). Not restarting pm2 - .next may be incomplete. See logs/update-build.log"
+  Write-Error "Candidate build failed (exit $($build.Code)). Active production build (.next) is untouched and PM2 was not stopped. See logs/update-build.log"
   exit $build.Code
 }
 
+Write-Host "==> Candidate build succeeded. Initiating atomic cutover..."
+
+# 1. Stop writers
+Write-Host "==> Stopping PM2 processes ($AppName, $TgName)..."
+if (Test-Pm2Named -Name $AppName) {
+  cmd.exe /c "pm2 stop $AppName >nul 2>&1" | Out-Null
+}
+if (Test-Pm2Named -Name $TgName) {
+  cmd.exe /c "pm2 stop $TgName >nul 2>&1" | Out-Null
+}
+
+# 2. Snapshot runtime journals immediately at cutover
+Write-Host "==> Taking cutover journal snapshot..."
+Backup-CmsJson -Prefix "cutover" | Out-Null
+
+# 3. Swap .next directory safely
+$activeNext = Join-Path $Root ".next"
+$prevNext = Join-Path $Root ".next.prev"
+$candidatePath = Join-Path $Root $build.CandidateDir
+
+try {
+  if (Test-Path $prevNext) {
+    Remove-Item -Recurse -Force -LiteralPath $prevNext -ErrorAction SilentlyContinue
+  }
+  if (Test-Path $activeNext) {
+    Move-Item -LiteralPath $activeNext -Destination $prevNext -Force
+  }
+  Move-Item -LiteralPath $candidatePath -Destination $activeNext -Force
+}
+catch {
+  Write-Warning "Failed during .next directory swap: $_"
+  if (-not (Test-Path $activeNext) -and (Test-Path $prevNext)) {
+    Move-Item -LiteralPath $prevNext -Destination $activeNext -Force
+  }
+  Write-Error "Atomic swap failed. Active build restored where possible."
+  exit 1
+}
+
+# 4. Remove leftover legacy PM2 process if present
 if (Test-Pm2Named -Name $LegacyAppName) {
   Write-Host "Removing leftover pm2 process '$LegacyAppName' (canonical name is $AppName)..."
   cmd.exe /c "pm2 delete $LegacyAppName >nul 2>&1" | Out-Null
 }
 
-Write-Host "==> pm2 restart $AppName..."
+# 5. Start / restart PM2
+Write-Host "==> Starting PM2 $AppName..."
+$pm2AppExit = 0
 if (Test-Pm2Named -Name $AppName) {
   cmd.exe /c "pm2 restart $AppName --update-env"
-  if ($LASTEXITCODE -ne 0) {
-    Write-Error "pm2 restart $AppName failed (exit $LASTEXITCODE)"
-    exit $LASTEXITCODE
-  }
+  $pm2AppExit = $LASTEXITCODE
 }
 else {
-  Write-Host "Process $AppName missing - pm2 start ecosystem.config.cjs"
-  cmd.exe /c "pm2 start ecosystem.config.cjs"
-  if ($LASTEXITCODE -ne 0) {
-    Write-Error "pm2 start failed (exit $LASTEXITCODE)"
-    exit $LASTEXITCODE
-  }
+  cmd.exe /c "pm2 start ecosystem.config.cjs --only $AppName"
+  $pm2AppExit = $LASTEXITCODE
 }
 
-$TgName = "byou-telegram"
+if ($pm2AppExit -ne 0) {
+  Invoke-RollbackBuild -Reason "PM2 startup failed for $AppName (exit $pm2AppExit)."
+}
+
 if (Test-Pm2Named -Name $TgName) {
-  Write-Host "==> pm2 restart $TgName..."
+  Write-Host "==> Starting PM2 $TgName..."
   cmd.exe /c "pm2 restart $TgName --update-env"
 }
 else {
-  Write-Host "==> pm2 start $TgName..."
   cmd.exe /c "pm2 start ecosystem.config.cjs --only $TgName"
 }
 
 cmd.exe /c "pm2 save"
 cmd.exe /c "pm2 status"
 
+# 6. Health check & rollback on failure
 $port = Read-AppPort
 $healthUrl = "http://127.0.0.1:$port/api/health"
 
 if (-not $SkipHealth) {
-  Write-Host "==> Health $healthUrl ..."
+  Write-Host "==> Health check at $healthUrl ..."
   $deadline = (Get-Date).AddSeconds($HealthTimeoutSec)
   $healthy = $false
   while ((Get-Date) -lt $deadline) {
@@ -537,9 +544,9 @@ if (-not $SkipHealth) {
     }
     Start-Sleep -Seconds 2
   }
+
   if (-not $healthy) {
-    Write-Error "Build and pm2 restart finished, but $healthUrl did not return ok within ${HealthTimeoutSec}s. Check: npm run pm2:logs"
-    exit 1
+    Invoke-RollbackBuild -Reason "Health check failed after cutover ($healthUrl)."
   }
 }
 else {
@@ -551,8 +558,4 @@ Write-Host "==== Update complete ===="
 Write-Host "Health:  $healthUrl"
 Write-Host "Site:    http://localhost:$port"
 Write-Host "Admin:   http://localhost:$port/admin"
-if ($stoppedForLock) {
-  Write-Host "Note: pm2 was stopped briefly so next build could write .next on Windows."
-}
-Write-Host "Do not run npm run seed on the host (it overwrites live CMS data)."
 Write-Host "Next update: npm run update"

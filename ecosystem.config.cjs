@@ -56,6 +56,7 @@ const sharedEnv = {
   DATA_DIR: fileEnv.DATA_DIR || path.join(__dirname, "data"),
   UPLOADS_DIR: path.join(__dirname, "public", "uploads"),
   PORT: port,
+  TRUST_PROXY: fileEnv.TRUST_PROXY || "false",
 };
 
 module.exports = {

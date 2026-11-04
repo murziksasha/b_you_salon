@@ -129,7 +129,25 @@ export async function POST(request: NextRequest) {
       if (!safeExt || !VIDEO_EXT.has(safeExt)) {
         return NextResponse.json({ error: 'Invalid video content' }, { status: 400 });
       }
-      const safeName = `${Date.now()}-${createId()}${safeExt}`;
+
+      const replaceRaw = String(formData.get('replaceName') || '').trim();
+      let safeName: string;
+      if (replaceRaw) {
+        if (!isSafeUploadName(replaceRaw)) {
+          return NextResponse.json({ error: 'Некоректне імʼя файлу для заміни' }, { status: 400 });
+        }
+        const replaceExt = path.extname(replaceRaw).toLowerCase();
+        if (replaceExt !== safeExt) {
+          return NextResponse.json(
+            { error: 'Розширення нового файлу має збігатися з оригіналом' },
+            { status: 400 },
+          );
+        }
+        safeName = replaceRaw;
+      } else {
+        safeName = `${Date.now()}-${createId()}${safeExt}`;
+      }
+
       await atomicWriteFile(path.join(dir, safeName), buffer);
       const url = `/uploads/${safeName}`;
       await upsertMediaMeta({
@@ -164,15 +182,20 @@ export async function POST(request: NextRequest) {
     // Replace-in-place: keep same filename/URL so all site references stay valid.
     const replaceRaw = String(formData.get('replaceName') || '').trim();
     let safeName: string;
-    if (replaceRaw && isSafeUploadName(replaceRaw)) {
-      const replaceExt = path.extname(replaceRaw).toLowerCase();
-      // Only replace when optimized format matches existing extension family
-      if (replaceExt === optimized.ext || (replaceExt === '.jpg' && optimized.ext === '.jpg')) {
-        safeName = replaceRaw;
-      } else {
-        // Overwrite bytes under original name even if format differs — browsers follow content-type from route
-        safeName = replaceRaw;
+    if (replaceRaw) {
+      if (!isSafeUploadName(replaceRaw)) {
+        return NextResponse.json({ error: 'Некоректне імʼя файлу для заміни' }, { status: 400 });
       }
+      const replaceExt = path.extname(replaceRaw).toLowerCase();
+      const normReplaceExt = replaceExt === '.jpeg' ? '.jpg' : replaceExt;
+      const normNewExt = optimized.ext;
+      if (normReplaceExt !== normNewExt) {
+        return NextResponse.json(
+          { error: 'Розширення нового файлу має збігатися з оригіналом' },
+          { status: 400 },
+        );
+      }
+      safeName = replaceRaw;
     } else {
       safeName = `${Date.now()}-${createId()}${optimized.ext}`;
     }

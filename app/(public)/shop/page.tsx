@@ -5,8 +5,8 @@ import { ZoneDoorSection } from '@/components/sections/ZoneDoorSection';
 import { zoneDoorToSalon } from '@/lib/default-site-data';
 import { requestSiteUrl } from '@/lib/request-site-url';
 import { buildPublicMetadata, shareImageFromSettings } from '@/lib/seo-metadata';
-import { getProducts, getSiteData } from '@/lib/site-data';
-import { parseProductSort } from '@/lib/shop-catalog';
+import { getSiteData } from '@/lib/site-data';
+import { collectCategories, parseProductSort, queryCatalog } from '@/lib/shop-catalog';
 import type { ZoneDoorSection as ZoneDoorSectionType } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -35,10 +35,21 @@ interface PageProps {
 }
 
 export default async function ShopPage({ searchParams }: PageProps) {
-  const [data, products, sp] = await Promise.all([getSiteData(), getProducts(), searchParams]);
+  const [data, sp] = await Promise.all([getSiteData(), searchParams]);
   const initialQuery = typeof sp.q === 'string' ? sp.q : '';
   const initialSort = parseProductSort(typeof sp.sort === 'string' ? sp.sort : undefined);
   const initialCategory = typeof sp.category === 'string' ? sp.category : '';
+
+  const allVisibleProducts = (data.goods || []).filter((p) => p.visible);
+  const categories = collectCategories(allVisibleProducts);
+
+  const catalogResult = queryCatalog(allVisibleProducts, {
+    query: initialQuery,
+    sort: initialSort,
+    category: initialCategory,
+    page: 1,
+    pageSize: 36,
+  });
 
   const shopPage = data.pages.find((p) => p.slug === 'shop' && p.visible);
   const door = zoneDoorToSalon() as ZoneDoorSectionType;
@@ -76,7 +87,10 @@ export default async function ShopPage({ searchParams }: PageProps) {
             );
           })()}
           <ShopCatalog
-            products={products}
+            initialItems={catalogResult.items}
+            initialTotal={catalogResult.total}
+            initialHasMore={catalogResult.hasMore}
+            categories={categories}
             initialQuery={initialQuery}
             initialSort={initialSort}
             initialCategory={initialCategory}
@@ -87,7 +101,7 @@ export default async function ShopPage({ searchParams }: PageProps) {
         <SectionRenderer
           sections={extraSections}
           servicesNav={[]}
-          products={products}
+          products={allVisibleProducts.slice(0, 8)}
           services={[]}
           settings={data.settings}
         />

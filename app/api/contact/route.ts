@@ -11,18 +11,21 @@ import {
 } from '@/lib/page-path';
 import { placeShopOrder } from '@/lib/place-shop-order';
 import { autoNotifyNewLead } from '@/lib/telegram-auto-notify';
-import { clientKey, rateLimit } from '@/lib/rate-limit';
+import { isTrustProxy, rateLimit, rateLimitAdaptive } from '@/lib/rate-limit';
+import { clientIpFromHeaders } from '@/lib/admin-ip';
 import { escapeText } from '@/lib/sanitize';
 import { isValidUaPhone, normalizePhoneCanonical } from '@/lib/phone';
 import { formatUtmLine, mergeUtm, parseUtmFromBody, parseUtmFromPagePath } from '@/lib/utm';
+import { formatKyivDateTime } from '@/lib/quiet-hours';
 
 function clientIp(request: NextRequest): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  return forwarded?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'unknown';
+
+  if (!isTrustProxy()) return 'direct';
+  return clientIpFromHeaders(request.headers) || 'unknown';
 }
 
 export async function POST(request: NextRequest) {
-  const rl = rateLimit(clientKey(request, 'contact'), { limit: 8, windowMs: 60_000 });
+  const rl = rateLimitAdaptive(request, 'contact', { clientLimit: 8, globalCeiling: 64, windowMs: 60_000 });
   if (!rl.allowed) {
     const retryAfter = Math.ceil(rl.retryAfterMs / 1000) || 60;
     return NextResponse.json(
@@ -85,6 +88,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid phone' }, { status: 400 });
     }
 
+    const phoneRl = rateLimit(`contact:phone:${phone}`, { limit: 5, windowMs: 600_000 });
+    if (!phoneRl.allowed) {
+      const retryAfter = Math.ceil(phoneRl.retryAfterMs / 1000) || 60;
+      return NextResponse.json(
+        { error: 'Too many requests for this phone', retryAfter },
+        { status: 429, headers: { 'Retry-After': String(retryAfter) } },
+      );
+    }
+
     const pagePath = sanitizePagePath(pagePathRaw);
     const pageTitle = sanitizePageTitle(pageTitleRaw);
     const intent = parseFormIntent(intentRaw);
@@ -139,7 +151,7 @@ export async function POST(request: NextRequest) {
     const smtpUser = process.env.SMTP_USER || '';
     const smtpPass = process.env.SMTP_PASS || '';
     const smtpPort = parseInt(process.env.SMTP_PORT || '465', 10);
-    const mailTo = process.env.MAIL_TO || 'remontmailshop@gmail.com';
+    const mailTo = (process.env.MAIL_TO || '').trim();
     const mailFrom = process.env.MAIL_FROM || smtpUser || 'no-reply@example.com';
     const siteUrl = (process.env.SITE_URL || '').replace(/\/$/, '');
 
@@ -151,7 +163,7 @@ export async function POST(request: NextRequest) {
       if (openSame.length > 0) {
         const existing = openSame[0];
         const noteLine = [
-          `Повторна заявка ${new Date().toLocaleString('uk-UA')}`,
+          `Повторна заявка ${formatKyivDateTime()}`,
           pagePath ? `сторінка ${pagePath}` : '',
           pageTitle ? `«${pageTitle}»` : '',
         ]
@@ -187,7 +199,7 @@ export async function POST(request: NextRequest) {
       telegram = false;
     }
 
-    const when = new Date().toLocaleString('uk-UA');
+    const when = formatKyivDateTime();
     const pageUrl = absoluteSiteUrl(pagePath, siteUrl) || pagePath;
     const adminLeadsUrl = siteUrl ? `${siteUrl}/admin/leads` : undefined;
     const phoneDigits = phone.replace(/\D/g, '');
@@ -207,8 +219,8 @@ export async function POST(request: NextRequest) {
 
     let emailed = false;
 
-    if (!smtpUser || !smtpPass) {
-      console.log('[CONTACT] Phone submission (no SMTP creds configured):', phone, {
+    if (!smtpUser || !smtpPass || !mailTo) {
+      console.warn('[CONTACT] Phone submission (no SMTP creds or MAIL_TO configured):', phone, {
         leadId: lead?.id,
         pagePath,
         ip,

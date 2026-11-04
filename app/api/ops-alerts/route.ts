@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminRole } from '@/lib/require-role';
 import { runOpsAlerts } from '@/lib/ops-alerts';
+import { timingSafeCompare } from '@/lib/timing-safe';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,7 +10,7 @@ function cronAuthorized(request: NextRequest): boolean {
   if (!secret) return false;
   const auth = request.headers.get('authorization') || '';
   const header = request.headers.get('x-ops-secret') || request.headers.get('x-backup-secret') || '';
-  return auth === `Bearer ${secret}` || header === secret;
+  return timingSafeCompare(auth, `Bearer ${secret}`) || timingSafeCompare(header, secret);
 }
 
 async function gate(request: NextRequest) {
@@ -23,13 +24,12 @@ async function gate(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const g = await gate(request);
   if (!g.ok) return g.response;
-  const result = await runOpsAlerts();
-  return NextResponse.json({ ok: true, via: g.via, ...result });
-}
 
-export async function GET(request: NextRequest) {
-  const g = await gate(request);
-  if (!g.ok) return g.response;
-  const result = await runOpsAlerts();
-  return NextResponse.json({ ok: true, via: g.via, ...result });
+  try {
+    const results = await runOpsAlerts();
+    return NextResponse.json({ ok: true, results });
+  } catch (err) {
+    console.error('[ops-alerts] run failed', err);
+    return NextResponse.json({ error: 'Ops alerts run failed' }, { status: 500 });
+  }
 }

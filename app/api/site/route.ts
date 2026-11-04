@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { clientKey, rateLimit } from '@/lib/rate-limit';
-import { getSiteData, saveSiteData } from '@/lib/site-data';
+import { getSiteData, saveSiteData, withSiteDataLock } from '@/lib/site-data';
 import type { SiteData } from '@/lib/types';
 import { parseSiteData } from '@/lib/validation';
 import { requireAdminRole } from '@/lib/require-role';
@@ -51,29 +51,39 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
 
-    const current = await getSiteData();
-    const currentParsed = parseSiteData(current);
-    const baseline = currentParsed.success ? currentParsed.data : current;
-    const denied = siteWriteDeniedCapability(g.role, g.grants, baseline, parsed.data);
-    if (denied) {
-      return NextResponse.json({ error: 'Forbidden', needRole: denied }, { status: 403 });
-    }
-    const clientRev = parsed.data.updatedAt;
-    const serverRev = current.updatedAt;
     const force = request.headers.get('x-force-overwrite') === '1';
-    // Optimistic concurrency: reject if client revision is missing or differs from server (unless force)
-    if (!force && serverRev && (!clientRev || clientRev !== serverRev)) {
-      return NextResponse.json(
-        {
-          error: 'Дані змінені іншим сеансом. Оновіть сторінку та повторіть.',
-          code: 'CONFLICT',
-          updatedAt: serverRev,
-        },
-        { status: 409 },
-      );
+
+    // Put site revision check and save under one lock
+    const saveResult = await withSiteDataLock(async () => {
+      const current = await getSiteData();
+      const currentParsed = parseSiteData(current);
+      const baseline = currentParsed.success ? currentParsed.data : current;
+      const denied = siteWriteDeniedCapability(g.role, g.grants, baseline, parsed.data);
+      if (denied) {
+        return { status: 403, body: { error: 'Forbidden', needRole: denied } };
+      }
+      const clientRev = parsed.data.updatedAt;
+      const serverRev = current.updatedAt;
+      // Optimistic concurrency: reject if client revision is missing or differs from server (unless force)
+      if (!force && serverRev && (!clientRev || clientRev !== serverRev)) {
+        return {
+          status: 409,
+          body: {
+            error: 'Дані змінені іншим сеансом. Оновіть сторінку та повторіть.',
+            code: 'CONFLICT',
+            updatedAt: serverRev,
+          },
+        };
+      }
+
+      const saved = await saveSiteData(parsed.data);
+      return { status: 200, body: { ok: true, updatedAt: saved.updatedAt } };
+    });
+
+    if (saveResult.status !== 200) {
+      return NextResponse.json(saveResult.body, { status: saveResult.status });
     }
 
-    const saved = await saveSiteData(parsed.data);
     try {
       const { safeAudit } = await import('@/lib/api/audit');
       const { getSessionClaims } = await import('@/lib/auth');
@@ -86,7 +96,7 @@ export async function PUT(request: NextRequest) {
     } catch (err) {
       console.error('[site] audit failed', err);
     }
-    return NextResponse.json({ ok: true, updatedAt: saved.updatedAt });
+    return NextResponse.json(saveResult.body);
   } catch {
     return NextResponse.json({ error: 'Bad request' }, { status: 400 });
   }
@@ -124,31 +134,37 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden', needRole: need }, { status: 403 });
     }
 
-    const current = await getSiteData();
     const force = request.headers.get('x-force-overwrite') === '1';
-    if (!force && current.updatedAt && (!body.expectedUpdatedAt || body.expectedUpdatedAt !== current.updatedAt)) {
-      return NextResponse.json(
-        {
-          error: 'Дані змінені іншим сеансом. Оновіть сторінку та повторіть.',
-          code: 'CONFLICT',
-          updatedAt: current.updatedAt,
-        },
-        { status: 409 },
-      );
-    }
 
-    const merged: SiteData = {
-      ...current,
-      [section]: body.data,
-    } as SiteData;
+    // Put site revision check, merge and save under one lock
+    const patchResult = await withSiteDataLock(async () => {
+      const current = await getSiteData();
+      if (!force && current.updatedAt && (!body.expectedUpdatedAt || body.expectedUpdatedAt !== current.updatedAt)) {
+        return {
+          status: 409,
+          body: {
+            error: 'Дані змінені іншим сеансом. Оновіть сторінку та повторіть.',
+            code: 'CONFLICT',
+            updatedAt: current.updatedAt,
+          },
+        };
+      }
 
-    const parsed = parseSiteData(merged);
-    if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error }, { status: 400 });
-    }
+      const merged: SiteData = {
+        ...current,
+        [section]: body.data,
+      } as SiteData;
 
-    const saved = await saveSiteData(parsed.data);
-    return NextResponse.json({ ok: true, updatedAt: saved.updatedAt, section });
+      const parsed = parseSiteData(merged);
+      if (!parsed.success) {
+        return { status: 400, body: { error: parsed.error } };
+      }
+
+      const saved = await saveSiteData(parsed.data);
+      return { status: 200, body: { ok: true, updatedAt: saved.updatedAt, section } };
+    });
+
+    return NextResponse.json(patchResult.body, { status: patchResult.status });
   } catch {
     return NextResponse.json({ error: 'Bad request' }, { status: 400 });
   }

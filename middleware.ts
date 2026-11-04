@@ -18,6 +18,8 @@ export const PUBLIC_API: readonly PublicRule[] = [
   { path: '/api/orders', methods: ['POST'] },
   { path: '/api/cookie-consent' },
   { path: '/api/telegram/webhook', prefix: true },
+  { path: '/api/catalog', methods: ['GET'] },
+  { path: '/api/catalog/lookup', methods: ['POST'] },
 ];
 
 const STATE_CHANGING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);

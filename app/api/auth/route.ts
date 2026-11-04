@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authenticateLogin, createSession, destroySession, getSessionClaims, getSessionFingerprint } from '@/lib/auth';
+import {
+  authenticateLogin,
+  destroySession,
+  getSessionClaims,
+  getSessionFingerprint,
+  setSessionCookie,
+} from '@/lib/auth';
 import { appendActivity } from '@/lib/admin-activity';
 import { lockoutRetryAfterSec, recordLoginFailure, resetLoginFailures } from '@/lib/login-lockout';
 import { hasMultiUserMode } from '@/lib/admin-users';
@@ -8,12 +14,12 @@ import { sendTelegramMessage } from '@/lib/notify';
 import { safeAudit } from '@/lib/api/audit';
 import { markFingerprintRevoked, registerSession } from '@/lib/admin-sessions';
 import { assertAdminIp } from '@/lib/require-admin-ip';
-import { clientKey, rateLimit } from '@/lib/rate-limit';
+import { rateLimit, rateLimitAdaptive } from '@/lib/rate-limit';
 import { getTotpSecret, verifyTotp } from '@/lib/totp';
 import { resolveActorTotpSecret } from '@/lib/admin/reauth';
 import { decideTotpRequirement } from '@/lib/totp-login';
 import { clientIpFromHeaders } from '@/lib/admin-ip';
-import { parseSession } from '@/lib/session';
+import { createSessionToken, parseSession } from '@/lib/session';
 import { resolveAdminAccess } from '@/lib/require-role';
 
 export async function POST(request: NextRequest) {
@@ -22,7 +28,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: ipGate.error }, { status: ipGate.status });
   }
 
-  const rl = rateLimit(clientKey(request, 'auth'), { limit: 10, windowMs: 60_000 });
+  const rl = rateLimitAdaptive(request, 'auth', {
+    clientLimit: 10,
+    globalCeiling: 100,
+    windowMs: 60_000,
+  });
   if (!rl.allowed) {
     const retryAfter = Math.ceil(rl.retryAfterMs / 1000) || 60;
     return NextResponse.json(
@@ -36,6 +46,18 @@ export async function POST(request: NextRequest) {
     const password = typeof body.password === 'string' ? body.password : '';
     const username = typeof body.username === 'string' ? body.username : '';
     const totp = typeof body.totp === 'string' ? body.totp : '';
+
+    if (username.trim()) {
+      const userKey = `auth:user:${username.trim().toLowerCase()}`;
+      const userRl = rateLimit(userKey, { limit: 5, windowMs: 60_000 });
+      if (!userRl.allowed) {
+        const retryAfter = Math.ceil(userRl.retryAfterMs / 1000) || 60;
+        return NextResponse.json(
+          { error: 'Too many attempts for this user', retryAfter },
+          { status: 429, headers: { 'Retry-After': String(retryAfter) } },
+        );
+      }
+    }
 
     if (!process.env.ADMIN_PASSWORD && !(await hasMultiUserMode())) {
       return NextResponse.json({ error: 'ADMIN_PASSWORD is not set in .env' }, { status: 503 });
@@ -87,12 +109,12 @@ export async function POST(request: NextRequest) {
     }
 
     resetLoginFailures(username);
-    const sessionToken = await createSession(auth.claims);
+    const sessionToken = await createSessionToken(auth.claims);
+    const parsed = await parseSession(sessionToken);
+    const fp = parsed.fingerprint || sessionToken.slice(0, 16);
 
-    // Register session for revoke-all / list (best-effort)
+    // Register session into allowlist (MUST succeed before cookie is set)
     try {
-      const parsed = await parseSession(sessionToken);
-      const fp = parsed.fingerprint || sessionToken.slice(0, 16);
       await registerSession({
         fingerprint: fp,
         username: auth.claims.username,
@@ -100,13 +122,15 @@ export async function POST(request: NextRequest) {
         userAgent: request.headers.get('user-agent') || undefined,
         ip: clientIpFromHeaders(request.headers) || undefined,
       });
+      await setSessionCookie(sessionToken);
       await appendActivity({
         kind: 'login',
         message: `Вхід: ${auth.claims.username}`,
         actor: auth.claims.username,
       });
     } catch (err) {
-      console.error('[auth] session registration / audit failed', err);
+      console.error('[auth] session registration / allowlist failed', err);
+      return NextResponse.json({ error: 'Session registration failed' }, { status: 500 });
     }
 
     return NextResponse.json({
@@ -137,26 +161,45 @@ export async function GET() {
 }
 
 export async function DELETE(_request: NextRequest) {
+  let claims: { username: string } | null = null;
+  let fp: string | null = null;
   try {
-    const claims = await getSessionClaims();
-    const fp = await getSessionFingerprint();
-    if (fp) {
+    claims = await getSessionClaims();
+    fp = await getSessionFingerprint();
+  } catch {
+    /* ignore session read errors */
+  }
+
+  if (fp) {
+    let revoked = false;
+    let lastErr: unknown;
+    for (let attempt = 0; attempt < 2; attempt++) {
       try {
         await markFingerprintRevoked(fp);
+        revoked = true;
+        break;
       } catch (err) {
-        console.error('[auth] failed to revoke session fingerprint', err);
+        lastErr = err;
+        await new Promise((r) => setTimeout(r, 50));
       }
     }
-    if (claims) {
-      await safeAudit({
-        kind: 'logout',
-        message: `Вихід: ${claims.username}`,
-        actor: claims.username,
-      });
+    if (!revoked) {
+      console.error('[auth] failed to revoke session fingerprint after retries:', lastErr);
+      return NextResponse.json(
+        { error: 'Failed to revoke session' },
+        { status: 500 },
+      );
     }
-  } catch {
-    /* ignore */
   }
+
+  if (claims) {
+    await safeAudit({
+      kind: 'logout',
+      message: `Вихід: ${claims.username}`,
+      actor: claims.username,
+    });
+  }
+
   await destroySession();
   return NextResponse.json({ ok: true });
 }

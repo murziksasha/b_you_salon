@@ -7,6 +7,7 @@ import { normalizeStatus, WORKFLOW_LABELS, type WorkflowStatus } from './workflo
 export const TELEGRAM_TEXT_LIMIT = 4000;
 export const TELEGRAM_LIST_MAX = 50;
 export const TELEGRAM_LIST_DEFAULT = 10;
+export const KYIV_TIMEZONE = 'Europe/Kyiv';
 
 export type TelegramInlineButton = {
   text: string;
@@ -26,6 +27,7 @@ export function formatWhen(iso?: string, now = new Date()): string {
   const d = iso ? new Date(iso) : now;
   if (!Number.isFinite(d.getTime())) return iso || '';
   return d.toLocaleString('uk-UA', {
+    timeZone: KYIV_TIMEZONE,
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -283,10 +285,6 @@ export function pushActionKeyboard(opts: {
   if (opts.siteUrl) {
     const q = encodeURIComponent(full);
     second.push({ text: 'Відкрити в адмінці', url: `${opts.siteUrl}/admin/clients?phone=${q}` });
-  }
-  if (opts.claim?.id) {
-    const k = opts.claim.kind === 'order' ? 'o' : 'l';
-    second.push({ text: 'Взяти в роботу', callback_data: `claim:ask:${k}:${opts.claim.id}` });
   }
   if (second.length) rows.push(second);
 
