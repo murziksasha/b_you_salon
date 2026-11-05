@@ -9,6 +9,7 @@ import { siteWriteDeniedCapability } from '@/lib/admin-site-auth';
 
 const PATCH_SECTIONS = [
   'goods',
+  'goodsCategories',
   'services',
   'settings',
   'headerMenu',

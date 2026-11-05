@@ -20,10 +20,12 @@
 12. Салонна кнопка «Записатись» у шапці — pill (`border-radius: 999px`); на тій самій сторінці плавно скролить до `#callback` (з урахуванням `prefers-reduced-motion`) Якір `#callback` має `scroll-margin-top`, щоб sticky-хедер не перекривав заголовок блоку запису.
 13. CMS HTML-сторінки (`content-page`, напр. Політика конфіденційності) завжди мають бічні відступи на вузьких екранах (як `by-wrap`), текст не прилипає до краю.
 14. Контакти візуально по зонах: салон — лише Наталія (майстер-універсал); магазин — лише Ірина (продавець-консультант); головна — обидві картки. На головній у формі контактів — випадаючий вибір «запис/салон» або «консультація по товарах» (`intent`). `salon` → `/admin/leads` (`booking`) і Telegram «Запис». `shop` → `/admin/orders` (`consult`) і Telegram «Продаж». Усі форми `/salon*` — запис; `/shop*` і непорожній `/cart` — продаж.
+15. Адмінка: скролиться лише `.admin-main`. На `/admin/goods` верхня панель (зберегти, імпорт, пошук, фільтри — `.admin-goods-toolbar`) липка до верху цієї панелі: `position: sticky; top: 0; z-index: 30`, непрозорий фон `var(--admin-surface)`. Заголовок «Товари» може зникнути вгору. Інші тулбари адмінки лишаються в потоці документа.
 
 ## Моделі
 
-- `SiteData`: settings, headerMenu, headerMenuSalon, headerMenuShop, servicesNav, pages, goods, services.
+- `SiteData`: settings, headerMenu, headerMenuSalon, headerMenuShop, servicesNav, pages, goods, goodsCategories?, services.
+- `goodsCategories?: string[]` — збережений список іменованих категорій товарів (макс. 120 символів на назву, макс. 200 категорій, сортування за українським алфавітом). Не містить «Інше» та «Усі». Дозволяє існування категорій без товарів (0/0). Видалення категорії переносить її товари в «Інше». Публічна вітрина `/shop` відображає лише категорії з видимими товарами.
 - `SalonService`: slug → `/salon/{slug}`, priceFrom, category.
 - `Lead`: source `callback|booking`, zone, serviceId, comment.
 - `Order`: `source shop|consult`, `items[]` (consult — плейсхолдер «Консультація по товарах»), total, fulfillment `pickup|delivery`, address.
@@ -41,6 +43,23 @@
 ## Адмінка
 
 Порт операційного контуру proper_service (Inbox, leads, orders, clients, constructor, goods, media, 2FA, digest, revisions). Додано `/admin/services`.
+
+На `/admin/goods` панель збереження, імпорту, пошуку й фільтрів (`.admin-goods-toolbar`) липне до верху прокрутки `.admin-main`. Заголовок сторінки може зникнути вгору. Інші тулбари адмінки не липкі.
+
+## Пошта власника
+
+Лише власник (`security_owner`: роль owner або legacy-вхід) зберігає SMTP і перезапускає сайт.
+
+Ключі в `.env` проєкту: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`, `MAIL_TO`. Інші рядки файлу не чіпаються.
+
+- `GET/PUT /api/smtp-config` — без пароля у відповіді. `pendingRestart`, коли файл і `process.env` різняться. Порожній пароль у PUT не стирає `SMTP_PASS`. `clearPassword` записує порожній пароль. Порт 1–65535, одержувач непорожній.
+- Після збереження лист ще йде зі старого процесу. Чеклист на Огляді дивиться на `process.env` і зеленіє лише після перезапуску. Посилання: `/admin/settings#smtp`.
+- `POST /api/smtp-restart` спочатку `pm2 describe byou`. Якщо cwd процесу не цей проєкт — відмова (dev-адмінка не чіпає prod). Далі, після відповіді HTTP, `pm2 restart ecosystem.config.cjs --update-env`. Сайт на кілька секунд падає. Немає `pm2` — помилка, `.env` лишається як збережений.
+- `POST /api/smtp-test` без змін: лист із уже запущеного середовища.
+
+## PWA
+
+Service worker `byou-shell-v6` реєструється як `/sw.js?v=6` (scope `/`). HTML і `/_next` не кешуються. Навігації — лише мережа; без мережі — `offline.html`. `/admin`, `/api`, `/uploads` не перехоплюються. Після деплою новий worker перебирає відкриту вкладку і один раз її перезавантажує, якщо worker уже контролював сторінку. Перше встановлення вкладку не перезавантажує. Ручне Unregister — не штатний крок.
 
 ## Адмін Telegram-бот
 

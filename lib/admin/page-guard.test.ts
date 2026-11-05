@@ -20,6 +20,12 @@ describe('decidePageAccess', () => {
     expect(decidePageAccess({ username: 'op', role: 'operator', grants: ['inbox'] }, '/admin/inbox').kind).toBe('ok');
   });
 
+  it('lets an operator open settings for their own 2FA', () => {
+    expect(
+      decidePageAccess({ username: 'op', role: 'operator', grants: ['inbox', 'leads'] }, '/admin/settings').kind,
+    ).toBe('ok');
+  });
+
   it('allows owner everywhere', () => {
     expect(decidePageAccess({ username: 'o', role: 'owner', grants: [] }, '/admin/settings').kind).toBe('ok');
   });

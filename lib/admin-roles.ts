@@ -180,6 +180,8 @@ export function navAllowedForRole(
 ): boolean {
   const path = href.split('?')[0] || href;
   if (role === 'legacy' || role === 'owner') return true;
+  // Every signed-in admin manages their own 2FA. Site, users, and backup stay capability-gated in the page.
+  if (path === '/admin/settings' || path.startsWith('/admin/settings/')) return true;
   const caps = capabilitiesFor(role, grants);
   for (const rule of NAV_RULES) {
     if (rule.exact) {
@@ -225,6 +227,7 @@ export function siteSectionCapability(section: string): AdminCapability | null {
     case 'shopLink':
       return 'content';
     case 'goods':
+    case 'goodsCategories':
       return 'goods';
     case 'services':
     case 'servicesNav':

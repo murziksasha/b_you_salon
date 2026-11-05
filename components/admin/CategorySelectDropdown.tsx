@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown, Plus, Search, X } from 'lucide-react';
-import { DEFAULT_CATEGORY } from '@/lib/shop-catalog';
+import { DEFAULT_CATEGORY, validateCategoryName } from '@/lib/shop-catalog';
 
 export type CategorySelectDropdownProps = {
   value: string;
@@ -58,7 +58,8 @@ export function CategorySelectDropdown({
   const canCreateNew = useMemo(() => {
     const q = query.trim();
     if (!q) return false;
-    return !normalizedCategories.some((c) => c.toLowerCase() === q.toLowerCase());
+    const validation = validateCategoryName(q, normalizedCategories);
+    return validation.valid;
   }, [normalizedCategories, query]);
 
   // Total selectable items count: filteredCategories + (canCreateNew ? 1 : 0)

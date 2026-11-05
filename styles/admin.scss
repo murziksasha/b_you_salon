@@ -40,6 +40,7 @@ body:has(.admin-body) {
   --admin-radius: 16px;
   --admin-nav-w: 276px;
   --admin-topbar-h: 56px;
+  --admin-main-pad-top: 24px;
   --admin-serif: var(--font-serif), 'Cormorant Garamond', 'Times New Roman', serif;
   --admin-sans: var(--font-sans), 'Manrope', system-ui, sans-serif;
   --admin-script: var(--font-script), 'Great Vibes', cursive;
@@ -451,7 +452,8 @@ body:has(.admin-body) {
 }
 
 .admin-main {
-  padding: 24px 32px 48px;
+  --admin-main-pad-top: 24px;
+  padding: var(--admin-main-pad-top) 32px 48px;
   min-width: 0;
   min-height: 0;
   flex: 1 1 auto;
@@ -672,7 +674,7 @@ body:has(.admin-body) {
   margin-bottom: 20px;
 }
 
-/* Toolbar stays in normal document flow (no sticky overlay over sections). */
+/* Constructor toolbar stays in document flow. Sticky top panel is only .admin-goods-toolbar. */
 .admin-constructor-toolbar {
   .admin-toolbar {
     margin-bottom: 0;
@@ -868,16 +870,24 @@ body:has(.admin-body) {
 }
 
 /* ——— Goods / shop catalog admin ——— */
+/* Sticks to the top edge of .admin-main (negative top cancels pane padding). Other admin toolbars stay in flow. */
 .admin-goods-toolbar {
+  position: sticky;
+  top: calc(var(--admin-main-pad-top) * -1);
+  z-index: 30;
   display: flex;
   flex-direction: column;
   gap: 10px;
   margin-bottom: 14px;
   padding: 12px 14px;
-  background: #fff;
+  background: var(--admin-surface);
   border-radius: 12px;
   border: 1px solid #e5e7eb;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+#smtp {
+  scroll-margin-top: 12px;
 }
 
 .admin-goods-toolbar__row {
@@ -943,6 +953,60 @@ body:has(.admin-body) {
     border-color: var(--admin-gold);
     color: var(--admin-gold-ink);
   }
+
+  &--add {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 10px;
+    font-weight: 600;
+  }
+
+  &--input {
+    width: 170px;
+    cursor: text;
+    background: #fff;
+    border-color: var(--admin-gold);
+    outline: none;
+
+    &:focus {
+      box-shadow: 0 0 0 2px rgba(196, 165, 116, 0.25);
+    }
+  }
+}
+
+.admin-chip-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.admin-chip__delete {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid #d0d7de;
+  background: #fff;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
+
+  &:hover {
+    background: #ef4444;
+    border-color: #ef4444;
+    color: #fff;
+  }
 }
 
 .admin-goods-reorder-hint {
@@ -975,6 +1039,14 @@ body:has(.admin-body) {
     background: var(--admin-surface-2);
     border-bottom: 1px solid var(--admin-line);
   }
+
+  &__check {
+    display: flex;
+    align-items: center;
+    padding: 0 4px;
+    cursor: pointer;
+  }
+
 
   &__toggle {
     display: inline-flex;
@@ -2301,7 +2373,8 @@ body:has(.admin-body) {
   }
 
   .admin-main {
-    padding: 20px 16px calc(28px + env(safe-area-inset-bottom, 0));
+    --admin-main-pad-top: 20px;
+    padding: var(--admin-main-pad-top) 16px calc(28px + env(safe-area-inset-bottom, 0));
 
     > h1 {
       font-size: 1.7rem;
@@ -2314,6 +2387,12 @@ body:has(.admin-body) {
 
   .admin-card {
     padding: 16px;
+  }
+}
+
+@media (max-width: 900px) {
+  .admin-main {
+    --admin-main-pad-top: 20px;
   }
 }
 
@@ -2333,7 +2412,8 @@ body:has(.admin-body) {
   }
 
   .admin-main {
-    padding: 16px 12px calc(24px + env(safe-area-inset-bottom, 0));
+    --admin-main-pad-top: 16px;
+    padding: var(--admin-main-pad-top) 12px calc(24px + env(safe-area-inset-bottom, 0));
   }
 }
 
@@ -2867,7 +2947,8 @@ kbd {
   padding: 8px 0;
 }
 .admin-body--compact .admin-main {
-  padding-top: 16px;
+  --admin-main-pad-top: 16px;
+  padding-top: var(--admin-main-pad-top);
 }
 .admin-shortcuts-table {
   width: 100%;

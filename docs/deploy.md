@@ -30,7 +30,7 @@ docker compose up -d --build
 
 - [ ] `ADMIN_PASSWORD` — сильний, не `changeme`
 - [ ] `SESSION_SECRET` — довгий random (напр. `openssl rand -hex 32`)
-- [ ] SMTP для production (інакше заявки лише в логи)
+- [ ] SMTP для production (інакше заявки лише в логи). Власник може записати `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`, `MAIL_TO` в **Налаштування → Пошта (SMTP)**. Файл оновлюється одразу, процес — після **Перезапустити сайт**. Кнопка відмовляє, якщо `pm2 describe byou` показує інший cwd.
 - [ ] `SITE_URL` — **публічний** https URL (sitemap.xml, Open Graph / WhatsApp, Telegram webhook). Не `localhost`. Приклад: `https://beyou.properservice.keenetic.pro`. Після зміни — рестарт і повторний шеринг (кеш месенджера).
 - [ ] `TELEGRAM_BOT_TOKEN` + `TELEGRAM_WEBHOOK_SECRET` (`openssl rand -hex 24`) — webhook `POST /api/telegram/webhook`. Без публічного https `SITE_URL` лишається pm2 long-poll.
 - [ ] `NODE_ENV=production` (в образі вже)
@@ -100,10 +100,10 @@ npm run update
 Якщо сайт «голий» (HTML є, стилів/JS немає) і в Network у CSS/JS статус **400** або type **html**:
 
 1. Зробіть повний rebuild + restart (`npm run update`, або `docker compose up -d --build`).
-2. У браузері: DevTools → Application → Service Workers → **Unregister**, потім hard reload (Ctrl+Shift+R).
+2. Відкрита вкладка сама один раз перезавантажиться, коли новий worker (`/sw.js?v=6`) перебере контроль. Ручне Unregister у DevTools більше не є звичайним кроком. Якщо вкладка лишилась зі старим бандлом — оновіть її (Ctrl+F5).
 3. Перевірте, що `/_next/static/css/*.css` віддає `200` і `Content-Type: text/css`, а не HTML-сторінку помилки.
 
-Service worker (`public/sw.js`) **не** кешує `/_next/*` (з `ps-shell-v4`), щоб після деплою не змішувались старі/нові чанки.
+Service worker (`public/sw.js`, кеш `byou-shell-v6`) **не** кешує HTML і `/_next/*`. Навігації йдуть лише в мережу. Після деплою версійований worker перебирає відкриту вкладку і перезавантажує її один раз. Образ Docker копіює `public/` після standalone-виводу, щоб порожнє дерево не затерло `sw.js`.
 
 Перевірка: `http://localhost:3000/api/health` (або ваш `PORT`).  
 LAN/KeenDNS: firewall inbound TCP на цей порт; `COOKIE_SECURE=false` для HTTP — див. розділ нижче.
@@ -306,9 +306,9 @@ notepad .env
 | `SESSION_SECRET`     | длинная случайная строка (`openssl rand -hex 32` или любой 64-hex)             |
 | `COOKIE_SECURE`      | **`false`** (иначе cookie админки не сохранятся по HTTP)                       |
 | `PORT`               | `3000` (или другой свободный)                                                  |
-| `SITE_URL`           | публичный URL, напр. `http://service.home:3000` или `http://192.168.1.50:3000` |
+| `SITE_URL`           | публічний URL, напр. `https://beyou.properservice.keenetic.pro`                |
 | `DEPLOY_BRANCH`      | **`dev`** (GitHub default; `npm run update` checkouts this branch)             |
-| `SMTP_*` / `MAIL_*`  | если нужны заявки на почту                                                     |
+| `SMTP_*` / `MAIL_*`  | шесть ключей почты (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`, `MAIL_TO`). Владелец пишет их из админки; процесс подхватывает после рестарта. Пустой пароль в форме не стирает `SMTP_PASS`. |
 | `ADMIN_IP_ALLOWLIST` | опционально: IP, с которых можно в `/admin`                                    |
 
 Без Docker переменная `NGINX_PORT` **не используется** — наружу идёт `PORT`.
@@ -479,36 +479,49 @@ New-NetFirewallRule -DisplayName "ProperService Next.js" -Direction Inbound -Pro
 http://<LAN-IP-ноутбука>:3000/api/health
 ```
 
-### 8. KeenDNS / DNS Keenetic (доступ по имени)
+### 8. KeenDNS HTTPS (PWA та єдиний origin для студії та клієнтів)
 
-#### Только домашняя сеть (рекомендуется)
+Для встановлення PWA (Android, Windows, iPhone) та роботи сервіс-воркера використовується єдиний дійсний HTTPS origin:
+`https://beyou.properservice.keenetic.pro`.
+HTTP LAN URL (`http://service.home:3000`) **не** є адресою встановлення і **не** є адресою входу.
 
-1. Keenetic → DNS / доменные имена (название пункта зависит от прошивки).
-2. A-запись, например `service.home` → **статический IP ноутбука**.
-3. Клиенты должны брать DNS с роутера (обычно так по DHCP).
-4. Открыть: `http://service.home:3000`  
-   (порт **нужен** в URL, если это не 80).
+#### Схема KeenDNS 4-го рівня
 
-В `.env` на хосте:
+- KeeneticOS (версія 2.15+) підтримує хмарні домени 4-го рівня для локальних пристроїв.
+- Роутер отримує та автоматично оновлює безкоштовний Let's Encrypt SSL-сертифікат для домену.
+- Зовнішній доступ: роутер приймає HTTPS (порт 443 або дозволений хмарний порт Keenetic) і перенаправляє трафік на HTTP порт `3000` ноутбука-хоста (де запущено Next.js).
+- Ноутбук-хост **не повинен спати** (живлення від мережі: сон = «Ніколи»). Якщо ноутбук засне, відвідувачі побачать екран `offline.html`.
 
-```env
-SITE_URL=http://service.home:3000
-COOKIE_SECURE=false
-```
+#### Порядок дій оператора на хості (Host steps)
 
-После смены `.env`:
-
-```powershell
-npm run pm2:restart
-```
-
-#### Доступ из интернета (KeenDNS cloud / проброс портов)
-
-Только если осознанно нужно:
-
-1. Проброс на Keenetic: внешний TCP (80/443/3000) → `LAN-IP-ноутбука:3000`.
-2. Сильный `ADMIN_PASSWORD`, желательно `ADMIN_IP_ALLOWLIST` или VPN.
-3. Без HTTPS трафик и cookie видны; для публичной сети лучше TLS и тогда `COOKIE_SECURE=true`.
+1. **KeenDNS Cloud / Auto:**
+   - У веб-панелі Keenetic: Доменне ім'я → KeenDNS.
+   - Створіть домен 4-го рівня `beyou` для ноутбука-хоста (повне ім'я: `https://beyou.properservice.keenetic.pro`).
+   - Налаштуйте перенаправлення: HTTPS на роутері → HTTP на IP ноутбука, порт 3000.
+2. **Перевірка HTTPS з мобільного та Wi-Fi:**
+   - Зі смартфону через мобільний зв'язок (4G/5G) та з Wi-Fi салону відкрийте `https://beyou.properservice.keenetic.pro`.
+   - Переконайтеся у наявності захищеного замочка без попереджень.
+   - *Важливо:* Якщо адреса не відкривається всередині студійного Wi-Fi, налаштуйте в Keenetic підтримку Hairpin NAT (NAT loopback) або локальний DNS-запис на роутері. **Не повертайтесь** на незахищений HTTP LAN URL.
+3. **Особистий TOTP для кожного адміністратора:**
+   - Увійдіть в адмінку на HTTPS: `https://beyou.properservice.keenetic.pro/admin`.
+   - Кожен користувач з `admins.json` відкриває **Налаштування** і вмикає **свій** 2FA. Код власника на інших не діє.
+   - Користувач із вимкненим 2FA входить лише паролем. `ADMIN_REQUIRE_TOTP` для цих облікових записів нічого не змінює.
+4. **Увімкнення прапорців безпеки в `.env` на хості:**
+   - Відкрийте `.env` на ноутбуці-хості:
+     ```env
+     SITE_URL=https://beyou.properservice.keenetic.pro
+     COOKIE_SECURE=true
+     ADMIN_ENV_LOGIN=off
+     ```
+   - `ADMIN_REQUIRE_TOTP` можна не задавати. Глобальний `ADMIN_TOTP_SECRET` / `data/admin-totp.json` питається лише при вході через `ADMIN_PASSWORD`.
+   - Перезапустіть PM2:
+     ```powershell
+     npm run pm2:restart
+     ```
+5. **Перевірка входу:**
+   - Користувач із увімкненим особистим 2FA входить паролем і **своїм** кодом. Чужий або глобальний код не підходить.
+   - Користувач із вимкненим 2FA входить лише паролем, навіть якщо в власника 2FA увімкнено.
+   - Резервний вхід (Break-glass): `ADMIN_ENV_LOGIN=breakglass` та `ADMIN_BREAKGLASS=1` із паролем `ADMIN_PASSWORD` (Telegram-алерт і аудит). Якщо глобальний TOTP задано, цей вхід питає глобальний код. Якщо ні — лише пароль.
 
 ### 9. Обновление сайта на хосте (после правок на dev)
 

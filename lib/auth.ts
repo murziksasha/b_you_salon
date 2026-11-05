@@ -41,8 +41,8 @@ function cookieSecureEnabled(): boolean {
 }
 
 /**
- * `userTotpSecret`: personal TOTP of the authenticated admins.json user (if configured).
- * When absent, the login route falls back to the global secret (env/file) — transitional mode.
+ * `userTotpSecret`: personal TOTP of the authenticated admins.json user, when configured.
+ * Absent means that file user has 2FA off. The global secret applies only when `viaEnvPassword` is set.
  */
 export type LoginResult =
   | { ok: true; claims: SessionClaims; userTotpSecret?: string; viaEnvPassword?: boolean }

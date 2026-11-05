@@ -10,6 +10,8 @@ import { markFingerprintRevoked, registerSession } from '@/lib/admin-sessions';
 import { assertAdminIp } from '@/lib/require-admin-ip';
 import { clientKey, rateLimit } from '@/lib/rate-limit';
 import { getTotpSecret, verifyTotp } from '@/lib/totp';
+import { resolveActorTotpSecret } from '@/lib/admin/reauth';
+import { decideTotpRequirement } from '@/lib/totp-login';
 import { clientIpFromHeaders } from '@/lib/admin-ip';
 import { parseSession } from '@/lib/session';
 import { resolveAdminAccess } from '@/lib/require-role';
@@ -62,12 +64,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: auth.error }, { status: 401 });
     }
 
-    // Personal TOTP wins; otherwise the global (env/file) secret applies (transitional mode).
-    const totpActive = auth.userTotpSecret
-      ? { secret: auth.userTotpSecret, source: 'user' as const }
-      : await getTotpSecret();
-    if (totpActive) {
-      if (!verifyTotp(totpActive.secret, totp)) {
+    const identity = auth.viaEnvPassword ? 'env' : 'file';
+    const globalTotp = identity === 'env' ? await getTotpSecret() : null;
+    const totpDecision = decideTotpRequirement({
+      identity,
+      personalSecret: auth.userTotpSecret,
+      globalSecret: globalTotp?.secret,
+    });
+
+    if (totpDecision.status === 'required') {
+      if (!verifyTotp(totpDecision.secret, totp)) {
         if (totp) recordLoginFailure(username);
         return NextResponse.json({ error: 'Invalid 2FA code', needTotp: true }, { status: 401 });
       }
@@ -105,7 +111,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      totp: Boolean(totpActive),
+      totp: totpDecision.status === 'required',
       user: auth.claims,
     });
   } catch {
@@ -122,8 +128,10 @@ export async function GET() {
   if (!access) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
+  const factor = await resolveActorTotpSecret(access);
   return NextResponse.json({
     ok: true,
+    totpEnabled: Boolean(factor),
     user: { username: access.username, role: access.role, grants: access.grants },
   });
 }

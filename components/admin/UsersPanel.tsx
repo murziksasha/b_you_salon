@@ -88,7 +88,7 @@ function GrantBoxes({
 }
 
 export function UsersPanel() {
-  const { can } = useAdminRole();
+  const { can, totpEnabled } = useAdminRole();
   const [users, setUsers] = useState<UserRow[]>([]);
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [currentFp, setCurrentFp] = useState<string | null>(null);
@@ -99,6 +99,14 @@ export function UsersPanel() {
   const [preset, setPreset] = useState<AdminPreset>('operator');
   const [grants, setGrants] = useState<AdminCapability[]>(() => grantsForPreset('operator'));
   const [ownerPassword, setOwnerPassword] = useState('');
+  const [actorTotp, setActorTotp] = useState('');
+
+  function stepUp() {
+    return {
+      confirmPassword: ownerPassword,
+      ...(totpEnabled ? { totp: actorTotp } : {}),
+    };
+  }
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPreset, setEditPreset] = useState<AdminPreset>('operator');
   const [editGrants, setEditGrants] = useState<AdminCapability[]>([]);
@@ -157,7 +165,7 @@ export function UsersPanel() {
         password,
         role: roleFromPreset(preset),
         grants: preset === 'owner' ? undefined : grants,
-        confirmPassword: ownerPassword,
+        ...stepUp(),
       }),
     });
     const json = (await res.json().catch(() => ({}))) as { error?: string };
@@ -191,7 +199,7 @@ export function UsersPanel() {
         grants: editPreset === 'owner' ? undefined : editGrants,
         disabled: editDisabled,
         password: editPassword || undefined,
-        confirmPassword: ownerPassword,
+        ...stepUp(),
       }),
     });
     const json = (await res.json().catch(() => ({}))) as { error?: string };
@@ -209,7 +217,7 @@ export function UsersPanel() {
     const res = await fetch('/api/users', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, resetTotp: true, confirmPassword: ownerPassword }),
+      body: JSON.stringify({ id, resetTotp: true, ...stepUp() }),
     });
     if (!res.ok) {
       const json = (await res.json().catch(() => ({}))) as { error?: string };
@@ -225,7 +233,7 @@ export function UsersPanel() {
     const res = await fetch('/api/users', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, confirmPassword: ownerPassword }),
+      body: JSON.stringify({ id, ...stepUp() }),
     });
     if (!res.ok) {
       const json = (await res.json().catch(() => ({}))) as { error?: string };
@@ -242,7 +250,7 @@ export function UsersPanel() {
     const res = await fetch('/api/sessions', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ all: true, confirmPassword: ownerPassword }),
+      body: JSON.stringify({ all: true, ...stepUp() }),
     });
     const json = (await res.json().catch(() => ({}))) as { error?: string; revoked?: number };
     if (!res.ok) {
@@ -282,6 +290,21 @@ export function UsersPanel() {
           autoComplete='current-password'
         />
       </label>
+      {totpEnabled ? (
+        <label className='admin-field admin-mb'>
+          Ваш код 2FA (це ваш код, не код користувача)
+          <input
+            type='text'
+            inputMode='numeric'
+            autoComplete='one-time-code'
+            className='admin-grow'
+            maxLength={6}
+            placeholder='000000'
+            value={actorTotp}
+            onChange={(e) => setActorTotp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+          />
+        </label>
+      ) : null}
 
       {loading ? <p className='admin-hint'>Завантаження…</p> : null}
 

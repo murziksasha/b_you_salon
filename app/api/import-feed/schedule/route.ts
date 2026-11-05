@@ -10,7 +10,7 @@ import {
 import { abortScheduledRun } from '@/lib/feed-schedule-runner';
 
 export async function GET() {
-  const g = await requireAdminRole('editor');
+  const g = await requireAdminRole('goods');
   if (!g.ok) return g.response;
 
   const sched = await readFeedSchedule();
@@ -19,7 +19,7 @@ export async function GET() {
 }
 
 export async function PUT(request: NextRequest) {
-  const g = await requireAdminRole('editor');
+  const g = await requireAdminRole('goods');
   if (!g.ok) return g.response;
 
   let body: { enabled?: boolean; url?: string };
