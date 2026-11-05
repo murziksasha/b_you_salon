@@ -17,6 +17,8 @@ jobs:
       - run: npm run check
       - name: Production dependency audit
         run: npm audit --omit=dev
+      - name: Seed site data for build
+        run: npm run seed
       - name: Production build
         run: npm run build
       - name: Smoke E2E Tests
