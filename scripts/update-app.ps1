@@ -174,7 +174,7 @@ function Backup-CmsJson {
   $dataDir = Join-Path $Root "data"
   if (-not (Test-Path $dataDir)) {
     Write-Warning "data/ missing - nothing to backup"
-    return
+    return $null
   }
   $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
   $dest = Join-Path $dataDir "backups\pre-update-$stamp"
@@ -185,20 +185,42 @@ function Backup-CmsJson {
     $copied++
   }
   Write-Host "CMS backup: $dest ($copied json file(s))"
+  return $dest
 }
 
-function Get-TrackedDirty {
+function Restore-RuntimeJsonFromBackup {
+  param([string]$BackupPath)
+  if (-not $BackupPath -or -not (Test-Path $BackupPath)) { return }
+  $dataDir = Join-Path $Root "data"
+  $restored = 0
+  Get-ChildItem -Path $BackupPath -Filter "*.json" -File -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -ne "site.seed.json" } |
+    ForEach-Object {
+      Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $dataDir $_.Name) -Force
+      $restored++
+    }
+  Write-Host "CMS restore: $restored runtime JSON file(s) restored from $BackupPath"
+}
+
+function Get-TrackedDirtyEntries {
   $raw = cmd.exe /c "git status --porcelain --untracked-files=no" | Out-String
   if ($LASTEXITCODE -ne 0) {
     Write-Error "git status failed"
     exit 1
   }
-  $lines = @()
+  $entries = @()
   foreach ($line in ($raw -split "`r?`n")) {
-    $t = $line.Trim()
-    if ($t) { $lines += $t }
+    if ($line -match '^.{2}\s+(.*)$') {
+      $rawPath = $Matches[1].Trim().Trim('"')
+      if ($rawPath -match '->\s*(.*)$') { $rawPath = $Matches[1].Trim().Trim('"') }
+      $normPath = $rawPath.Replace('\', '/')
+      $entries += [PSCustomObject]@{
+        RawLine = $line
+        Path = $normPath
+      }
+    }
   }
-  return $lines
+  return $entries
 }
 
 function Invoke-AppBuild {
@@ -267,9 +289,10 @@ if ($deployHint -eq "startProjectOnHost") {
   Write-Warning "DEPLOY_BRANCH=startProjectOnHost is obsolete. GitHub default is 'dev'. Set DEPLOY_BRANCH=dev in .env, then re-run npm run update."
 }
 
+$backupDir = $null
 if (-not $SkipBackup) {
   Write-Host "==> Backup CMS JSON (data/*.json)..."
-  Backup-CmsJson
+  $backupDir = Backup-CmsJson
 }
 else {
   Write-Host "==> SkipBackup: not copying data/*.json"
@@ -285,14 +308,6 @@ if (-not $SkipPull) {
   }
   if (-not (Test-Path (Join-Path $Root ".git"))) {
     Write-Error "Not a git checkout ($Root). Copy the repo with git clone, or pass -SkipPull."
-    exit 1
-  }
-
-  $dirty = Get-TrackedDirty
-  if ($dirty.Count -gt 0) {
-    Write-Host "Tracked files have local changes:"
-    $dirty | ForEach-Object { Write-Host "  $_" }
-    Write-Error "Refuse to pull over a dirty tree. Commit/stash on a dev machine, or restore host files. Do not run npm run seed on the host."
     exit 1
   }
 
@@ -329,12 +344,84 @@ if (-not $SkipPull) {
     exit 1
   }
 
+  $targetRemoteRef = "origin/$want"
+  $isAheadOrDiverged = $false
+  $hasMergeHead = Test-Path (Join-Path $Root ".git\MERGE_HEAD")
+
+  $revCountRaw = cmd.exe /c "git rev-list --count $targetRemoteRef..HEAD" 2>$null
+  if ($LASTEXITCODE -eq 0 -and $revCountRaw) {
+    if ([int]($revCountRaw.Trim()) -gt 0) {
+      $isAheadOrDiverged = $true
+    }
+  }
+
+  if ($hasMergeHead -or $isAheadOrDiverged) {
+    if ($hasMergeHead) {
+      Write-Host "A merge is currently in progress (.git/MERGE_HEAD exists)."
+    }
+    if ($isAheadOrDiverged) {
+      Write-Host "HEAD is ahead of or diverged from $targetRemoteRef."
+    }
+    Write-Host "To recover the PM2 host, run these one-time commands by hand after stopping byou and byou-telegram:"
+    Write-Host ""
+    Write-Host '  $stamp = Get-Date -Format "yyyyMMdd-HHmmss"'
+    Write-Host '  New-Item -ItemType Directory -Force -Path "data\backups\pre-reset-$stamp" | Out-Null'
+    Write-Host '  Copy-Item data\*.json "data\backups\pre-reset-$stamp\" -Force'
+    Write-Host '  if (Test-Path .git\MERGE_HEAD) { git merge --abort }'
+    Write-Host '  git fetch origin'
+    Write-Host "  git checkout $want"
+    Write-Host "  git reset --hard origin/$want"
+    Write-Host '  Get-ChildItem "data\backups\pre-reset-$stamp\*.json" |'
+    Write-Host '    Where-Object { $_.Name -ne "site.seed.json" } |'
+    Write-Host '    ForEach-Object { Copy-Item $_.FullName "data\$($_.Name)" -Force }'
+    Write-Host '  npm run update'
+    Write-Host ""
+    Write-Error "Update stopped. Do not reset automatically. Run the one-time commands above on the host machine."
+    exit 1
+  }
+
+  $dirtyEntries = Get-TrackedDirtyEntries
+  if ($dirtyEntries.Count -gt 0) {
+    $nonRuntime = @()
+    $runtimePaths = @()
+    foreach ($entry in $dirtyEntries) {
+      if ($entry.Path -match '^data/[^/]+\.json$' -and $entry.Path -ne 'data/site.seed.json') {
+        $runtimePaths += $entry.Path
+      }
+      else {
+        $nonRuntime += $entry.RawLine
+      }
+    }
+
+    if ($nonRuntime.Count -gt 0) {
+      Write-Host "Tracked files have local changes:"
+      $nonRuntime | ForEach-Object { Write-Host "  $_" }
+      Write-Error "Refuse to pull over a dirty tree. Commit/stash on a dev machine, or restore host files. Do not run npm run seed on the host."
+      exit 1
+    }
+
+    if ($runtimePaths.Count -gt 0) {
+      Write-Host "Restoring dirty tracked runtime data JSON to HEAD before fast-forward..."
+      foreach ($rp in $runtimePaths) {
+        $code = Invoke-Git "restore --worktree --source=HEAD -- $rp"
+        if ($code -ne 0) {
+          Restore-RuntimeJsonFromBackup $backupDir
+          Write-Error "git restore --worktree --source=HEAD -- $rp failed (exit $code)"
+          exit $code
+        }
+      }
+    }
+  }
+
   Write-Host "==> git pull --ff-only origin $head..."
   $code = Invoke-Git "pull --ff-only origin $head"
   if ($code -ne 0) {
+    Restore-RuntimeJsonFromBackup $backupDir
     Write-Error "git pull --ff-only origin $head failed (exit $code). Fix history on the dev machine; do not force-pull on the host."
     exit $code
   }
+
+  Restore-RuntimeJsonFromBackup $backupDir
 }
 else {
   Write-Host "==> SkipPull: using the files already on disk"
