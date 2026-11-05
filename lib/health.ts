@@ -16,7 +16,6 @@ export interface HealthReport {
   time: string;
   uptimeSec: number;
   dataFile: boolean;
-  dataDir: string;
   smtp: boolean;
   backups: {
     count: number;
@@ -114,7 +113,6 @@ export async function getHealthReport(): Promise<HealthReport> {
     time: new Date().toISOString(),
     uptimeSec: Math.floor((Date.now() - startedAt) / 1000),
     dataFile,
-    dataDir,
     smtp: Boolean(process.env.SMTP_USER && process.env.SMTP_PASS),
     backups: { count: backupsCount, last: lastBackup },
     leads: { total: leadsTotal, unhandled: leadsUnhandled },

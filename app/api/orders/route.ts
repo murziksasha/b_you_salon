@@ -160,7 +160,7 @@ export async function POST(request: NextRequest) {
       pagePath: pagePath || undefined,
     });
 
-    if (!placed.order && !placed.emailed) {
+    if (!placed.order) {
       return NextResponse.json({ error: 'Failed to save order' }, { status: 500 });
     }
 
@@ -168,7 +168,7 @@ export async function POST(request: NextRequest) {
       ok: true,
       emailed: placed.emailed,
       telegram: placed.telegram,
-      orderId: placed.order?.id,
+      orderId: placed.order.id,
       consult: allowConsult,
       dev: placed.dev,
     });

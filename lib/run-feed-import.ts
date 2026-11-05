@@ -11,7 +11,7 @@ import {
 } from './feed-import';
 import { fetchAndStoreImage } from './fetch-remote-image';
 import type { Product } from './types';
-import { safeFetch } from './ssrf';
+import { readBoundedStream, safeFetch } from './ssrf';
 
 export class FeedFetchError extends Error {
   constructor(message: string) {
@@ -64,6 +64,7 @@ export type RunFeedImportResult = {
 };
 
 const FEED_TIMEOUT_MS = 30_000;
+const MAX_FEED_SIZE_BYTES = 20 * 1024 * 1024; // 20 MiB
 
 async function fetchFeed(url: string, signal?: AbortSignal): Promise<string> {
   const controller = new AbortController();
@@ -76,6 +77,14 @@ async function fetchFeed(url: string, signal?: AbortSignal): Promise<string> {
       headers: { Accept: 'application/json, application/xml, text/xml, */*' },
     });
     if (!res.ok) throw new FeedFetchError(`Feed responded with ${res.status}`);
+    const contentLength = Number(res.headers?.get?.('content-length') ?? 0);
+    if (contentLength > MAX_FEED_SIZE_BYTES) {
+      throw new FeedFetchError(`Feed exceeds 20 MiB limit: ${contentLength} bytes`);
+    }
+    if (res.body) {
+      const buf = await readBoundedStream(res.body, MAX_FEED_SIZE_BYTES, controller.signal);
+      return buf.toString('utf-8');
+    }
     return await res.text();
   } catch (err) {
     if (err instanceof FeedFetchError) throw err;
@@ -187,9 +196,9 @@ async function _run(opts: RunFeedImportOptions): Promise<RunFeedImportResult> {
 
     const chunk = feedProducts.slice(i, i + batchSize);
     await Promise.all(
-      chunk.map(async fp => {
+      chunk.map(async (fp) => {
         let imageUrl = fp.thumbUrl || PRODUCT_PLACEHOLDER_IMAGE;
-        const existingIdx = fp.sku ? goods.findIndex(g => g.code === fp.sku) : -1;
+        const existingIdx = fp.sku ? goods.findIndex((g) => g.code === fp.sku) : -1;
 
         if (existingIdx >= 0 && goods[existingIdx]?.image?.startsWith('/uploads/')) {
           imageUrl = goods[existingIdx].image;
@@ -238,7 +247,7 @@ async function _run(opts: RunFeedImportOptions): Promise<RunFeedImportResult> {
       updated,
       message: `Опрацьовано ${processed} із ${total}`,
     });
-    await new Promise(r => setTimeout(r, 2));
+    await new Promise((r) => setTimeout(r, 2));
   }
 
   // Final abort check before write

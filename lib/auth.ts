@@ -62,7 +62,13 @@ export async function authenticateLogin(input: { password: string; username?: st
     }
     return {
       ok: true,
-      claims: { username: user.username, role: user.role },
+      claims: {
+        username: user.username,
+        role: user.role,
+        userId: user.id,
+        accountType: 'file',
+        authVersion: user.authVersion || 1,
+      },
       ...(user.totp?.secret ? { userTotpSecret: user.totp.secret } : {}),
     };
   }
@@ -75,7 +81,12 @@ export async function authenticateLogin(input: { password: string; username?: st
   if (envAllowed && envUsernameOk && verifyPassword(input.password)) {
     return {
       ok: true,
-      claims: { username: 'admin', role: !username && !multi ? 'legacy' : 'owner' },
+      claims: {
+        username: 'admin',
+        role: !username && !multi ? 'legacy' : 'owner',
+        accountType: 'env',
+        authVersion: 1,
+      },
       viaEnvPassword: true,
     };
   }

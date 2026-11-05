@@ -37,7 +37,7 @@ export function getSessionSecret(): string {
 
 function toHex(bytes: Uint8Array): string {
   return Array.from(bytes)
-    .map(b => b.toString(16).padStart(2, '0'))
+    .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
 }
 
@@ -79,11 +79,25 @@ async function verifySignature(payload: string, signatureHex: string): Promise<b
 export type SessionClaims = {
   username: string;
   role: string;
+  userId?: string;
+  accountType?: 'file' | 'env';
+  authVersion?: number;
+  totpVerified?: boolean;
+  setupOnly?: boolean;
 };
 
 function encodeClaims(claims?: SessionClaims): string {
   if (!claims) return '';
-  const raw = JSON.stringify({ u: claims.username, r: claims.role });
+  const obj: Record<string, unknown> = {
+    u: claims.username,
+    r: claims.role,
+  };
+  if (claims.userId) obj.id = claims.userId;
+  if (claims.accountType) obj.t = claims.accountType;
+  if (claims.authVersion !== undefined) obj.v = claims.authVersion;
+  if (claims.totpVerified !== undefined) obj.tv = claims.totpVerified;
+  if (claims.setupOnly !== undefined) obj.so = claims.setupOnly;
+  const raw = JSON.stringify(obj);
   return toHex(new TextEncoder().encode(raw));
 }
 
@@ -93,14 +107,29 @@ function decodeClaims(hex: string): SessionClaims | null {
   if (!bytes) return null;
   try {
     const raw = new TextDecoder().decode(bytes);
-    // Support both new JSON format and legacy pipe-delimited format
+    // Support JSON claims format
     if (raw.startsWith('{')) {
-      const parsed = JSON.parse(raw) as { u?: string; r?: string };
-      if (!parsed.u) return null;
-      if (!parsed.r) return null;
-      return { username: parsed.u, role: parsed.r };
+      const parsed = JSON.parse(raw) as {
+        u?: string;
+        r?: string;
+        id?: string;
+        t?: 'file' | 'env';
+        v?: number;
+        tv?: boolean;
+        so?: boolean;
+      };
+      if (!parsed.u || !parsed.r) return null;
+      return {
+        username: parsed.u,
+        role: parsed.r,
+        ...(parsed.id ? { userId: parsed.id } : {}),
+        ...(parsed.t ? { accountType: parsed.t } : {}),
+        ...(parsed.v !== undefined ? { authVersion: parsed.v } : {}),
+        ...(parsed.tv !== undefined ? { totpVerified: parsed.tv } : {}),
+        ...(parsed.so !== undefined ? { setupOnly: parsed.so } : {}),
+      };
     }
-    // Legacy pipe-delimited fallback (read-only, will be re-encoded as JSON on next login)
+    // Legacy pipe-delimited fallback
     const pipeIdx = raw.indexOf('|');
     if (pipeIdx < 0) return null;
     const username = raw.slice(0, pipeIdx);

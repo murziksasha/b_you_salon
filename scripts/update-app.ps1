@@ -249,9 +249,19 @@ function Invoke-RollbackBuild {
   $activeNext = Join-Path $Root ".next"
   $prevNext = Join-Path $Root ".next.prev"
   $failedNext = Join-Path $Root ".next.failed"
+  $prevShaFile = Join-Path $Root ".release-prev.sha"
+
+  cmd.exe /c "pm2 stop $AppName $TgName >nul 2>&1" | Out-Null
+
+  if (Test-Path $prevShaFile) {
+    $sha = (Get-Content $prevShaFile -Raw).Trim()
+    if ($sha) {
+      Write-Host "Restoring source code to previous commit $sha..."
+      cmd.exe /c "git checkout $sha >nul 2>&1" | Out-Null
+    }
+  }
 
   if (Test-Path $prevNext) {
-    cmd.exe /c "pm2 stop $AppName $TgName >nul 2>&1" | Out-Null
     if (Test-Path $failedNext) {
       Remove-Item -Recurse -Force -LiteralPath $failedNext -ErrorAction SilentlyContinue
     }
@@ -313,6 +323,14 @@ else {
 
 $pkgBefore = Get-FileSha256 (Join-Path $Root "package.json")
 $lockBefore = Get-FileSha256 (Join-Path $Root "package-lock.json")
+
+# Record previous commit SHA prior to pull/checkout
+if (Test-HasCommand "git") {
+  $prevSha = (cmd.exe /c "git rev-parse HEAD 2>nul").Trim()
+  if ($prevSha) {
+    Set-Content -Path (Join-Path $Root ".release-prev.sha") -Value $prevSha -Encoding utf8
+  }
+}
 
 if (-not $SkipPull) {
   if (-not (Test-HasCommand "git")) {
@@ -449,13 +467,21 @@ if ($build.Code -ne 0) {
 
 Write-Host "==> Candidate build succeeded. Initiating atomic cutover..."
 
-# 1. Stop writers
+# 1. Stop writers with exit-code check
 Write-Host "==> Stopping PM2 processes ($AppName, $TgName)..."
 if (Test-Pm2Named -Name $AppName) {
   cmd.exe /c "pm2 stop $AppName >nul 2>&1" | Out-Null
+  if ($LASTEXITCODE -ne 0) {
+    Write-Error "Failed to stop PM2 process $AppName (exit $LASTEXITCODE). Aborting cutover."
+    exit 1
+  }
 }
 if (Test-Pm2Named -Name $TgName) {
   cmd.exe /c "pm2 stop $TgName >nul 2>&1" | Out-Null
+  if ($LASTEXITCODE -ne 0) {
+    Write-Error "Failed to stop PM2 process $TgName (exit $LASTEXITCODE). Aborting cutover."
+    exit 1
+  }
 }
 
 # 2. Snapshot runtime journals immediately at cutover

@@ -6,6 +6,7 @@ import {
   createPinnedDispatcher,
   isPrivateIp,
   isSafePublicUrl,
+  readBoundedStream,
   resolveAndValidateHost,
   safeFetch,
 } from './ssrf';
@@ -45,14 +46,20 @@ describe('lib/ssrf', () => {
       expect(isPrivateIp('2001:db8::1')).toBe(true);
     });
 
-    it('detects IPv4-mapped IPv6 private addresses', () => {
+    it('detects IPv4-mapped IPv6 private addresses in compressed and expanded formats', () => {
       expect(isPrivateIp('::ffff:127.0.0.1')).toBe(true);
       expect(isPrivateIp('::ffff:10.0.0.1')).toBe(true);
       expect(isPrivateIp('::ffff:192.168.1.1')).toBe(true);
       expect(isPrivateIp('::ffff:169.254.169.254')).toBe(true);
-      expect(isPrivateIp('::ffff:7f00:1')).toBe(true); // 127.0.0.1 in hex
-      expect(isPrivateIp('::ffff:a00:1')).toBe(true); // 10.0.0.1 in hex
+      expect(isPrivateIp('::ffff:7f00:1')).toBe(true);
+      expect(isPrivateIp('::ffff:a00:1')).toBe(true);
       expect(isPrivateIp('64:ff9b::127.0.0.1')).toBe(true);
+
+      // Expanded IPv4-mapped IPv6 forms
+      expect(isPrivateIp('0:0:0:0:0:ffff:127.0.0.1')).toBe(true);
+      expect(isPrivateIp('0000:0000:0000:0000:0000:ffff:7f00:0001')).toBe(true);
+      expect(isPrivateIp('0:0:0:0:0:ffff:192.168.1.1')).toBe(true);
+      expect(isPrivateIp('0:0:0:0:0:ffff:10.0.0.1')).toBe(true);
     });
 
     it('allows public IPv4 and IPv6 addresses', () => {
@@ -63,6 +70,33 @@ describe('lib/ssrf', () => {
       expect(isPrivateIp('172.32.0.1')).toBe(false);
       expect(isPrivateIp('2606:4700:4700::1111')).toBe(false);
       expect(isPrivateIp('::ffff:8.8.8.8')).toBe(false);
+      expect(isPrivateIp('0:0:0:0:0:ffff:8.8.8.8')).toBe(false);
+    });
+  });
+
+  describe('readBoundedStream', () => {
+    it('reads chunks up to max limit', async () => {
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new Uint8Array([1, 2, 3]));
+          controller.enqueue(new Uint8Array([4, 5]));
+          controller.close();
+        },
+      });
+      const result = await readBoundedStream(stream, 10);
+      expect(result.length).toBe(5);
+      expect([...result]).toEqual([1, 2, 3, 4, 5]);
+    });
+
+    it('throws when stream exceeds limit', async () => {
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new Uint8Array([1, 2, 3, 4, 5]));
+          controller.enqueue(new Uint8Array([6, 7, 8]));
+          controller.close();
+        },
+      });
+      await expect(readBoundedStream(stream, 5)).rejects.toThrow(/exceeded limit/);
     });
   });
 

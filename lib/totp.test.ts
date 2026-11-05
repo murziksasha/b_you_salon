@@ -13,7 +13,7 @@ import {
   normalizeTotpSecret,
   verifyTotp,
 } from './totp';
-import { deleteAdminTotpSecret, writeAdminTotpSecret } from './admin-totp';
+import { deleteAdminTotpSecret, writeAdminTotpSecret, AdminTotpStoreError } from './admin-totp';
 
 function hotp(secretB32: string, counter: number): string {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
@@ -105,6 +105,11 @@ describe('totp secret resolution', () => {
     if (prevEnvSecret === undefined) delete process.env.ADMIN_TOTP_SECRET;
     else process.env.ADMIN_TOTP_SECRET = prevEnvSecret;
     await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it('throws AdminTotpStoreError on corrupted admin-totp.json', async () => {
+    await fs.writeFile(path.join(tmpDir, 'admin-totp.json'), 'invalid{json');
+    await expect(getTotpSecret()).rejects.toThrow(AdminTotpStoreError);
   });
 
   it('returns null when neither env nor file', async () => {

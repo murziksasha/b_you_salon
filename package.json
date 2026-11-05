@@ -23,6 +23,7 @@
     "pm2:logs": "pm2 logs",
     "telegram-bot": "tsx scripts/telegram-bot.ts",
     "update": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/update-app.ps1",
+    "rollback": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/rollback-app.ps1",
     "seed": "tsx scripts/seed.ts",
     "backup": "tsx scripts/backup.ts",
     "uploads:reprocess": "node scripts/reprocess-uploads.mjs",

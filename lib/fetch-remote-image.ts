@@ -6,7 +6,7 @@ import { atomicWriteFile } from './atomic-write';
 import { upsertMediaMeta } from './media-index';
 import { isMediaPurpose, type MediaPurpose } from './media-purpose';
 import { uploadsDir } from './uploads-path';
-import { safeFetch } from './ssrf';
+import { readBoundedStream, safeFetch } from './ssrf';
 
 const MAX_REMOTE_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB
 const FETCH_TIMEOUT_MS = 15_000;
@@ -22,21 +22,22 @@ export async function fetchAndStoreImage(
   if (!remoteUrl || !remoteUrl.startsWith('http')) return null;
 
   let buffer: Buffer;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     const res = await safeFetch(remoteUrl, { signal: controller.signal });
-    clearTimeout(timer);
     if (!res.ok) return null;
 
     const contentLength = Number(res.headers.get('content-length') ?? 0);
     if (contentLength > MAX_REMOTE_IMAGE_SIZE) return null;
 
-    const ab = await res.arrayBuffer();
-    buffer = Buffer.from(ab);
-    if (buffer.byteLength > MAX_REMOTE_IMAGE_SIZE) return null;
+    buffer = await readBoundedStream(res.body, MAX_REMOTE_IMAGE_SIZE, controller.signal);
+    if (!buffer.byteLength || buffer.byteLength > MAX_REMOTE_IMAGE_SIZE) return null;
   } catch {
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 
   // Detect extension from URL

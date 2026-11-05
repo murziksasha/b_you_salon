@@ -19,7 +19,6 @@ import { formatUtmLine, mergeUtm, parseUtmFromBody, parseUtmFromPagePath } from 
 import { formatKyivDateTime } from '@/lib/quiet-hours';
 
 function clientIp(request: NextRequest): string {
-
   if (!isTrustProxy()) return 'direct';
   return clientIpFromHeaders(request.headers) || 'unknown';
 }
@@ -111,14 +110,14 @@ export async function POST(request: NextRequest) {
         consult: true,
         pagePath: pagePath || undefined,
       });
-      if (!placed.order && !placed.emailed) {
+      if (!placed.order) {
         return NextResponse.json({ error: 'Failed to save order' }, { status: 500 });
       }
       return NextResponse.json({
         ok: true,
         emailed: placed.emailed,
         telegram: placed.telegram,
-        orderId: placed.order?.id,
+        orderId: placed.order.id,
         consult: true,
         dev: placed.dev,
       });
@@ -192,6 +191,11 @@ export async function POST(request: NextRequest) {
       lead = null;
     }
 
+    // Write-first persistence requirement: refuse 200 without saved lead
+    if (!lead) {
+      return NextResponse.json({ error: 'Failed to save lead' }, { status: 500 });
+    }
+
     let telegram = false;
     try {
       telegram = await autoNotifyNewLead(lead, { deduped });
@@ -203,11 +207,11 @@ export async function POST(request: NextRequest) {
     const pageUrl = absoluteSiteUrl(pagePath, siteUrl) || pagePath;
     const adminLeadsUrl = siteUrl ? `${siteUrl}/admin/leads` : undefined;
     const phoneDigits = phone.replace(/\D/g, '');
-    const source = lead?.source || resolveLeadSource(flow);
+    const source = lead.source || resolveLeadSource(flow);
 
     const safePhone = escapeText(phone);
     const safeWhen = escapeText(when);
-    const safeId = lead ? escapeText(lead.id) : '—';
+    const safeId = escapeText(lead.id);
     const safeSource = escapeText(source);
     const safePage = pageUrl ? escapeText(pageUrl) : '—';
     const safeTitle = pageTitle ? escapeText(pageTitle) : '—';
@@ -221,7 +225,7 @@ export async function POST(request: NextRequest) {
 
     if (!smtpUser || !smtpPass || !mailTo) {
       console.warn('[CONTACT] Phone submission (no SMTP creds or MAIL_TO configured):', phone, {
-        leadId: lead?.id,
+        leadId: lead.id,
         pagePath,
         ip,
       });
@@ -238,58 +242,49 @@ export async function POST(request: NextRequest) {
         });
 
         const html = `
-        <p>Клієнт залишив <strong>заявку на дзвінок</strong>${
-          deduped ? ' <em>(повтор · оновлено існуючу)</em>' : ''
-        }.</p>
-        <p><strong>Телефон:</strong> <a href="tel:${escapeText(phoneDigits)}">${safePhone}</a></p>
-        <p><strong>Час:</strong> ${safeWhen}</p>
-        <p><strong>ID заявки:</strong> ${safeId}</p>
-        <p><strong>Джерело:</strong> ${safeSource}</p>
-        <p><strong>Сторінка:</strong> ${
-          pageUrl ? `<a href="${safePage}">${safePage}</a>` : '—'
-        }</p>
-        <p><strong>Заголовок сторінки:</strong> ${safeTitle}</p>
-        <p><strong>Зона:</strong> ${escapeText(zone)}</p>
-        <p><strong>Послуга:</strong> ${serviceTitle ? escapeText(serviceTitle) : '—'}</p>
-        <p><strong>Коментар:</strong> ${comment ? escapeText(comment) : '—'}</p>
-        <p><strong>Referer:</strong> ${safeReferer}</p>
-        <p><strong>IP:</strong> ${safeIp}</p>
-        <p><strong>User-Agent:</strong> ${safeUa}</p>
-        <p><strong>Мова браузера:</strong> ${safeLang}</p>
-        <p><strong>UTM:</strong> ${escapeText(utmLine)}</p>
-        ${
-          safeAdmin
-            ? `<p><strong>Журнал:</strong> <a href="${safeAdmin}">${safeAdmin}</a></p>`
-            : ''
-        }
-      `;
+          <p>Нова заявка з сайту B_You.</p>
+          <p><strong>Телефон:</strong> <a href="tel:${escapeText(phoneDigits)}">${safePhone}</a></p>
+          <p><strong>Час:</strong> ${safeWhen}</p>
+          <p><strong>Джерело:</strong> ${safeSource}</p>
+          ${serviceTitle ? `<p><strong>Послуга:</strong> ${escapeText(serviceTitle)}</p>` : ''}
+          ${comment ? `<p><strong>Коментар:</strong> ${escapeText(comment)}</p>` : ''}
+          <p><strong>Сторінка:</strong> <a href="${safePage}">${safePage}</a></p>
+          ${pageTitle ? `<p><strong>Назва сторінки:</strong> ${safeTitle}</p>` : ''}
+          ${safeAdmin ? `<p><strong>Адмінка:</strong> <a href="${safeAdmin}">Відкрити заявки</a> (ID: ${safeId})</p>` : ''}
+          <p><strong>IP:</strong> ${safeIp}</p>
+          <p><strong>Пристрій:</strong> ${safeUa}</p>
+          <p><strong>Мова:</strong> ${safeLang}</p>
+          ${referer ? `<p><strong>Перехід з:</strong> ${safeReferer}</p>` : ''}
+          ${utmLine ? `<p><strong>UTM:</strong> ${escapeText(utmLine)}</p>` : ''}
+        `;
 
         const textLines = [
-          'Клієнт залишив заявку на дзвінок.',
+          'Нова заявка з сайту B_You.',
           `Телефон: ${phone}`,
           `Час: ${when}`,
-          `ID заявки: ${lead?.id || '—'}`,
           `Джерело: ${source}`,
-          `Сторінка: ${pageUrl || '—'}`,
-          `Заголовок сторінки: ${pageTitle || '—'}`,
-          `Referer: ${referer || '—'}`,
+          serviceTitle ? `Послуга: ${serviceTitle}` : '',
+          comment ? `Коментар: ${comment}` : '',
+          `Сторінка: ${pageUrl}`,
+          pageTitle ? `Назва: ${pageTitle}` : '',
+          adminLeadsUrl ? `Адмінка: ${adminLeadsUrl} (ID: ${lead.id})` : '',
           `IP: ${ip}`,
-          `User-Agent: ${userAgent || '—'}`,
-          `Мова браузера: ${language || '—'}`,
-          `UTM: ${utmLine}`,
-        ];
-        if (adminLeadsUrl) textLines.push(`Журнал: ${adminLeadsUrl}`);
+          `Пристрій: ${userAgent || '—'}`,
+          `Мова: ${language || '—'}`,
+          referer ? `Перехід з: ${referer}` : '',
+          utmLine ? `UTM: ${utmLine}` : '',
+        ].filter(Boolean);
 
         await transporter.sendMail({
           from: `"B_You" <${mailFrom}>`,
           to: mailTo,
-          subject: `${deduped ? 'Повторний' : 'Новий'} дзвінок з сайту · ${phone}`,
+          subject: `Заявка з сайту · ${phone}`,
           html,
           text: textLines.join('\n'),
         });
         emailed = true;
 
-        if (lead && !deduped) {
+        if (!deduped) {
           try {
             await updateLead(lead.id, { emailed: true });
           } catch (err) {
@@ -298,13 +293,7 @@ export async function POST(request: NextRequest) {
         }
       } catch (err) {
         console.error('Contact mail error:', err);
-        // Lead already in journal with emailed: false
       }
-    }
-
-    // Completely lost the request (no journal, no mail)
-    if (!lead && !emailed) {
-      return NextResponse.json({ error: 'Failed to save lead' }, { status: 500 });
     }
 
     return NextResponse.json({
@@ -312,7 +301,7 @@ export async function POST(request: NextRequest) {
       emailed,
       telegram,
       deduped,
-      leadId: lead?.id,
+      leadId: lead.id,
       dev: !smtpUser || !smtpPass,
     });
   } catch (err) {

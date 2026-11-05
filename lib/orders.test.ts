@@ -269,4 +269,24 @@ describe('orders store', () => {
     await fs.writeFile(ordersFilePath(), JSON.stringify(corruptedFixture), 'utf-8');
     await expect(listOrders()).rejects.toThrow(/Corrupted or invalid orders store/);
   });
+
+  it('rejects unknown source instead of silently defaulting', async () => {
+    const { listOrders } = await import('./orders');
+    const badSourceFixture = {
+      orders: [
+        {
+          id: 'bad-source-order',
+          phone: '+380501112233',
+          createdAt: new Date().toISOString(),
+          source: 'invalid_order_source',
+          quantity: 1,
+          product: { id: 'p1', title: 'Test', price: 100 },
+          emailed: false,
+          handled: false,
+        },
+      ],
+    };
+    await fs.writeFile(ordersFilePath(), JSON.stringify(badSourceFixture), 'utf-8');
+    await expect(listOrders()).rejects.toThrow(/Corrupted or invalid orders store/);
+  });
 });

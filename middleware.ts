@@ -25,7 +25,7 @@ export const PUBLIC_API: readonly PublicRule[] = [
 const STATE_CHANGING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 export function isPublicApi(pathname: string, method: string): boolean {
-  return PUBLIC_API.some(rule => {
+  return PUBLIC_API.some((rule) => {
     const pathOk = rule.prefix
       ? pathname === rule.path || pathname.startsWith(`${rule.path}/`)
       : pathname === rule.path;
@@ -34,31 +34,56 @@ export function isPublicApi(pathname: string, method: string): boolean {
   });
 }
 
-function hostnameOf(hostHeader: string): string {
-  // Strip port (nginx `proxy_set_header Host $host` drops it); keep IPv6 brackets intact.
-  return hostHeader.replace(/:\d+$/, '').toLowerCase();
+function normalizeOrigin(urlStr: string): { protocol: string; host: string } | null {
+  try {
+    const u = new URL(urlStr);
+    const protocol = u.protocol.toLowerCase();
+    const port = u.port || (protocol === 'https:' ? '443' : '80');
+    return { protocol, host: `${u.hostname.toLowerCase()}:${port}` };
+  } catch {
+    return null;
+  }
 }
 
 /**
- * Same-origin check via Origin (or Referer) vs Host / X-Forwarded-Host / SITE_URL.
- * Compares hostnames (ports ignored) because reverse proxies often drop the port from Host.
+ * Same-origin check via Origin (or Referer) comparing scheme, host, and port.
+ * Only trusts X-Forwarded-* headers when TRUST_PROXY === 'true'.
  */
 export function isSameOrigin(request: NextRequest): boolean {
   const source = request.headers.get('origin') || request.headers.get('referer');
   if (!source) return false;
-  let sourceHost: string;
-  try {
-    sourceHost = new URL(source).hostname.toLowerCase();
-  } catch {
-    return false;
+  const sourceNorm = normalizeOrigin(source);
+  if (!sourceNorm) return false;
+
+  const trustProxy = process.env.TRUST_PROXY === 'true';
+  const candidates: Array<{ protocol: string; host: string }> = [];
+
+  // 1. SITE_URL if configured
+  if (process.env.SITE_URL) {
+    const siteNorm = normalizeOrigin(process.env.SITE_URL);
+    if (siteNorm) candidates.push(siteNorm);
   }
-  const candidates = [request.headers.get('x-forwarded-host'), request.headers.get('host')];
-  try {
-    if (process.env.SITE_URL) candidates.push(new URL(process.env.SITE_URL).host);
-  } catch {
-    /* ignore bad SITE_URL */
+
+  // 2. Proxied host & proto ONLY if TRUST_PROXY is enabled
+  if (trustProxy) {
+    const forwardedHost = request.headers.get('x-forwarded-host');
+    const forwardedProto = (request.headers.get('x-forwarded-proto') || 'https').toLowerCase();
+    if (forwardedHost) {
+      const norm = normalizeOrigin(`${forwardedProto.endsWith(':') ? forwardedProto : forwardedProto + ':'}//${forwardedHost}`);
+      if (norm) candidates.push(norm);
+    }
   }
-  return candidates.some(h => Boolean(h) && hostnameOf(h as string) === sourceHost);
+
+  // 3. Direct request host
+  const directHost = request.headers.get('host');
+  if (directHost) {
+    const directProto = request.nextUrl.protocol || 'http:';
+    const norm = normalizeOrigin(`${directProto}//${directHost}`);
+    if (norm) candidates.push(norm);
+  }
+
+  // Match: must match exact scheme and host:port
+  return candidates.some((c) => c.protocol === sourceNorm.protocol && c.host === sourceNorm.host);
 }
 
 function isAuthorizedCron(request: NextRequest, pathname: string): boolean {
@@ -75,6 +100,16 @@ export function middleware(request: NextRequest) {
 
   const isAdminUi = pathname.startsWith('/admin');
   const isApi = pathname.startsWith('/api/');
+
+  // Pre-parse payload size check on state-changing API requests (both public and protected)
+  if (isApi && STATE_CHANGING.has(method)) {
+    const contentLength = Number(request.headers.get('content-length') ?? 0);
+    const maxBytes = pathname.startsWith('/api/upload') ? 15 * 1024 * 1024 : 2 * 1024 * 1024;
+    if (contentLength > maxBytes) {
+      return NextResponse.json({ error: 'Payload too large', code: 'payload_too_large' }, { status: 413 });
+    }
+  }
+
   const isProtectedApi = isApi && !isPublicApi(pathname, method);
 
   if (!isAdminUi && !isProtectedApi) {
@@ -114,7 +149,6 @@ export function middleware(request: NextRequest) {
   const session = request.cookies.get(SESSION_COOKIE)?.value;
   if (!session) {
     const loginUrl = new URL('/admin/login', request.url);
-    // Skip typos like /admin/l — otherwise login returns to public 404 shell.
     if (isKnownAdminPath(pathname)) {
       loginUrl.searchParams.set('from', pathname);
     }

@@ -4,6 +4,7 @@ import { atomicWriteJson } from './atomic-write';
 import { withFileMutex } from './file-mutex';
 import { createId } from './id';
 import type { Page, Product, SalonService, SiteData } from './types';
+import { parseSiteData } from './validation';
 
 const DEFAULT_SHOP_PHONE = { display: '093 632 72 24', tel: '+380936327224' };
 
@@ -73,6 +74,9 @@ async function readSiteDataFromDisk(filePath: string): Promise<SiteData> {
   } catch (err) {
     const code = (err as NodeJS.ErrnoException)?.code;
     if (code === 'ENOENT') {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error(`site.json not found in production at ${filePath}. Refusing to auto-seed defaults.`);
+      }
       // First run: file doesn't exist yet — seed with site.seed.json or defaults
       await ensureDataDir(filePath);
       const candidateSeeds = [
@@ -100,16 +104,24 @@ async function readSiteDataFromDisk(filePath: string): Promise<SiteData> {
     throw new Error(`Failed to read site data: ${code || 'unknown error'}`);
   }
 
-  let data: SiteData;
+  let data: unknown;
   try {
-    data = JSON.parse(raw) as SiteData;
+    data = JSON.parse(raw);
   } catch (parseErr) {
     // Corrupted JSON — do NOT overwrite, alert admin
     console.error('[site-data] site.json is corrupted (invalid JSON):', parseErr);
     throw new Error('site.json is corrupted and cannot be parsed. Restore from backup.');
   }
 
-  return normalizeSiteData(data);
+  const parsed = parseSiteData(data);
+  if (!parsed.success) {
+    console.error('[site-data] site.json schema validation failed:', parsed.error);
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(`site.json failed schema validation: ${parsed.error}`);
+    }
+  }
+
+  return normalizeSiteData(parsed.success ? parsed.data : (data as SiteData));
 }
 
 export async function getSiteData(): Promise<SiteData> {

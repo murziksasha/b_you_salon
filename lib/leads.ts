@@ -69,7 +69,7 @@ export const leadSchema = z.object({
   id: z.string().min(1),
   phone: z.string().min(1),
   createdAt: z.string().min(1),
-  source: z.enum(['callback', 'booking']).catch('callback'),
+  source: z.enum(['callback', 'booking']),
   zone: z.enum(['home', 'salon', 'shop']).optional(),
   serviceId: z.string().optional(),
   serviceTitle: z.string().optional(),
@@ -95,7 +95,7 @@ export const leadSchema = z.object({
 
 export const leadsStoreSchema = z.object({
   leads: z.array(leadSchema),
-});
+}).passthrough();
 
 const MAX_AUDIT = 30;
 
@@ -134,18 +134,16 @@ function withLeadsLock<T>(fn: () => Promise<T>): Promise<T> {
   return withFileMutex(leadsFilePath(), fn);
 }
 
-function pushAudit(lead: Lead, entry: LeadAuditEntry): LeadAuditEntry[] {
-  const list = [...(lead.audit || []), entry];
-  return list.slice(-MAX_AUDIT);
-}
-
-export function withNormalizedLead(lead: Lead): Lead {
-  const status = normalizeStatus(lead.status, lead.handled);
+function withNormalizedLead(lead: Lead): Lead {
   return {
     ...lead,
-    status,
-    handled: handledFromStatus(status),
+    status: normalizeStatus(lead.status, lead.handled),
   };
+}
+
+function pushAudit(lead: Lead, entry: LeadAuditEntry): LeadAuditEntry[] {
+  const list = [entry, ...(lead.audit || [])];
+  return list.slice(0, MAX_AUDIT);
 }
 
 export async function listLeads(): Promise<Lead[]> {
@@ -153,15 +151,9 @@ export async function listLeads(): Promise<Lead[]> {
   return store.leads.map(withNormalizedLead);
 }
 
-/** Open leads matching phone (for dedup). */
 export async function findOpenLeadsByPhone(phone: string): Promise<Lead[]> {
-  const { phonesMatch } = await import('./phone');
   const leads = await listLeads();
-  return leads.filter(l => {
-    const st = normalizeStatus(l.status, l.handled);
-    if (st === 'done' || st === 'spam') return false;
-    return phonesMatch(l.phone, phone);
-  });
+  return leads.filter(l => l.phone === phone && !handledFromStatus(l.status || 'new'));
 }
 
 export async function countLeads(opts?: { unhandledOnly?: boolean }): Promise<number> {

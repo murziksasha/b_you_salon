@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verifySensitiveReauth } from '@/lib/admin/reauth';
+import { safeAudit } from '@/lib/api/audit';
+import { apiError } from '@/lib/api/handler';
 import { clientKey, rateLimit } from '@/lib/rate-limit';
 import { requireAdminRole } from '@/lib/require-role';
 import {
@@ -179,7 +182,7 @@ export async function DELETE(request: NextRequest) {
   }
 
   try {
-    const body = (await request.json()) as { name?: string; force?: boolean };
+    const body = (await request.json()) as { name?: string; force?: boolean; password?: string };
     if (!body.name || typeof body.name !== 'string') {
       return NextResponse.json({ error: 'Missing name' }, { status: 400 });
     }
@@ -198,12 +201,31 @@ export async function DELETE(request: NextRequest) {
           { status: 409 },
         );
       }
+    } else {
+      // Step-up authentication required for forced media deletion
+      const authHeader = body.password || request.headers.get('x-reauth-password') || '';
+      const allowed = await verifySensitiveReauth(
+        { username: g.username, role: g.role },
+        { password: authHeader },
+      );
+      if (!allowed) {
+        return apiError(403, 'reauth_failed', 'Невірний пароль для примусового видалення медіа');
+      }
     }
 
     const ok = await deleteUpload(body.name);
     if (!ok) {
       return NextResponse.json({ error: 'Not found or invalid name' }, { status: 404 });
     }
+
+    if (body.force) {
+      await safeAudit({
+        kind: 'security',
+        message: `Примусово видалено медіа у використанні: ${body.name}`,
+        actor: g.username,
+      });
+    }
+
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ error: 'Bad request' }, { status: 400 });

@@ -118,7 +118,7 @@ export const orderSchema = z.object({
 
 export const ordersStoreSchema = z.object({
   orders: z.array(orderSchema),
-});
+}).passthrough();
 
 const MAX_AUDIT = 30;
 
@@ -248,7 +248,9 @@ export async function appendOrder(input: {
 
 export const createOrder = appendOrder;
 
-export type OrderPatch = Partial<Pick<Order, 'handled' | 'note' | 'status' | 'callbackAt' | 'outcome' | 'assignee'>>;
+export type OrderPatch = Partial<
+  Pick<Order, 'handled' | 'note' | 'status' | 'callbackAt' | 'outcome' | 'assignee' | 'emailed' | 'telegram'>
+>;
 
 export async function updateOrder(id: string, patch: OrderPatch): Promise<Order | null> {
   return withOrdersLock(async () => {
@@ -299,6 +301,8 @@ export async function updateOrder(id: string, patch: OrderPatch): Promise<Order 
       status: nextStatus,
       handled: closed,
       note: patch.note !== undefined ? patch.note : current.note,
+      emailed: typeof patch.emailed === 'boolean' ? patch.emailed : current.emailed,
+      telegram: typeof patch.telegram === 'boolean' ? patch.telegram : current.telegram,
       callbackAt: patch.callbackAt !== undefined ? patch.callbackAt || undefined : current.callbackAt,
       outcome: closed ? nextOutcome : undefined,
       assignee: patch.assignee !== undefined ? patch.assignee || undefined : current.assignee,

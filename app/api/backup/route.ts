@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySensitiveReauth } from '@/lib/admin/reauth';
+import { safeAudit } from '@/lib/api/audit';
 import { apiError } from '@/lib/api/handler';
 import { createSiteBackupFromData, deleteBackupFile, listSiteBackups, readBackupFile } from '@/lib/backup';
 import { RestoreBackupSchema, reAuthPassword } from '@/lib/schemas/admin';
@@ -90,15 +91,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: site.error }, { status: 400 });
     }
 
-    // Snapshot current state before overwrite
+    // Snapshot current state before overwrite — abort restore if snapshot fails
     try {
       const current = await getSiteData();
       await createSiteBackupFromData(current, { label: 'pre-restore' });
-    } catch {
-      // continue restore even if pre-restore snapshot fails
+    } catch (snapshotErr) {
+      console.error('[backup] pre-restore snapshot failed, aborting restore:', snapshotErr);
+      return NextResponse.json({ error: 'Pre-restore snapshot failed. Restore aborted for safety.' }, { status: 500 });
     }
 
     await saveSiteData(site.data);
+    await safeAudit({
+      kind: 'security',
+      message: `Відновлено сайт з копії: ${name}`,
+      actor: gate.access.username,
+    });
     return NextResponse.json({ ok: true, restored: name });
   }
 
@@ -124,13 +131,27 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/** Delete a backup file — admin only. ?file=name */
+/** Delete a backup file — admin only. Requires step-up reauth & audit */
 export async function DELETE(request: NextRequest) {
   const gate = await requireAdminOrCron(request, 'restore_backup');
   if (!gate.ok) return gate.response;
+  if (gate.via !== 'admin') return apiError(403, 'forbidden', 'Forbidden');
+
+  const authHeader = request.headers.get('x-reauth-password') || request.nextUrl.searchParams.get('password') || '';
+  const reauth = await verifySensitiveReauth(gate.access, { password: authHeader });
+  if (!reauth) {
+    return apiError(403, 'reauth_failed', 'Невірний пароль для видалення резервної копії');
+  }
 
   const name = request.nextUrl.searchParams.get('file') || '';
   const ok = await deleteBackupFile(name);
   if (!ok) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+  await safeAudit({
+    kind: 'security',
+    message: `Видалено резервну копію: ${name}`,
+    actor: gate.access.username,
+  });
+
   return NextResponse.json({ ok: true });
 }

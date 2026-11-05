@@ -138,4 +138,34 @@ describe('withProcessFileMutex', () => {
 
     await fs.rm(tmpDir, { recursive: true, force: true });
   });
+
+  it('refuses to steal lock while owner PID is alive even if timestamp is old', async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pmutex-alive-'));
+    const targetFile = path.join(tmpDir, 'data.json');
+    const lockFile = `${targetFile}.lock`;
+
+    expect(isPidAlive(process.pid)).toBe(true);
+
+    const alivePayload: ProcessLockData = {
+      token: 'alive-owner-token',
+      pid: process.pid,
+      at: Date.now() - 50000,
+    };
+    await fs.writeFile(lockFile, JSON.stringify(alivePayload), 'utf-8');
+
+    await expect(
+      withProcessFileMutex(
+        targetFile,
+        async () => 'should-not-run',
+        { timeoutMs: 150, staleMs: 200 },
+      ),
+    ).rejects.toThrow('Timed out waiting for process lock');
+
+    // The alive process lock file MUST NOT be deleted
+    const raw = await fs.readFile(lockFile, 'utf-8');
+    const data = JSON.parse(raw) as ProcessLockData;
+    expect(data.token).toBe('alive-owner-token');
+
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
 });

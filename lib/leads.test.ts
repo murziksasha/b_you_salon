@@ -209,4 +209,22 @@ describe('leads store', () => {
     await fs.writeFile(leadsFilePath(), JSON.stringify(corruptedFixture), 'utf-8');
     await expect(listLeads()).rejects.toThrow(/Corrupted or invalid leads store/);
   });
+
+  it('rejects unknown source instead of silently defaulting', async () => {
+    const { listLeads } = await import('./leads');
+    const badSourceFixture = {
+      leads: [
+        {
+          id: 'bad-source-lead',
+          phone: '+380501112233',
+          createdAt: new Date().toISOString(),
+          source: 'unknown_source_value',
+          emailed: false,
+          handled: false,
+        },
+      ],
+    };
+    await fs.writeFile(leadsFilePath(), JSON.stringify(badSourceFixture), 'utf-8');
+    await expect(listLeads()).rejects.toThrow(/Corrupted or invalid leads store/);
+  });
 });

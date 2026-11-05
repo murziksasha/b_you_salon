@@ -1,3 +1,5 @@
+import { safeJsonLd } from '@/lib/json-ld';
+
 const DEFAULT_FAQ = [
   {
     q: 'Як записатися в салон?',
@@ -37,6 +39,6 @@ export function FaqJsonLd({
   };
 
   return (
-    <script type='application/ld+json' dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }} />
+    <script type='application/ld+json' dangerouslySetInnerHTML={{ __html: safeJsonLd(data) }} />
   );
 }

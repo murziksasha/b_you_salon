@@ -13,6 +13,12 @@ try {
       `[Playwright Security Guard] Write suites must target a local loopback server. Rejected external target: ${rawBaseURL}`,
     );
   }
+  const parsedPort = parsed.port || (parsed.protocol === 'https:' ? '443' : '80');
+  if (parsedPort === '3001' && process.env.ALLOW_PROD_PORT_TEST !== 'true') {
+    throw new Error(
+      `[Playwright Security Guard] Refusing to target port 3001 (production port). Use an isolated test server port (e.g. 3002).`,
+    );
+  }
 } catch (err: unknown) {
   throw new Error(`[Playwright Security Guard] Invalid baseURL: ${String(err)}`);
 }
@@ -39,7 +45,7 @@ export default defineConfig({
   webServer: process.env.PLAYWRIGHT_SKIP_WEBSERVER
     ? undefined
     : {
-        command: `npx next dev -p ${PORT}`,
+        command: `npx next dev -H 127.0.0.1 -p ${PORT}`,
         url: `${rawBaseURL}/api/health`,
         reuseExistingServer: false,
         timeout: 120_000,

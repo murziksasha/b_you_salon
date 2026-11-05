@@ -14,6 +14,7 @@ describe('middleware', () => {
     delete process.env.ADMIN_IP_ALLOWLIST;
     delete process.env.TRUST_PROXY;
     delete process.env.BACKUP_CRON_SECRET;
+    delete process.env.SITE_URL;
   });
 
   it('classifies public API by method', () => {
@@ -31,10 +32,57 @@ describe('middleware', () => {
     expect(middleware(req('/api/site', { method: 'PUT', headers: { origin: 'http://site.test' } })).status).toBe(200);
   });
 
-  it('ignores port differences between Origin and Host (nginx $host)', () => {
-    expect(middleware(req('/api/site', { method: 'PATCH', headers: { origin: 'http://site.test:8080' } })).status).toBe(
-      200,
-    );
+  it('rejects differing port or scheme in Origin', () => {
+    expect(
+      middleware(req('/api/site', { method: 'PATCH', headers: { origin: 'http://site.test:8080' } })).status,
+    ).toBe(403);
+    expect(
+      middleware(req('/api/site', { method: 'PATCH', headers: { origin: 'https://site.test' } })).status,
+    ).toBe(403);
+  });
+
+  it('rejects untrusted proxy headers when TRUST_PROXY is off', () => {
+    expect(
+      middleware(
+        req('/api/site', {
+          method: 'PATCH',
+          headers: {
+            origin: 'https://proxy.test',
+            'x-forwarded-host': 'proxy.test',
+            'x-forwarded-proto': 'https',
+          },
+        }),
+      ).status,
+    ).toBe(403);
+  });
+
+  it('accepts proxy headers when TRUST_PROXY is true', () => {
+    process.env.TRUST_PROXY = 'true';
+    expect(
+      middleware(
+        req('/api/site', {
+          method: 'PATCH',
+          headers: {
+            origin: 'https://proxy.test',
+            'x-forwarded-host': 'proxy.test',
+            'x-forwarded-proto': 'https',
+          },
+        }),
+      ).status,
+    ).toBe(200);
+  });
+
+  it('rejects oversized payload with 413', () => {
+    expect(
+      middleware(
+        req('/api/orders', {
+          method: 'POST',
+          headers: {
+            'content-length': String(5 * 1024 * 1024), // 5 MB > 2 MB
+          },
+        }),
+      ).status,
+    ).toBe(413);
   });
 
   it('does not origin-check public POSTs or GETs', () => {

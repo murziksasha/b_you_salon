@@ -10,6 +10,7 @@ import {
 } from './admin-roles';
 import { getAdminUserByUsername, hasMultiUserMode } from './admin-users';
 import { isEnvLoginAllowed } from './admin/env-login';
+import type { SessionClaims } from './session';
 
 export type AdminAccess = {
   role: AdminRole | 'legacy';
@@ -22,33 +23,55 @@ export type RoleGate =
   | { ok: false; response: NextResponse };
 
 export async function resolveAdminAccess(
-  username: string,
+  claimsOrUsername: SessionClaims | string | null | undefined,
   cookieRole?: string,
 ): Promise<AdminAccess | null> {
+  if (!claimsOrUsername) return null;
+  const isClaims = typeof claimsOrUsername === 'object';
+  const username = isClaims ? claimsOrUsername.username : claimsOrUsername;
+  const roleInCookie = isClaims ? claimsOrRole(claimsOrUsername, cookieRole) : cookieRole;
+  const authVersion = isClaims ? claimsOrUsername.authVersion : undefined;
+  const accountType = isClaims ? claimsOrUsername.accountType : undefined;
+  const setupOnly = isClaims ? claimsOrUsername.setupOnly : false;
+
+  if (!username) return null;
+  if (setupOnly) return null;
+
   const multi = await hasMultiUserMode();
   if (multi) {
     const user = await getAdminUserByUsername(username);
     if (user) {
+      if (user.disabled) return null;
+      // Invalidate old sessions when authVersion changed
+      if (authVersion !== undefined && user.authVersion !== undefined && authVersion !== user.authVersion) {
+        return null;
+      }
       return {
         username: user.username,
         role: user.role,
         grants: [...capabilitiesFor(user.role, user.grants)],
       };
     }
-    // Deleted/disabled users lose access immediately. Only the env "admin" identity may
-    // fall back to its cookie role, and only while env-password login is allowed.
-    if (username === 'admin' && (cookieRole === 'owner' || cookieRole === 'legacy') && (await isEnvLoginAllowed())) {
+    // Only env "admin" identity may fall back, and only if accountType is 'env' (or when called with legacy string username)
+    if (
+      (accountType === 'env' || (!isClaims && accountType === undefined)) &&
+      username === 'admin' &&
+      (roleInCookie === 'owner' || roleInCookie === 'legacy') &&
+      (await isEnvLoginAllowed())
+    ) {
       return {
         username: 'admin',
-        role: cookieRole,
-        grants: [...capabilitiesFor(cookieRole)],
+        role: roleInCookie,
+        grants: [...capabilitiesFor(roleInCookie)],
       };
     }
     return null;
   }
-  const role: AdminRole | 'legacy' = isAdminRole(cookieRole)
-    ? cookieRole
-    : cookieRole === 'legacy'
+
+  // Single-user env mode
+  const role: AdminRole | 'legacy' = isAdminRole(roleInCookie)
+    ? roleInCookie
+    : roleInCookie === 'legacy'
       ? 'legacy'
       : 'legacy';
   return {
@@ -58,12 +81,19 @@ export async function resolveAdminAccess(
   };
 }
 
+function claimsOrRole(claims: SessionClaims, fallback?: string): string | undefined {
+  return claims.role || fallback;
+}
+
 /**
  * Auth + IP + optional capability check for admin APIs.
  * `action` maps to roleCan() keys (see AdminCapability); `stats` aliases dashboard_view.
  * Authorization uses the live user row, not the session cookie role.
  */
-export async function requireAdminRole(action?: string): Promise<RoleGate> {
+export async function requireAdminRole(
+  action?: string,
+  options?: { allowSetupOnly?: boolean },
+): Promise<RoleGate> {
   const ipGate = await assertAdminIp();
   if (!ipGate.ok) {
     return {
@@ -75,8 +105,17 @@ export async function requireAdminRole(action?: string): Promise<RoleGate> {
     return { ok: false, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
   }
   const claims = await getSessionClaims();
-  const username = claims?.username || 'admin';
-  const access = await resolveAdminAccess(username, claims?.role);
+  if (!claims || !claims.username) {
+    return { ok: false, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+  }
+  if (claims.setupOnly && !options?.allowSetupOnly) {
+    return {
+      ok: false,
+      response: NextResponse.json({ error: '2FA setup required', setupRequired: true }, { status: 403 }),
+    };
+  }
+
+  const access = await resolveAdminAccess(claims);
   if (!access) {
     return { ok: false, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
   }

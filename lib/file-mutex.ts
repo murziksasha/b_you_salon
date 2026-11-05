@@ -76,9 +76,8 @@ export function isPidAlive(pid: number): boolean {
  * Composes with `withFileMutex` so concurrent callers in the same process serialize
  * in memory before contending for the file lock.
  *
- * Stale lock handling: recovers safely on dead owner PID or expired lease with compare-and-swap.
- * Uses an owner token and active heartbeat so callers are never stolen mid-flight and cannot
- * release another owner's lock.
+ * Stale lock handling: recovers safely ONLY on dead owner PID. Does NOT steal locks
+ * from active live processes to guarantee single-writer safety across long tasks.
  */
 export async function withProcessFileMutex<T>(
   filePath: string,
@@ -107,13 +106,10 @@ export async function withProcessFileMutex<T>(
           try {
             const raw = await fs.readFile(lockFile, 'utf-8');
             const data = JSON.parse(raw) as ProcessLockData;
-            const stat = await fs.stat(lockFile);
-            const age = Date.now() - stat.mtimeMs;
 
             const ownerDead = !isPidAlive(data.pid);
-            const expired = age > staleMs;
 
-            if (ownerDead || expired) {
+            if (ownerDead) {
               const currentRaw = await fs.readFile(lockFile, 'utf-8').catch(() => null);
               if (currentRaw) {
                 const currentData = JSON.parse(currentRaw) as ProcessLockData;

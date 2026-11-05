@@ -4,10 +4,23 @@ import { firstAllowedAdminPath, navAllowedForRole } from '@/lib/admin-roles';
 import { resolveAdminAccess, type AdminAccess } from '@/lib/require-role';
 
 export type PageAccessDecision =
-  { kind: 'ok'; access: AdminAccess } | { kind: 'login' } | { kind: 'redirect'; to: string };
+  | { kind: 'ok'; access: AdminAccess }
+  | { kind: 'login' }
+  | { kind: 'redirect'; to: string }
+  | { kind: 'setup_2fa' };
 
 /** Pure decision helper (unit-tested): may this access open the admin pathname? */
-export function decidePageAccess(access: AdminAccess | null, pathname: string): PageAccessDecision {
+export function decidePageAccess(
+  access: AdminAccess | null,
+  pathname: string,
+  options?: { setupOnly?: boolean },
+): PageAccessDecision {
+  if (options?.setupOnly) {
+    if (pathname === '/admin/setup-2fa') {
+      return access ? { kind: 'ok', access } : { kind: 'setup_2fa' };
+    }
+    return { kind: 'setup_2fa' };
+  }
   if (!access) return { kind: 'login' };
   if (navAllowedForRole(access.role, pathname, access.grants)) return { kind: 'ok', access };
   const to = firstAllowedAdminPath(access.role, access.grants);
@@ -24,9 +37,24 @@ export async function requirePageAccess(pathname: string): Promise<AdminAccess> 
   const loginUrl = `/admin/login?from=${encodeURIComponent(pathname)}`;
   if (!(await getSession())) redirect(loginUrl);
   const claims = await getSessionClaims();
-  const access = claims ? await resolveAdminAccess(claims.username, claims.role) : null;
+  if (!claims || !claims.username) redirect(loginUrl);
+
+  if (claims.setupOnly) {
+    if (pathname !== '/admin/setup-2fa') {
+      redirect('/admin/setup-2fa');
+    }
+    // Allow rendering /admin/setup-2fa for setup-only session
+    return {
+      username: claims.username,
+      role: (claims.role as any) || 'owner',
+      grants: [],
+    };
+  }
+
+  const access = await resolveAdminAccess(claims);
   const decision = decidePageAccess(access, pathname);
   if (decision.kind === 'login') redirect(loginUrl);
+  if (decision.kind === 'setup_2fa') redirect('/admin/setup-2fa');
   if (decision.kind === 'redirect') redirect(decision.to);
   return decision.access;
 }

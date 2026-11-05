@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import { appendOrder, type Fulfillment, type Order, type OrderItemSnapshot } from './orders';
+import { appendOrder, updateOrder, type Fulfillment, type Order, type OrderItemSnapshot } from './orders';
 import { escapeText } from './sanitize';
 import { CONSULT_PRODUCT_TITLE } from './shop-consult';
 import { autoNotifyNewOrder } from './telegram-auto-notify';
@@ -30,6 +30,25 @@ export async function placeShopOrder(input: {
   const mailFrom = process.env.MAIL_FROM || smtpUser || 'no-reply@example.com';
   const siteUrl = (process.env.SITE_URL || '').replace(/\/$/, '');
   const dev = !smtpUser || !smtpPass;
+
+  // Write-first persistence: persist to journal before any network notifications
+  let order: Order | null = null;
+  try {
+    order = await appendOrder({
+      phone: input.phone,
+      comment: input.comment || undefined,
+      name: input.name || undefined,
+      items: consult ? undefined : items,
+      fulfillment: consult ? 'pickup' : input.fulfillment,
+      address: !consult && input.fulfillment === 'delivery' ? input.address : undefined,
+      emailed: false,
+      telegram: false,
+      source: consult ? 'consult' : 'shop',
+    });
+  } catch (err) {
+    console.error('[orders] failed to persist order:', err);
+    return { order: null, emailed: false, telegram: false, dev };
+  }
 
   const safePhone = escapeText(input.phone);
   const safeTitle = escapeText(titleLine);
@@ -108,31 +127,28 @@ export async function placeShopOrder(input: {
         text,
       });
       emailed = true;
+      try {
+        const updated = await updateOrder(order.id, { emailed: true });
+        if (updated) order = updated;
+      } catch (err) {
+        console.error('[orders] failed to update emailed flag:', err);
+      }
     } catch (err) {
       console.error('Order mail error:', err);
     }
   }
 
-  let order = null as Order | null;
-  try {
-    order = await appendOrder({
-      phone: input.phone,
-      comment: input.comment || undefined,
-      name: input.name || undefined,
-      items: consult ? undefined : items,
-      fulfillment: consult ? 'pickup' : input.fulfillment,
-      address: !consult && input.fulfillment === 'delivery' ? input.address : undefined,
-      emailed,
-      telegram: false,
-      source: consult ? 'consult' : 'shop',
-    });
-  } catch (err) {
-    console.error('[orders] failed to persist', err);
-  }
-
   let telegram = false;
   try {
     telegram = await autoNotifyNewOrder(order);
+    if (telegram) {
+      try {
+        const updated = await updateOrder(order.id, { telegram: true });
+        if (updated) order = updated;
+      } catch {
+        // ignore
+      }
+    }
   } catch {
     telegram = false;
   }

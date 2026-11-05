@@ -1,4 +1,5 @@
 import type { SiteSettings } from '@/lib/types';
+import { safeJsonLd } from '@/lib/json-ld';
 
 interface LocalBusinessJsonLdProps {
   settings: SiteSettings;
@@ -65,7 +66,7 @@ export function LocalBusinessJsonLd({ settings, siteUrl }: LocalBusinessJsonLdPr
   return (
     <script
       type='application/ld+json'
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(clean) }}
+      dangerouslySetInnerHTML={{ __html: safeJsonLd(clean) }}
     />
   );
 }

@@ -2,45 +2,43 @@ import dns from 'dns/promises';
 import net from 'net';
 import { Agent } from 'undici';
 
+function parseIPv6Words(ip: string): number[] | null {
+  let s = ip.trim().toLowerCase();
+  const lastColon = s.lastIndexOf(':');
+  if (lastColon >= 0 && s.slice(lastColon + 1).includes('.')) {
+    const v4 = s.slice(lastColon + 1);
+    const parts = v4.split('.').map(Number);
+    if (parts.length !== 4 || parts.some((p) => isNaN(p) || p < 0 || p > 255)) return null;
+    const hex1 = ((parts[0] << 8) | parts[1]).toString(16);
+    const hex2 = ((parts[2] << 8) | parts[3]).toString(16);
+    s = s.slice(0, lastColon) + ':' + hex1 + ':' + hex2;
+  }
+  const doubleColon = s.indexOf('::');
+  let parts: string[];
+  if (doubleColon >= 0) {
+    const left = s.slice(0, doubleColon) ? s.slice(0, doubleColon).split(':') : [];
+    const right = s.slice(doubleColon + 2) ? s.slice(doubleColon + 2).split(':') : [];
+    const missing = 8 - (left.length + right.length);
+    if (missing < 1) return null;
+    parts = [...left, ...Array(missing).fill('0'), ...right];
+  } else {
+    parts = s.split(':');
+  }
+  if (parts.length !== 8) return null;
+  const words = parts.map((p) => parseInt(p, 16));
+  if (words.some((w) => isNaN(w) || w < 0 || w > 0xffff)) return null;
+  return words;
+}
+
 /**
  * Checks whether an IP string is a private, loopback, link-local, or reserved address.
- * Covers IPv4, IPv6, and IPv4-mapped IPv6.
+ * Covers IPv4, canonical & expanded IPv6, IPv4-mapped IPv6, NAT64, and 6to4.
  */
 export function isPrivateIp(ip: string): boolean {
   if (!ip || typeof ip !== 'string') return true;
   const trimmed = ip.trim().toLowerCase();
 
-  // Handle IPv4-mapped IPv6 (e.g., ::ffff:127.0.0.1 or ::ffff:7f00:1)
-  if (trimmed.startsWith('::ffff:')) {
-    const rest = trimmed.slice(7);
-    if (net.isIPv4(rest)) {
-      return isPrivateIp(rest);
-    }
-    // Hex format, e.g. 7f00:0001
-    const parts = rest.split(':');
-    if (parts.length === 2) {
-      const p1 = parseInt(parts[0], 16);
-      const p2 = parseInt(parts[1], 16);
-      if (!isNaN(p1) && !isNaN(p2)) {
-        const a = (p1 >> 8) & 0xff;
-        const b = p1 & 0xff;
-        const c = (p2 >> 8) & 0xff;
-        const d = p2 & 0xff;
-        return isPrivateIp(`${a}.${b}.${c}.${d}`);
-      }
-    }
-    return true;
-  }
-
-  // Handle NAT64 Well-Known Prefix (64:ff9b::/96)
-  if (trimmed.startsWith('64:ff9b::')) {
-    const rest = trimmed.slice(9);
-    if (net.isIPv4(rest)) {
-      return isPrivateIp(rest);
-    }
-    return true;
-  }
-
+  // IPv4 validation
   if (net.isIPv4(trimmed)) {
     const parts = trimmed.split('.').map(Number);
     if (parts.length !== 4 || parts.some((p) => isNaN(p) || p < 0 || p > 255)) return true;
@@ -61,25 +59,68 @@ export function isPrivateIp(ip: string): boolean {
     return false;
   }
 
-  if (net.isIPv6(trimmed)) {
-    if (trimmed === '::1' || trimmed === '::') return true;
-    if (
-      trimmed.startsWith('fe8') ||
-      trimmed.startsWith('fe9') ||
-      trimmed.startsWith('fea') ||
-      trimmed.startsWith('feb')
-    ) {
-      return true; // fe80::/10 link-local
-    }
-    if (trimmed.startsWith('fc') || trimmed.startsWith('fd')) {
-      return true; // fc00::/7 unique local (RFC4193)
-    }
-    if (trimmed.startsWith('2001:db8:')) return true; // documentation
-    if (trimmed.startsWith('ff')) return true; // multicast
-    return false;
+  // IPv6 validation
+  const words = parseIPv6Words(trimmed);
+  if (!words) return true; // Malformed IP string -> fail closed
+
+  // 1. IPv4-mapped IPv6 (::ffff:0:0/96 in any form: expanded, compressed, dot or hex)
+  if (words[0] === 0 && words[1] === 0 && words[2] === 0 && words[3] === 0 && words[4] === 0 && words[5] === 0xffff) {
+    const a = (words[6] >> 8) & 0xff;
+    const b = words[6] & 0xff;
+    const c = (words[7] >> 8) & 0xff;
+    const d = words[7] & 0xff;
+    return isPrivateIp(`${a}.${b}.${c}.${d}`);
   }
 
-  return true;
+  // 2. IPv4-compatible IPv6 (::/96)
+  if (words[0] === 0 && words[1] === 0 && words[2] === 0 && words[3] === 0 && words[4] === 0 && words[5] === 0) {
+    if (words[6] === 0 && words[7] === 1) return true; // ::1
+    if (words[6] === 0 && words[7] === 0) return true; // ::
+    const a = (words[6] >> 8) & 0xff;
+    const b = words[6] & 0xff;
+    const c = (words[7] >> 8) & 0xff;
+    const d = words[7] & 0xff;
+    return isPrivateIp(`${a}.${b}.${c}.${d}`);
+  }
+
+  // 3. NAT64 Well-Known Prefix (64:ff9b::/96)
+  if (words[0] === 0x0064 && words[1] === 0xff9b && words[2] === 0 && words[3] === 0 && words[4] === 0 && words[5] === 0) {
+    const a = (words[6] >> 8) & 0xff;
+    const b = words[6] & 0xff;
+    const c = (words[7] >> 8) & 0xff;
+    const d = words[7] & 0xff;
+    return isPrivateIp(`${a}.${b}.${c}.${d}`);
+  }
+
+  // 4. 6to4 prefix (2002::/16) embeds IPv4 in words 1 and 2
+  if (words[0] === 0x2002) {
+    const a = (words[1] >> 8) & 0xff;
+    const b = words[1] & 0xff;
+    const c = (words[2] >> 8) & 0xff;
+    const d = words[2] & 0xff;
+    if (isPrivateIp(`${a}.${b}.${c}.${d}`)) return true;
+  }
+
+  // 5. Standard IPv6 reserved / private ranges
+  // Loopback ::1, Unspecified ::
+  if (words.every((w, i) => (i === 7 ? w === 1 || w === 0 : w === 0))) return true;
+
+  // fe80::/10 link-local
+  if ((words[0] & 0xffc0) === 0xfe80) return true;
+
+  // fc00::/7 unique local (RFC4193)
+  if ((words[0] & 0xfe00) === 0xfc00) return true;
+
+  // 2001:db8::/32 documentation
+  if (words[0] === 0x2001 && words[1] === 0x0db8) return true;
+
+  // 100::/64 discard prefix (RFC6666)
+  if (words[0] === 0x0100 && words[1] === 0 && words[2] === 0 && words[3] === 0) return true;
+
+  // ff00::/8 multicast
+  if ((words[0] & 0xff00) === 0xff00) return true;
+
+  return false;
 }
 
 export interface VettedAddress {
@@ -181,6 +222,12 @@ export async function safeFetch(
     });
 
     if ([301, 302, 303, 307, 308].includes(res.status)) {
+      try {
+        await res.body?.cancel();
+        await dispatcher.close();
+      } catch {
+        /* ignore close error */
+      }
       const location = res.headers.get('location');
       if (!location) throw new Error('Redirect missing location header');
       currentUrl = new URL(location, currentUrl).toString();
@@ -191,4 +238,39 @@ export async function safeFetch(
   }
 
   throw new Error('Too many redirects');
+}
+
+/**
+ * Reads a ReadableStream up to maxBytes. Aborts and throws if maxBytes is exceeded.
+ */
+export async function readBoundedStream(
+  stream: ReadableStream<Uint8Array> | null,
+  maxBytes: number,
+  signal?: AbortSignal,
+): Promise<Buffer> {
+  if (!stream) return Buffer.alloc(0);
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      if (signal?.aborted) {
+        throw new Error('Stream read aborted');
+      }
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) {
+        totalBytes += value.byteLength;
+        if (totalBytes > maxBytes) {
+          throw new Error(`Response body exceeded limit of ${maxBytes} bytes`);
+        }
+        chunks.push(value);
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  return Buffer.concat(chunks);
 }
