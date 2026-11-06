@@ -1,5 +1,8 @@
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { mutexKey, withFileMutex } from './file-mutex';
+import { isPidAlive, mutexKey, withFileMutex, withProcessFileMutex, type ProcessLockData } from './file-mutex';
 
 describe('withFileMutex', () => {
   it('serializes overlapping work on the same file', async () => {
@@ -50,5 +53,119 @@ describe('withFileMutex', () => {
   it('normalizes Windows paths case-insensitively', () => {
     if (process.platform !== 'win32') return;
     expect(mutexKey('C:\\Data\\Site.json')).toBe(mutexKey('c:\\data\\site.json'));
+  });
+});
+
+describe('withProcessFileMutex', () => {
+  it('prevents first owner from releasing second owner lock (handoff test)', async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pmutex-test-'));
+    const targetFile = path.join(tmpDir, 'data.json');
+    const lockFile = `${targetFile}.lock`;
+
+    let firstOwnerRan = false;
+
+    await withProcessFileMutex(targetFile, async (lockInfo) => {
+      firstOwnerRan = true;
+      expect(lockInfo?.token).toBeDefined();
+
+      // Simulate a handoff: lock is replaced with owner B token
+      const ownerBPayload: ProcessLockData = {
+        token: 'owner-b-token-12345',
+        pid: process.pid,
+        at: Date.now(),
+      };
+      await fs.writeFile(lockFile, JSON.stringify(ownerBPayload), 'utf-8');
+    });
+
+    expect(firstOwnerRan).toBe(true);
+
+    // After first owner finishes its `finally`, owner B's lock MUST NOT be unlinked
+    const raw = await fs.readFile(lockFile, 'utf-8');
+    const data = JSON.parse(raw) as ProcessLockData;
+    expect(data.token).toBe('owner-b-token-12345');
+
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it('extends lock lease with active heartbeat during long execution', async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pmutex-hb-'));
+    const targetFile = path.join(tmpDir, 'data.json');
+    const lockFile = `${targetFile}.lock`;
+
+    // staleMs is 600ms, execution is 400ms, heartbeat is 100ms
+    const result = await withProcessFileMutex(
+      targetFile,
+      async () => {
+        await new Promise((r) => setTimeout(r, 400));
+        const stat = await fs.stat(lockFile);
+        // mtime should be refreshed by heartbeat during execution
+        const age = Date.now() - stat.mtimeMs;
+        expect(age).toBeLessThan(350);
+        return 'done';
+      },
+      { staleMs: 600, heartbeatIntervalMs: 100 },
+    );
+
+    expect(result).toBe('done');
+    // Once finished cleanly, lock is removed
+    await expect(fs.access(lockFile)).rejects.toThrow();
+
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it('recovers safely from a crashed owner (dead PID)', async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pmutex-dead-'));
+    const targetFile = path.join(tmpDir, 'data.json');
+    const lockFile = `${targetFile}.lock`;
+
+    // Create stale lock with dead PID
+    const deadPid = 99999999;
+    expect(isPidAlive(deadPid)).toBe(false);
+
+    const stalePayload: ProcessLockData = {
+      token: 'dead-owner-token',
+      pid: deadPid,
+      at: Date.now() - 50000,
+    };
+    await fs.writeFile(lockFile, JSON.stringify(stalePayload), 'utf-8');
+
+    const result = await withProcessFileMutex(targetFile, async () => {
+      return 'recovered';
+    });
+
+    expect(result).toBe('recovered');
+    await expect(fs.access(lockFile)).rejects.toThrow();
+
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it('refuses to steal lock while owner PID is alive even if timestamp is old', async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pmutex-alive-'));
+    const targetFile = path.join(tmpDir, 'data.json');
+    const lockFile = `${targetFile}.lock`;
+
+    expect(isPidAlive(process.pid)).toBe(true);
+
+    const alivePayload: ProcessLockData = {
+      token: 'alive-owner-token',
+      pid: process.pid,
+      at: Date.now() - 50000,
+    };
+    await fs.writeFile(lockFile, JSON.stringify(alivePayload), 'utf-8');
+
+    await expect(
+      withProcessFileMutex(
+        targetFile,
+        async () => 'should-not-run',
+        { timeoutMs: 150, staleMs: 200 },
+      ),
+    ).rejects.toThrow('Timed out waiting for process lock');
+
+    // The alive process lock file MUST NOT be deleted
+    const raw = await fs.readFile(lockFile, 'utf-8');
+    const data = JSON.parse(raw) as ProcessLockData;
+    expect(data.token).toBe('alive-owner-token');
+
+    await fs.rm(tmpDir, { recursive: true, force: true });
   });
 });

@@ -1,5 +1,6 @@
 import type { Product } from '@/lib/types';
 import { stripHtmlToPlainText } from '@/lib/feed-import';
+import { safeJsonLd } from '@/lib/json-ld';
 
 interface ProductJsonLdProps {
   product: Product;
@@ -28,5 +29,5 @@ export function ProductJsonLd({ product, siteUrl }: ProductJsonLdProps) {
 
   const clean = JSON.parse(JSON.stringify(data)) as Record<string, unknown>;
 
-  return <script type='application/ld+json' dangerouslySetInnerHTML={{ __html: JSON.stringify(clean) }} />;
+  return <script type='application/ld+json' dangerouslySetInnerHTML={{ __html: safeJsonLd(clean) }} />;
 }

@@ -13,6 +13,8 @@ const UNGATED_ALLOWLIST: Record<string, string> = {
   'cookie-consent/route.ts': 'public cookie banner',
   'health/route.ts': 'public minimal health; full report checks session inside',
   'telegram/webhook/route.ts': 'Telegram webhook (secret header)',
+  'catalog/route.ts': 'public paginated catalog (rate limit)',
+  'catalog/lookup/route.ts': 'public cart item lookup (rate limit + max 50 ids)',
 };
 
 function listRoutes(dir: string, base = dir): string[] {

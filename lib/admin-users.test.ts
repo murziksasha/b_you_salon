@@ -53,6 +53,12 @@ describe('admin user store', () => {
     await fs.rm(tmpDir, { recursive: true, force: true });
   });
 
+  it('throws AdminStoreError on corrupted admins.json', async () => {
+    const { listAdminUsers, AdminStoreError } = await import('./admin-users');
+    await fs.writeFile(path.join(tmpDir, 'admins.json'), '{ invalid json');
+    await expect(listAdminUsers()).rejects.toThrow(AdminStoreError);
+  });
+
   it('persists grants and refuses to remove the last owner', async () => {
     const { createAdminUser, updateAdminUser, deleteAdminUser, listAdminUsers } = await import('./admin-users');
 

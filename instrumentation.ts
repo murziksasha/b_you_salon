@@ -11,5 +11,9 @@ export async function register(): Promise<void> {
     startTelegramDigestLoop();
     const { registerTelegramWebhookOnBoot } = await import('./lib/telegram-webhook');
     void registerTelegramWebhookOnBoot();
+    const { startDailyRetentionLoop } = await import('./lib/retention-runner');
+    if (!process.env.PLAYWRIGHT_TEST && !process.env.SMOKE_TEST) {
+      startDailyRetentionLoop();
+    }
   }
 }

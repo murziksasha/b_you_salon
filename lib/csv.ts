@@ -1,6 +1,11 @@
-/** Escape a CSV field (RFC-style). */
+const FORMULA_CHARS = new Set(['=', '+', '-', '@', '\t', '\r']);
+
+/** Escape a CSV field (RFC-style with formula injection mitigation). */
 export function csvField(value: unknown): string {
-  const s = String(value ?? '');
+  let s = String(value ?? '');
+  if (s.length > 0 && FORMULA_CHARS.has(s[0])) {
+    s = `'${s}`;
+  }
   if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
   return s;
 }
@@ -10,5 +15,5 @@ export function toCsv(headers: string[], rows: unknown[][]): string {
   for (const row of rows) {
     lines.push(row.map(csvField).join(','));
   }
-  return lines.join('\r\n') + '\r\n';
+  return '\uFEFF' + lines.join('\r\n') + '\r\n';
 }

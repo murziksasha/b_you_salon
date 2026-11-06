@@ -33,15 +33,29 @@ export type AdminUser = {
   grants?: AdminCapability[];
   createdAt: string;
   disabled?: boolean;
-  /** Personal TOTP (stage 7). Never returned by listAdminUsers. */
-  totp?: { secret: string; enabledAt: string };
+  /** Personal TOTP. Never returned by listAdminUsers. */
+  totp?: {
+    secret: string;
+    enabledAt: string;
+    lastUsedStep?: number;
+  };
+  authVersion?: number;
+  /** Hashed recovery codes (scrypt/sha256). */
+  recoveryCodes?: string[];
 };
 
-export type PublicAdminUser = Omit<AdminUser, 'passwordHash' | 'totp'> & { totpEnabled: boolean };
+export type PublicAdminUser = Omit<AdminUser, 'passwordHash' | 'totp' | 'recoveryCodes'> & { totpEnabled: boolean };
 
 export type UserMutateResult = { ok: true } | { error: string };
 
 type UsersStore = { users: AdminUser[] };
+
+export class AdminStoreError extends Error {
+  constructor(message: string, public readonly cause?: unknown) {
+    super(message);
+    this.name = 'AdminStoreError';
+  }
+}
 
 function dataRoot(): string {
   return process.env.DATA_DIR || path.join(process.cwd(), 'data');
@@ -83,13 +97,23 @@ export async function verifyPasswordHash(password: string, stored: string): Prom
 }
 
 async function readStore(): Promise<UsersStore> {
+  let raw: string;
   try {
-    const raw = await fs.readFile(adminsFilePath(), 'utf-8');
+    raw = await fs.readFile(adminsFilePath(), 'utf-8');
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') {
+      return { users: [] };
+    }
+    throw new AdminStoreError(`Failed to read admin users store: ${(err as Error)?.message || String(err)}`, err);
+  }
+  try {
     const parsed = JSON.parse(raw) as UsersStore;
-    if (!parsed || !Array.isArray(parsed.users)) return { users: [] };
+    if (!parsed || !Array.isArray(parsed.users)) {
+      throw new Error('Store format invalid: users array expected');
+    }
     return parsed;
-  } catch {
-    return { users: [] };
+  } catch (err: unknown) {
+    throw new AdminStoreError(`Corrupted admins.json store: ${(err as Error)?.message || String(err)}`, err);
   }
 }
 
@@ -103,29 +127,95 @@ function withUsersLock<T>(fn: () => Promise<T>): Promise<T> {
 
 export async function listAdminUsers(): Promise<PublicAdminUser[]> {
   const store = await readStore();
-  return store.users.map(({ passwordHash: _, totp, ...u }) => ({ ...u, totpEnabled: Boolean(totp?.secret) }));
+  return store.users.map(({ passwordHash: _, totp, recoveryCodes: _r, ...u }) => ({
+    ...u,
+    totpEnabled: Boolean(totp?.secret),
+  }));
 }
 
 /** Set (secret) or clear (null) a user's personal TOTP. */
-export async function setUserTotp(username: string, secret: string | null): Promise<UserMutateResult> {
+export async function setUserTotp(
+  username: string,
+  secret: string | null,
+  options?: { recoveryCodes?: string[]; lastUsedStep?: number },
+): Promise<UserMutateResult> {
   return withUsersLock(async () => {
     const store = await readStore();
     const key = username.trim().toLowerCase();
     const idx = store.users.findIndex((u) => u.username.toLowerCase() === key);
     if (idx < 0) return { error: 'Not found' };
-    const next: AdminUser = { ...store.users[idx] };
-    if (secret) next.totp = { secret, enabledAt: new Date().toISOString() };
-    else delete next.totp;
+    const cur = store.users[idx];
+    const next: AdminUser = {
+      ...cur,
+      authVersion: (cur.authVersion || 1) + 1,
+    };
+    if (secret) {
+      next.totp = {
+        secret,
+        enabledAt: new Date().toISOString(),
+        ...(options?.lastUsedStep !== undefined ? { lastUsedStep: options.lastUsedStep } : {}),
+      };
+      if (options?.recoveryCodes) {
+        next.recoveryCodes = options.recoveryCodes;
+      }
+    } else {
+      delete next.totp;
+      delete next.recoveryCodes;
+    }
     store.users[idx] = next;
     await writeStore(store);
     return { ok: true };
   });
 }
 
+/** Record last verified TOTP step for replay prevention without changing secret. */
+export async function recordUserTotpStep(username: string, step: number): Promise<void> {
+  await withUsersLock(async () => {
+    const store = await readStore();
+    const key = username.trim().toLowerCase();
+    const idx = store.users.findIndex((u) => u.username.toLowerCase() === key);
+    if (idx < 0) return;
+    const cur = store.users[idx];
+    if (!cur.totp) return;
+    store.users[idx] = {
+      ...cur,
+      totp: { ...cur.totp, lastUsedStep: step },
+    };
+    await writeStore(store);
+  });
+}
+
+/** Consume a recovery code hash if valid, revoke sessions, and increment authVersion. */
+export async function consumeUserRecoveryCode(username: string, codeHash: string): Promise<boolean> {
+  return withUsersLock(async () => {
+    const store = await readStore();
+    const key = username.trim().toLowerCase();
+    const idx = store.users.findIndex((u) => u.username.toLowerCase() === key);
+    if (idx < 0) return false;
+    const cur = store.users[idx];
+    const codes = cur.recoveryCodes || [];
+    const matchIdx = codes.findIndex((c) => c === codeHash);
+    if (matchIdx < 0) return false;
+    const remaining = [...codes.slice(0, matchIdx), ...codes.slice(matchIdx + 1)];
+    store.users[idx] = {
+      ...cur,
+      recoveryCodes: remaining,
+      authVersion: (cur.authVersion || 1) + 1,
+    };
+    await writeStore(store);
+    try {
+      await revokeSessionsByUsername(cur.username);
+    } catch {
+      /* best-effort */
+    }
+    return true;
+  });
+}
+
 export async function getAdminUserByUsername(username: string): Promise<AdminUser | null> {
   const store = await readStore();
   const key = username.trim().toLowerCase();
-  return store.users.find(u => u.username.toLowerCase() === key && !u.disabled) || null;
+  return store.users.find((u) => u.username.toLowerCase() === key && !u.disabled) || null;
 }
 
 function enabledOwners(store: UsersStore, exceptId?: string): AdminUser[] {
@@ -145,7 +235,7 @@ export async function createAdminUser(input: {
   password: string;
   role: AdminRole;
   grants?: AdminCapability[];
-}): Promise<Omit<AdminUser, 'passwordHash'> | { error: string }> {
+}): Promise<Omit<AdminUser, 'passwordHash' | 'recoveryCodes'> | { error: string }> {
   const username = input.username.trim();
   if (!username || username.length < 2) return { error: 'Username too short' };
   if (!SAFE_USERNAME_RE.test(username)) {
@@ -155,22 +245,23 @@ export async function createAdminUser(input: {
   const role = input.role;
   const grants = sanitizeGrants(role, input.grants);
   return withUsersLock(async () => {
-  const store = await readStore();
-  if (store.users.some(u => u.username.toLowerCase() === username.toLowerCase())) {
-    return { error: 'Username already exists' };
-  }
-  const user: AdminUser = {
-    id: createId(),
-    username,
-    passwordHash: await hashPassword(input.password),
-    role,
-    createdAt: new Date().toISOString(),
-  };
-  if (grants) user.grants = grants;
-  store.users.push(user);
-  await writeStore(store);
-  const { passwordHash: _, ...safe } = user;
-  return safe;
+    const store = await readStore();
+    if (store.users.some((u) => u.username.toLowerCase() === username.toLowerCase())) {
+      return { error: 'Username already exists' };
+    }
+    const user: AdminUser = {
+      id: createId(),
+      username,
+      passwordHash: await hashPassword(input.password),
+      role,
+      createdAt: new Date().toISOString(),
+      authVersion: 1,
+    };
+    if (grants) user.grants = grants;
+    store.users.push(user);
+    await writeStore(store);
+    const { passwordHash: _, recoveryCodes: _r, ...safe } = user;
+    return safe;
   });
 }
 
@@ -182,68 +273,69 @@ export async function updateAdminUser(
     return { error: 'Password must be ≥8 chars' };
   }
   return withUsersLock(async () => {
-  const store = await readStore();
-  const idx = store.users.findIndex(u => u.id === id);
-  if (idx < 0) return { error: 'Not found' };
-  const cur = store.users[idx];
-  const nextRole = patch.role ?? cur.role;
-  const nextDisabled = patch.disabled ?? cur.disabled;
-  if (lastOwnerBlocked(store, cur, { role: nextRole, disabled: nextDisabled })) {
-    return { error: 'Не можна прибрати останнього супер-адміна' };
-  }
-  const passwordChanged = !!patch.password;
-  const roleChanged = patch.role !== undefined && patch.role !== cur.role;
-  const disabledChanged = patch.disabled !== undefined && patch.disabled !== cur.disabled;
-  const nextGrants = patch.grants !== undefined ? sanitizeGrants(nextRole, patch.grants) : sanitizeGrants(nextRole, cur.grants);
-  const grantsChanged = JSON.stringify(nextGrants || []) !== JSON.stringify(cur.grants || []);
-  const next: AdminUser = {
-    ...cur,
-    role: nextRole,
-    disabled: nextDisabled,
-    passwordHash: patch.password ? await hashPassword(patch.password) : cur.passwordHash,
-  };
-  if (nextRole === 'owner') {
-    delete next.grants;
-  } else if (nextGrants) {
-    next.grants = nextGrants;
-  } else {
-    delete next.grants;
-  }
-  store.users[idx] = next;
-  await writeStore(store);
-  if (passwordChanged || roleChanged || disabledChanged || grantsChanged) {
-    try {
-      await revokeSessionsByUsername(cur.username);
-    } catch {
-      /* best-effort revocation */
+    const store = await readStore();
+    const idx = store.users.findIndex((u) => u.id === id);
+    if (idx < 0) return { error: 'Not found' };
+    const cur = store.users[idx];
+    const nextRole = patch.role ?? cur.role;
+    const nextDisabled = patch.disabled ?? cur.disabled;
+    if (lastOwnerBlocked(store, cur, { role: nextRole, disabled: nextDisabled })) {
+      return { error: 'Не можна прибрати останнього супер-адміна' };
     }
-  }
-  return { ok: true };
+    const passwordChanged = !!patch.password;
+    const roleChanged = patch.role !== undefined && patch.role !== cur.role;
+    const disabledChanged = patch.disabled !== undefined && patch.disabled !== cur.disabled;
+    const nextGrants = patch.grants !== undefined ? sanitizeGrants(nextRole, patch.grants) : sanitizeGrants(nextRole, cur.grants);
+    const grantsChanged = JSON.stringify(nextGrants || []) !== JSON.stringify(cur.grants || []);
+    const next: AdminUser = {
+      ...cur,
+      role: nextRole,
+      disabled: nextDisabled,
+      passwordHash: patch.password ? await hashPassword(patch.password) : cur.passwordHash,
+      authVersion: (cur.authVersion || 1) + 1,
+    };
+    if (nextRole === 'owner') {
+      delete next.grants;
+    } else if (nextGrants) {
+      next.grants = nextGrants;
+    } else {
+      delete next.grants;
+    }
+    store.users[idx] = next;
+    await writeStore(store);
+    if (passwordChanged || roleChanged || disabledChanged || grantsChanged) {
+      try {
+        await revokeSessionsByUsername(cur.username);
+      } catch {
+        /* best-effort revocation */
+      }
+    }
+    return { ok: true };
   });
 }
 
 export async function deleteAdminUser(id: string): Promise<UserMutateResult> {
   return withUsersLock(async () => {
-  const store = await readStore();
-  const target = store.users.find(u => u.id === id);
-  if (!target) return { error: 'Not found' };
-  if (lastOwnerBlocked(store, target, { role: 'operator', disabled: true })) {
-    return { error: 'Не можна прибрати останнього супер-адміна' };
-  }
-  store.users = store.users.filter(u => u.id !== id);
-  await writeStore(store);
-  try {
-    await revokeSessionsByUsername(target.username);
-  } catch {
-    /* best-effort revocation */
-  }
-  return { ok: true };
+    const store = await readStore();
+    const target = store.users.find((u) => u.id === id);
+    if (!target) return { error: 'Not found' };
+    if (lastOwnerBlocked(store, target, { role: 'operator', disabled: true })) {
+      return { error: 'Не можна прибрати останнього супер-адміна' };
+    }
+    store.users = store.users.filter((u) => u.id !== id);
+    await writeStore(store);
+    try {
+      await revokeSessionsByUsername(target.username);
+    } catch {
+      /* best-effort revocation */
+    }
+    return { ok: true };
   });
 }
 
 export async function hasMultiUserMode(): Promise<boolean> {
   const store = await readStore();
-  return store.users.some(u => !u.disabled);
+  return store.users.some((u) => !u.disabled);
 }
 
 export function fingerprintSession(token: string): string {

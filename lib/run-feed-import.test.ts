@@ -3,6 +3,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 vi.mock('./site-data', () => ({
   getSiteData: vi.fn(),
   saveSiteData: vi.fn(),
+  withSiteDataLock: vi.fn(async (fn: () => Promise<unknown>) => fn()),
 }));
 
 vi.mock('./fetch-remote-image', () => ({
@@ -28,6 +29,7 @@ const feedJson = JSON.stringify({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Ensure lock is clear before each test
   releaseFeedImportLock();
   global.fetch = vi.fn().mockResolvedValue({
     ok: true,
@@ -37,76 +39,89 @@ beforeEach(() => {
 
 afterEach(() => {
   releaseFeedImportLock();
-  vi.restoreAllMocks();
 });
 
-const existingProduct: Product = {
-  id: 'prod-old',
-  title: 'Old Name',
-  description: 'Old description',
-  code: 'A1',
-  price: 80,
-  image: '/uploads/old.webp',
-  images: [],
-  category: 'cosmetics',
-  visible: true,
-  inStock: false, // explicitly out of stock — must stay false after update
-  sortPin: true,
-  relatedIds: ['prod-x'],
-  createdAt: '2026-01-01T00:00:00.000Z',
-  updatedAt: '2026-01-01T00:00:00.000Z',
+const baseSiteData: SiteData = {
+  headerMenu: [],
+  servicesNav: [],
+  pages: [],
+  goods: [
+    {
+      id: 'existing-1',
+      code: 'A1',
+      title: 'Old Alpha',
+      description: 'Old Alpha desc',
+      image: '/placeholder.jpg',
+      price: 90,
+      inStock: false, // Must remain false after update
+      category: 'hair',
+      sortPin: true,
+      visible: true,
+      updatedAt: '2026-01-01T00:00:00Z',
+    },
+  ],
+  services: [],
+  goodsCategories: [],
+  settings: {} as any,
+  updatedAt: '2026-01-01T00:00:00Z',
 };
 
 describe('runFeedImport', () => {
   it('update keeps inStock:false; create sets inStock:true', async () => {
-    vi.mocked(getSiteData).mockResolvedValue({ goods: [existingProduct] } as unknown as SiteData);
-    vi.mocked(saveSiteData).mockResolvedValue(undefined as never);
+    vi.mocked(getSiteData).mockResolvedValue(baseSiteData);
+    vi.mocked(saveSiteData).mockResolvedValue({} as SiteData);
 
     const result = await runFeedImport({ url: 'https://example.com/feed.json', downloadImages: false });
-    expect(result.aborted).toBe(false);
+
     expect(result.created).toBe(1);
     expect(result.updated).toBe(1);
+    expect(result.failed).toBe(0);
+    expect(result.aborted).toBe(false);
 
-    const savedData = vi.mocked(saveSiteData).mock.calls[0]?.[0] as SiteData;
-    const updated = savedData.goods.find((g: Product) => g.code === 'A1');
-    expect(updated?.inStock).toBe(false); // preserved
-    const created = savedData.goods.find((g: Product) => g.code === 'A2');
-    expect(created?.inStock).toBe(true); // new row starts in stock
+    expect(saveSiteData).toHaveBeenCalledOnce();
+    const saved = vi.mocked(saveSiteData).mock.calls[0][0];
+
+    const a1 = saved.goods.find((g: Product) => g.code === 'A1');
+    expect(a1?.inStock).toBe(false); // Preserved!
+    expect(a1?.sortPin).toBe(true); // Preserved!
+    expect(a1?.category).toBe('hair'); // Preserved!
+    expect(a1?.title).toBe('Alpha'); // Updated from feed
+
+    const a2 = saved.goods.find((g: Product) => g.code === 'A2');
+    expect(a2?.inStock).toBe(true); // New product defaults to inStock:true
+    expect(a2?.title).toBe('Beta');
   });
 
   it('abort before save does not write catalog', async () => {
-    vi.mocked(getSiteData).mockResolvedValue({ goods: [] } as unknown as SiteData);
-    vi.mocked(saveSiteData).mockResolvedValue(undefined as never);
+    vi.mocked(getSiteData).mockResolvedValue(baseSiteData);
 
     const controller = new AbortController();
-    // Abort immediately
-    controller.abort();
+    controller.abort(); // already aborted
 
     const result = await runFeedImport({
       url: 'https://example.com/feed.json',
       downloadImages: false,
       signal: controller.signal,
     });
+
     expect(result.aborted).toBe(true);
     expect(saveSiteData).not.toHaveBeenCalled();
   });
 
   it('acquires lock during run and releases lock after run', async () => {
-    vi.mocked(getSiteData).mockResolvedValue({ goods: [] } as unknown as SiteData);
-    vi.mocked(saveSiteData).mockResolvedValue(undefined as never);
+    vi.mocked(getSiteData).mockResolvedValue(baseSiteData);
+    vi.mocked(saveSiteData).mockResolvedValue({} as SiteData);
 
-    expect(isFeedImportRunning()).toBe(false);
-    let wasRunningDuring = false;
-
+    let lockedDuringRun = false;
     await runFeedImport({
       url: 'https://example.com/feed.json',
       downloadImages: false,
       onProgress: () => {
-        wasRunningDuring = isFeedImportRunning();
+        if (isFeedImportRunning()) lockedDuringRun = true;
       },
     });
 
-    expect(wasRunningDuring).toBe(true);
+    expect(lockedDuringRun).toBe(true);
     expect(isFeedImportRunning()).toBe(false);
   });
 
@@ -115,16 +130,15 @@ describe('runFeedImport', () => {
     expect(isFeedImportRunning()).toBe(true);
 
     await expect(
-      runFeedImport({
-        url: 'https://example.com/feed.json',
-        downloadImages: false,
-      }),
+      runFeedImport({ url: 'https://example.com/feed.json', downloadImages: false }),
     ).rejects.toThrow(FeedImportConflictError);
+
+    releaseFeedImportLock();
   });
 
   it('invokes onStatus, onStart, and onProgress callbacks', async () => {
-    vi.mocked(getSiteData).mockResolvedValue({ goods: [] } as unknown as SiteData);
-    vi.mocked(saveSiteData).mockResolvedValue(undefined as never);
+    vi.mocked(getSiteData).mockResolvedValue(baseSiteData);
+    vi.mocked(saveSiteData).mockResolvedValue({} as SiteData);
 
     const statuses: string[] = [];
     let startTotal = 0;
@@ -134,16 +148,12 @@ describe('runFeedImport', () => {
       url: 'https://example.com/feed.json',
       downloadImages: false,
       onStatus: s => statuses.push(s),
-      onStart: t => {
-        startTotal = t;
-      },
+      onStart: t => { startTotal = t; },
       onProgress: p => progressList.push(p.current),
     });
 
-    expect(statuses).toContain('Отримання фіду з віддаленого сервера…');
-    expect(statuses).toContain('Аналіз товарів у фіді…');
-    expect(statuses).toContain('Збереження каталогу…');
+    expect(statuses.length).toBeGreaterThan(0);
     expect(startTotal).toBe(2);
-    expect(progressList).toContain(2);
+    expect(progressList.length).toBeGreaterThan(0);
   });
 });

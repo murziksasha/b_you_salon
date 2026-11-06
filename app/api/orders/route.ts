@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { deleteOrder, listOrders, updateOrder } from '@/lib/orders';
 import { clampQty, MAX_LINES } from '@/lib/cart';
-import { clientKey, rateLimit } from '@/lib/rate-limit';
+import { rateLimit, rateLimitAdaptive } from '@/lib/rate-limit';
 import { isValidUaPhone, normalizePhoneCanonical } from '@/lib/phone';
 import { getSiteData } from '@/lib/site-data';
 import { resolveFormFlow } from '@/lib/form-flow';
@@ -22,7 +22,11 @@ async function guard() {
 
 /** Public: create shop order */
 export async function POST(request: NextRequest) {
-  const rl = rateLimit(clientKey(request, 'order'), { limit: 8, windowMs: 60_000 });
+  const rl = rateLimitAdaptive(request, 'order', {
+    clientLimit: 8,
+    globalCeiling: 80,
+    windowMs: 60_000,
+  });
   if (!rl.allowed) {
     const retryAfter = Math.ceil(rl.retryAfterMs / 1000) || 60;
     return NextResponse.json(
@@ -86,6 +90,17 @@ export async function POST(request: NextRequest) {
     if (!isValidUaPhone(phone)) {
       return NextResponse.json({ error: 'Invalid phone' }, { status: 400 });
     }
+
+    const normPhone = normalizePhoneCanonical(phone);
+    const phoneRl = rateLimit(`order:phone:${normPhone}`, { limit: 5, windowMs: 600_000 });
+    if (!phoneRl.allowed) {
+      const retryAfter = Math.ceil(phoneRl.retryAfterMs / 1000) || 60;
+      return NextResponse.json(
+        { error: 'Забагато замовлень для цього номера, спробуйте пізніше', retryAfter },
+        { status: 429, headers: { 'Retry-After': String(retryAfter) } },
+      );
+    }
+
     if (fulfillment === 'delivery' && address.length < 5) {
       return NextResponse.json({ error: 'Missing address' }, { status: 400 });
     }
@@ -145,7 +160,7 @@ export async function POST(request: NextRequest) {
       pagePath: pagePath || undefined,
     });
 
-    if (!placed.order && !placed.emailed) {
+    if (!placed.order) {
       return NextResponse.json({ error: 'Failed to save order' }, { status: 500 });
     }
 
@@ -153,7 +168,7 @@ export async function POST(request: NextRequest) {
       ok: true,
       emailed: placed.emailed,
       telegram: placed.telegram,
-      orderId: placed.order?.id,
+      orderId: placed.order.id,
       consult: allowConsult,
       dev: placed.dev,
     });

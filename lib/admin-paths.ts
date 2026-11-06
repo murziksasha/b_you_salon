@@ -17,6 +17,7 @@ export const ADMIN_SECTIONS = new Set([
   'ops',
   'settings',
   'preview',
+  'setup-2fa',
 ]);
 
 export function isKnownAdminPath(pathname: string): boolean {

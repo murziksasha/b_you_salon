@@ -4,6 +4,7 @@ import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
 import {
+  generateTotpCode,
   base32Encode,
   buildOtpauthUrl,
   generateTotpSecret,
@@ -13,7 +14,7 @@ import {
   normalizeTotpSecret,
   verifyTotp,
 } from './totp';
-import { deleteAdminTotpSecret, writeAdminTotpSecret } from './admin-totp';
+import { deleteAdminTotpSecret, writeAdminTotpSecret, AdminTotpStoreError } from './admin-totp';
 
 function hotp(secretB32: string, counter: number): string {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
@@ -107,6 +108,11 @@ describe('totp secret resolution', () => {
     await fs.rm(tmpDir, { recursive: true, force: true });
   });
 
+  it('throws AdminTotpStoreError on corrupted admin-totp.json', async () => {
+    await fs.writeFile(path.join(tmpDir, 'admin-totp.json'), 'invalid{json');
+    await expect(getTotpSecret()).rejects.toThrow(AdminTotpStoreError);
+  });
+
   it('returns null when neither env nor file', async () => {
     expect(await getTotpSecret()).toBeNull();
     const status = await getTotpStatus();
@@ -141,5 +147,13 @@ describe('totp secret resolution', () => {
     await writeAdminTotpSecret('JBSWY3DPEHPK3PXP');
     await deleteAdminTotpSecret();
     expect(await getTotpSecret()).toBeNull();
+  });
+});
+
+describe('generateTotpCode', () => {
+  it('matches verifyTotp for the current step', () => {
+    const secret = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
+    const code = generateTotpCode(secret);
+    expect(verifyTotp(secret, code)).toBe(true);
   });
 });

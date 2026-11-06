@@ -48,22 +48,34 @@ export const POST = withAdmin('users', CreateUserSchema, async ({ access, body }
 
 export const PATCH = withAdmin('users', UpdateUserSchema, async ({ access, body }) => {
   if (!(await reauth(access, body))) return reAuthFailed();
+  const users = await listAdminUsers();
+  const target = users.find((u) => u.id === body.id);
+  if (!target) return apiError(404, 'not_found', 'Not found');
+
+  if (body.resetTotp && target.role === 'owner') {
+    return apiError(403, 'forbidden', 'Скидання 2FA для власника заборонено');
+  }
+
+  // Validate and apply user profile/role/password updates first
+  const hasUpdate = body.role !== undefined || body.disabled !== undefined || body.password || body.grants;
+  if (hasUpdate) {
+    const result = await updateAdminUser(body.id, {
+      role: body.role,
+      disabled: body.disabled,
+      password: body.password,
+      grants: body.grants,
+    });
+    if ('error' in result) {
+      return apiError(result.error === 'Not found' ? 404 : 400, 'invalid', result.error);
+    }
+  }
+
   if (body.resetTotp) {
-    const target = (await listAdminUsers()).find((u) => u.id === body.id);
-    if (!target) return apiError(404, 'not_found', 'Not found');
     await setUserTotp(target.username, null);
     await revokeSessionsByUsername(target.username).catch((err) => console.error('[users] revoke failed', err));
     await safeAudit({ kind: 'security', message: `Скинуто 2FA: ${target.username}`, actor: access.username });
   }
-  const result = await updateAdminUser(body.id, {
-    role: body.role,
-    disabled: body.disabled,
-    password: body.password,
-    grants: body.grants,
-  });
-  if ('error' in result) {
-    return apiError(result.error === 'Not found' ? 404 : 400, 'invalid', result.error);
-  }
+
   await safeAudit({ kind: 'security', message: `Оновлено користувача ${body.id}`, actor: access.username });
   return NextResponse.json({ ok: true });
 });

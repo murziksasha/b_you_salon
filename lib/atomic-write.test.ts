@@ -41,4 +41,23 @@ describe('atomicWrite', () => {
     const raw = await fs.readFile(target, 'utf-8');
     expect(JSON.parse(raw)).toEqual({ retried: true });
   });
+
+  it('aborts and preserves existing file when rename persistently fails', async () => {
+    const target = path.join(tmpDir, 'important.json');
+    await atomicWriteFile(target, '{"intact":true}', { encoding: 'utf-8' });
+
+    const ebusy = Object.assign(new Error('locked forever'), { code: 'EBUSY' });
+    const rename = vi.spyOn(fs, 'rename').mockRejectedValue(ebusy);
+
+    await expect(atomicWriteFile(target, '{"corrupted":true}')).rejects.toThrow('locked forever');
+    rename.mockRestore();
+
+    // Verify original file is 100% intact and untouched
+    const content = await fs.readFile(target, 'utf-8');
+    expect(content).toBe('{"intact":true}');
+
+    // Verify temp files are cleaned up
+    const leftovers = (await fs.readdir(tmpDir)).filter((n) => n.includes('.tmp'));
+    expect(leftovers).toHaveLength(0);
+  });
 });

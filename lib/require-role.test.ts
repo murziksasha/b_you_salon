@@ -58,6 +58,13 @@ describe('require-role', () => {
       expect(access).not.toBeNull();
       expect(access?.role).toBe('owner');
 
+      const claimsEnv = await resolveAdminAccess({ username: 'admin', role: 'owner', accountType: 'env' });
+      expect(claimsEnv).not.toBeNull();
+      expect(claimsEnv?.role).toBe('owner');
+
+      const claimsFile = await resolveAdminAccess({ username: 'admin', role: 'owner', accountType: 'file' });
+      expect(claimsFile).toBeNull();
+
       const legacyAccess = await resolveAdminAccess('admin', 'legacy');
       expect(legacyAccess?.role).toBe('legacy');
 

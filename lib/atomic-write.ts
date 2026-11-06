@@ -15,7 +15,9 @@ function sleep(ms: number): Promise<void> {
 
 /**
  * Rename tmp → dest. On Windows, antivirus or a concurrent reader can hold the
- * target and throw EPERM/EBUSY; retry with backoff, then copy+unlink.
+ * target and throw EPERM/EBUSY; retry with backoff.
+ * If rename fails after all attempts, throw and leave the existing destination intact.
+ * NEVER fall back to in-place copyFile which can cause torn reads / data corruption.
  */
 async function replaceFile(tmp: string, dest: string): Promise<void> {
   let delay = 20;
@@ -30,16 +32,6 @@ async function replaceFile(tmp: string, dest: string): Promise<void> {
       await sleep(delay);
       delay = Math.min(delay * 2, 400);
     }
-  }
-
-  if (process.platform === 'win32' && isRetryable(lastErr)) {
-    await fs.copyFile(tmp, dest);
-    try {
-      await fs.unlink(tmp);
-    } catch {
-      // leftover tmp is harmless; next write uses a unique name
-    }
-    return;
   }
 
   throw lastErr;

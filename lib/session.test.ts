@@ -55,6 +55,29 @@ describe('session', () => {
     expect(parsed.claims).toEqual({ username: 'admin', role: 'legacy' });
   });
 
+  it('encodes and decodes full claims with authVersion, accountType, totpVerified, setupOnly', async () => {
+    const token = await createSessionToken({
+      username: 'boss',
+      role: 'owner',
+      userId: 'usr_123',
+      accountType: 'file',
+      authVersion: 2,
+      totpVerified: true,
+      setupOnly: false,
+    });
+    const parsed = await parseSession(token);
+    expect(parsed.valid).toBe(true);
+    expect(parsed.claims).toEqual({
+      username: 'boss',
+      role: 'owner',
+      userId: 'usr_123',
+      accountType: 'file',
+      authVersion: 2,
+      totpVerified: true,
+      setupOnly: false,
+    });
+  });
+
   describe('getSessionSecret in production', () => {
     const env = process.env as Record<string, string | undefined>;
     const prevNodeEnv = env.NODE_ENV;

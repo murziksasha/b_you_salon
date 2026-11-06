@@ -52,6 +52,17 @@ describe('cookie-consent', () => {
     });
   });
 
+  it('appends Secure flag when running over https', () => {
+    const consent = makeConsent('all');
+    (globalThis as any).location = { protocol: 'https:' };
+    try {
+      const set = cookieSetString(consent);
+      expect(set).toContain('SameSite=Lax; Secure');
+    } finally {
+      delete (globalThis as any).location;
+    }
+  });
+
   it('sanitizes consent return path', () => {
     expect(consentReturnPath('/salon')).toBe('/salon');
     expect(consentReturnPath('/shop?q=1')).toBe('/shop?q=1');
