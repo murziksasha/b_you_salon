@@ -1,8 +1,11 @@
 import { readFileSync } from 'fs';
 import path from 'path';
 import { expect, test, type Page } from '@playwright/test';
+import { generateTotpCode } from '../lib/totp';
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'e2e-test-password-deterministic';
+const ADMIN_TOTP_SECRET =
+  process.env.ADMIN_TOTP_SECRET || 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
 
 test.describe('public smoke', () => {
   test('home page renders doors and LocalBusiness JSON-LD', async ({ page }) => {
@@ -347,10 +350,32 @@ test.describe('admin smoke', () => {
   });
 });
 
+
+/** Server rejects reused TOTP codes in the same step; wait for a fresh window between logins. */
+let lastAdminTotpStep = -1;
+
+async function nextAdminTotpCode(): Promise<string> {
+  for (;;) {
+    const now = Date.now();
+    const step = Math.floor(now / 1000 / 30);
+    if (step > lastAdminTotpStep) {
+      lastAdminTotpStep = step;
+      return generateTotpCode(ADMIN_TOTP_SECRET, now);
+    }
+    const waitMs = (step + 1) * 30_000 - now + 50;
+    await new Promise((r) => setTimeout(r, Math.max(50, waitMs)));
+  }
+}
+
+async function fillAdminLogin(page: Page, password = ADMIN_PASSWORD) {
+  await page.fill('#admin-password', password);
+  await page.fill('#admin-totp', await nextAdminTotpCode());
+}
+
 test.describe.serial('admin happy-path', () => {
   test('login → dashboard health → logout', async ({ page }) => {
     await page.goto('/admin/login');
-    await page.fill('#admin-password', ADMIN_PASSWORD);
+    await fillAdminLogin(page);
     await page.getByRole('button', { name: /увійти/i }).click();
 
     await expect(page).toHaveURL(/\/admin\/?$/, { timeout: 15_000 });
@@ -381,7 +406,7 @@ test.describe.serial('admin happy-path', () => {
 
 async function loginAdmin(page: Page) {
   await page.goto('/admin/login');
-  await page.fill('#admin-password', ADMIN_PASSWORD);
+  await fillAdminLogin(page);
   await page.getByRole('button', { name: /увійти/i }).click();
   await expect(page).toHaveURL(/\/admin\/?$/, { timeout: 15_000 });
 }

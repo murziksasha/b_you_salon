@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getSessionClaims, getSessionFingerprint, setSessionCookie } from '@/lib/auth';
+import { markFingerprintRevoked, registerSession } from '@/lib/admin-sessions';
+import { clientIpFromHeaders } from '@/lib/admin-ip';
+import { createSessionToken, parseSession, type SessionClaims } from '@/lib/session';
 import QRCode from 'qrcode';
 import { verifySensitiveReauth } from '@/lib/admin/reauth';
 import { requireAdminRole } from '@/lib/require-role';
@@ -34,6 +38,40 @@ async function requireAdminSession() {
   const { ok: _ok, ...access } = gate;
   return { ok: true as const, access };
 }
+
+
+/** After forced enrollment, promote setupOnly cookie to a full totpVerified session. */
+async function upgradeSetupOnlySession(request: NextRequest): Promise<boolean> {
+  const claims = await getSessionClaims();
+  if (!claims?.setupOnly) return false;
+
+  const oldFp = await getSessionFingerprint();
+  const finalClaims: SessionClaims = {
+    ...claims,
+    totpVerified: true,
+    setupOnly: false,
+  };
+  const sessionToken = await createSessionToken(finalClaims);
+  const parsed = await parseSession(sessionToken);
+  const fp = parsed.fingerprint || sessionToken.slice(0, 16);
+  await registerSession({
+    fingerprint: fp,
+    username: claims.username,
+    role: claims.role,
+    userAgent: request.headers.get('user-agent') || undefined,
+    ip: clientIpFromHeaders(request.headers) || undefined,
+  });
+  await setSessionCookie(sessionToken);
+  if (oldFp && oldFp !== fp) {
+    try {
+      await markFingerprintRevoked(oldFp);
+    } catch (err) {
+      console.error('[totp] failed to revoke setup-only fingerprint', err);
+    }
+  }
+  return true;
+}
+
 
 function rateLimitTotp(request: NextRequest) {
   const rl = rateLimit(clientKey(request, 'totp-setup'), { limit: 20, windowMs: 60_000 });
@@ -100,7 +138,7 @@ export async function POST(request: NextRequest) {
   }
 
   const dbUser = await getAdminUserByUsername(gate.access.username);
-  if (dbUser) return personalTotpAction(dbUser, action, body);
+  if (dbUser) return personalTotpAction(request, dbUser, action, body);
   if (!roleCan(gate.access.role, 'security_owner', gate.access.grants)) {
     return NextResponse.json({ error: 'Forbidden', needRole: 'security_owner' }, { status: 403 });
   }
@@ -171,11 +209,13 @@ export async function POST(request: NextRequest) {
     }
 
     const record = await writeAdminTotpSecret(secret);
+    const sessionUpgraded = await upgradeSetupOnlySession(request);
     return NextResponse.json({
       ok: true,
       enabled: true,
       source: 'file',
       enabledAt: record.enabledAt,
+      ...(sessionUpgraded ? { sessionUpgraded: true } : {}),
     });
   }
 
@@ -212,7 +252,12 @@ export async function POST(request: NextRequest) {
 }
 
 /** Personal 2FA for admins.json users (stored in admins.json, never returned by list APIs). */
-async function personalTotpAction(user: AdminUser, action: string, body: Record<string, unknown>) {
+async function personalTotpAction(
+  request: NextRequest,
+  user: AdminUser,
+  action: string,
+  body: Record<string, unknown>,
+) {
   const code = typeof body.code === 'string' ? body.code : '';
   if (action === 'begin') {
     if (user.totp?.secret) {
@@ -243,12 +288,14 @@ async function personalTotpAction(user: AdminUser, action: string, body: Record<
     });
     if ('error' in res) return NextResponse.json({ error: res.error }, { status: 400 });
     await safeAudit({ kind: 'security', message: `2FA увімкнено: ${user.username}`, actor: user.username });
+    const sessionUpgraded = await upgradeSetupOnlySession(request);
     return NextResponse.json({
       ok: true,
       enabled: true,
       source: 'file',
       scope: 'user',
       recoveryCodes: recovery.plain,
+      ...(sessionUpgraded ? { sessionUpgraded: true } : {}),
     });
   }
   if (action === 'disable') {

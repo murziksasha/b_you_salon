@@ -164,6 +164,16 @@ export function verifyTotpWithStep(
   return { ok: false };
 }
 
+/** Current 6-digit TOTP for a secret (test helpers / enrollment automation). */
+export function generateTotpCode(secretBase32: string, atMs = Date.now()): string {
+  const secret = base32Decode(secretBase32);
+  if (!secret.length) {
+    throw new Error('Invalid TOTP secret');
+  }
+  const step = Math.floor(atMs / 1000 / 30);
+  return hotp(secret, step);
+}
+
 /** Verify TOTP code (30s step, ±1 window). Prevents replay within the valid window. */
 export function verifyTotp(secretBase32: string, token: string, window = 1): boolean {
   return verifyTotpWithStep(secretBase32, token, undefined, window).ok;

@@ -66,6 +66,7 @@ export default defineConfig({
           SMOKE_TEST: 'true',
           ADMIN_IP_ALLOWLIST: '',
           ADMIN_PASSWORD: 'e2e-test-password-deterministic',
+          ADMIN_TOTP_SECRET: process.env.ADMIN_TOTP_SECRET || 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP',
           SESSION_SECRET: 'e2e-session-secret-at-least-32-chars-long-deterministic',
           COOKIE_SECURE: 'false',
           ADMIN_ENV_LOGIN: 'always',

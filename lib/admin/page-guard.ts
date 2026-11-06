@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getSession, getSessionClaims } from '@/lib/auth';
-import { firstAllowedAdminPath, navAllowedForRole } from '@/lib/admin-roles';
+import { capabilitiesFor, firstAllowedAdminPath, isAdminRole, navAllowedForRole } from '@/lib/admin-roles';
 import { resolveAdminAccess, type AdminAccess } from '@/lib/require-role';
 
 export type PageAccessDecision =
@@ -44,10 +44,11 @@ export async function requirePageAccess(pathname: string): Promise<AdminAccess> 
       redirect('/admin/setup-2fa');
     }
     // Allow rendering /admin/setup-2fa for setup-only session
+    const role = isAdminRole(claims.role) ? claims.role : claims.role === 'legacy' ? 'legacy' : 'owner';
     return {
       username: claims.username,
-      role: (claims.role as any) || 'owner',
-      grants: [],
+      role,
+      grants: [...capabilitiesFor(role)],
     };
   }
 

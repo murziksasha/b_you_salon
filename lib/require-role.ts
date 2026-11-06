@@ -108,10 +108,25 @@ export async function requireAdminRole(
   if (!claims || !claims.username) {
     return { ok: false, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
   }
-  if (claims.setupOnly && !options?.allowSetupOnly) {
+  if (claims.setupOnly) {
+    if (!options?.allowSetupOnly) {
+      return {
+        ok: false,
+        response: NextResponse.json({ error: '2FA setup required', setupRequired: true }, { status: 403 }),
+      };
+    }
+    // Setup-only sessions cannot use resolveAdminAccess (it intentionally returns null).
+    // Grant role capabilities so TOTP enrollment APIs can authorize security_owner / personal setup.
+    const role: AdminRole | 'legacy' = isAdminRole(claims.role)
+      ? claims.role
+      : claims.role === 'legacy'
+        ? 'legacy'
+        : 'owner';
     return {
-      ok: false,
-      response: NextResponse.json({ error: '2FA setup required', setupRequired: true }, { status: 403 }),
+      ok: true,
+      username: claims.username,
+      role,
+      grants: [...capabilitiesFor(role)],
     };
   }
 

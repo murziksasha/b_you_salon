@@ -4,6 +4,7 @@ import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
 import {
+  generateTotpCode,
   base32Encode,
   buildOtpauthUrl,
   generateTotpSecret,
@@ -146,5 +147,13 @@ describe('totp secret resolution', () => {
     await writeAdminTotpSecret('JBSWY3DPEHPK3PXP');
     await deleteAdminTotpSecret();
     expect(await getTotpSecret()).toBeNull();
+  });
+});
+
+describe('generateTotpCode', () => {
+  it('matches verifyTotp for the current step', () => {
+    const secret = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
+    const code = generateTotpCode(secret);
+    expect(verifyTotp(secret, code)).toBe(true);
   });
 });
