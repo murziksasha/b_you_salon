@@ -50,6 +50,10 @@ function Test-AppOnline {
   return (Test-Pm2AppOnline $AppName)
 }
 
+# Task Scheduler and the Startup folder both fire at logon; let only one run proceed.
+$script:Mutex = New-Object System.Threading.Mutex($false, "Global\ProperService-pm2-autostart")
+if (-not $script:Mutex.WaitOne(0)) { Write-Log "Another autostart run is active - exiting"; exit 0 }
+
 Write-Log "=== pm2-autostart begin (user=$env:USERNAME root=$Root) ==="
 Ensure-NodePath
 Set-Location $Root
@@ -89,7 +93,7 @@ if (-not (Test-Path (Join-Path $Root ".next\BUILD_ID"))) {
 }
 
 [void](Invoke-Pm2Timed -Pm2Args "delete $AppName" -TimeoutSec 20)
-$startCode = Invoke-Pm2Timed -Pm2Args "start ecosystem.config.cjs" -TimeoutSec 90
+$startCode = Invoke-Pm2Timed -Pm2Args "start ecosystem.config.cjs --only $AppName" -TimeoutSec 90
 Start-Sleep -Seconds 2
 if (-not (Test-Pm2AppOnline $AppName) -and $startCode -eq 124) {
   Write-Log "ERROR: pm2 start hung (byou not online, timed-exit=$startCode)"

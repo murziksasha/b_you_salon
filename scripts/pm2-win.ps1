@@ -105,6 +105,8 @@ function Get-Pm2Jlist {
       $start = $startObj
     }
     if ($start -gt 0) { $trim = $trim.Substring($start) }
+    # pm2 env contains both "USERNAME" and "username"; PS 5.1 ConvertFrom-Json rejects case-duplicate keys
+    $trim = $trim -creplace '"username":', '"username_lc":'
     $apps = $trim | ConvertFrom-Json
     if ($null -eq $apps) { return @() }
     if ($apps -is [System.Array]) { return @($apps) }
