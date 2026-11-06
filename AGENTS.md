@@ -178,3 +178,7 @@ For a UI, layout, or routing change, exercise the affected public and admin flow
 | `ADMIN_ENV_LOGIN` | `always` (default) / `auto` / `breakglass` / `off` — env `ADMIN_PASSWORD` login. |
 | `ADMIN_BREAKGLASS` | `1` enables env login in `breakglass` mode (audited + Telegram alert). |
 | `ADMIN_CSRF_CHECK` | `false` disables Origin check (debug only). |
+
+## PM2 binding rule
+
+- `ecosystem.config.cjs` must start `byou` with `-H 0.0.0.0`. Never change it to `127.0.0.1`: LAN clients and Keenetic DNS access break (regression from the security update in 4cd9a52). Dev mode (`npm run dev`) does not use this file. See `docs/deploy.md`.

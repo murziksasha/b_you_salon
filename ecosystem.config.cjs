@@ -4,7 +4,7 @@
  * Start via: npm run pm2:setup  OR  pm2 start ecosystem.config.cjs
  *
  * Apps:
- *   byou           — Next.js (bound to loopback 127.0.0.1)
+ *   byou           — Next.js (bound to all interfaces 0.0.0.0)
  *   byou-telegram  — admin Telegram bot (long-poll fallback if webhook is off)
  */
 const fs = require("fs");
@@ -65,7 +65,7 @@ module.exports = {
       name: "byou",
       cwd: __dirname,
       script: path.join("node_modules", "next", "dist", "bin", "next"),
-      args: `start -H 127.0.0.1 -p ${port}`,
+      args: `start -H 0.0.0.0 -p ${port}`,
       instances: 1,
       exec_mode: "fork",
       autorestart: true,
