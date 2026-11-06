@@ -14,6 +14,7 @@ import {
 type CartContextValue = {
   lines: CartLine[];
   count: number;
+  ready: boolean;
   add: (id: string, qty?: number) => void;
   setQty: (id: string, qty: number) => void;
   remove: (id: string) => void;
@@ -53,8 +54,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const clear = useCallback(() => setLines([]), []);
 
   const value = useMemo(
-    () => ({ lines, count: cartCount(lines), add, setQty, remove, clear }),
-    [lines, add, setQty, remove, clear],
+    () => ({ lines, count: cartCount(lines), ready, add, setQty, remove, clear }),
+    [lines, ready, add, setQty, remove, clear],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

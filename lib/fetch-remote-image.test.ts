@@ -78,11 +78,12 @@ describe('fetch-remote-image', () => {
 
   it('returns null if optimizeImageUpload throws', async () => {
     const fakeBuffer = Buffer.from('fake image data');
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      headers: new Headers({ 'content-length': String(fakeBuffer.length) }),
-      arrayBuffer: async () => fakeBuffer.buffer,
-    } as unknown as Response);
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(fakeBuffer, {
+        status: 200,
+        headers: { 'content-length': String(fakeBuffer.length) },
+      }),
+    );
 
     vi.mocked(optimizeImageUpload).mockRejectedValue(new Error('Corrupt image'));
 
@@ -92,11 +93,12 @@ describe('fetch-remote-image', () => {
 
   it('downloads, optimizes, writes file and upserts media metadata on success', async () => {
     const fakeBuffer = Buffer.from('fake image data');
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      headers: new Headers({ 'content-length': String(fakeBuffer.length) }),
-      arrayBuffer: async () => fakeBuffer.buffer,
-    } as unknown as Response);
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(fakeBuffer, {
+        status: 200,
+        headers: { 'content-length': String(fakeBuffer.length) },
+      }),
+    );
 
     vi.mocked(optimizeImageUpload).mockResolvedValue({
       buffer: Buffer.from('optimized webp'),

@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
       maxAge: CONSENT_MAX_AGE_SEC,
       sameSite: 'lax',
       httpOnly: false,
-      secure: false,
+      secure: process.env.COOKIE_SECURE === 'true' || (process.env.NODE_ENV === 'production' && req.nextUrl.protocol === 'https:'),
     });
   }
 

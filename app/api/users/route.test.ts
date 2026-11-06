@@ -15,7 +15,7 @@ vi.mock('@/lib/admin-sessions', () => ({ revokeSessionsByUsername: vi.fn(async (
 
 import { requireAdminRole } from '@/lib/require-role';
 import { verifySensitiveReauth } from '@/lib/admin/reauth';
-import { listAdminUsers, setUserTotp } from '@/lib/admin-users';
+import { listAdminUsers, setUserTotp, updateAdminUser } from '@/lib/admin-users';
 import { DELETE, GET, PATCH, POST } from './route';
 
 const owner = { ok: true as const, username: 'owner', role: 'owner' as const, grants: [] };
@@ -30,6 +30,7 @@ function req(method: string, body?: unknown) {
 
 describe('/api/users', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.mocked(requireAdminRole).mockResolvedValue(owner);
     vi.mocked(verifySensitiveReauth).mockResolvedValue(true);
   });
@@ -67,12 +68,34 @@ describe('/api/users', () => {
     expect((await DELETE(req('DELETE', { id: 'u1', confirmPassword: 'pw' }))).status).toBe(200);
   });
 
-  it('owner can reset a user 2FA', async () => {
+  it('owner can reset an operator 2FA', async () => {
     vi.mocked(listAdminUsers).mockResolvedValue([
       { id: 'u1', username: 'bob', role: 'operator', createdAt: '', totpEnabled: true },
     ]);
     const res = await PATCH(req('PATCH', { id: 'u1', resetTotp: true, confirmPassword: 'pw' }));
     expect(res.status).toBe(200);
     expect(setUserTotp).toHaveBeenCalledWith('bob', null);
+  });
+
+  it('forbids resetting owner 2FA through UI', async () => {
+    vi.mocked(listAdminUsers).mockResolvedValue([
+      { id: 'u2', username: 'bigboss', role: 'owner', createdAt: '', totpEnabled: true },
+    ]);
+    const res = await PATCH(req('PATCH', { id: 'u2', resetTotp: true, confirmPassword: 'pw' }));
+    expect(res.status).toBe(403);
+    expect(setUserTotp).not.toHaveBeenCalled();
+  });
+
+  it('does not reset 2FA if user update fails', async () => {
+    vi.mocked(listAdminUsers).mockResolvedValue([
+      { id: 'u3', username: 'alice', role: 'operator', createdAt: '', totpEnabled: true },
+    ]);
+    vi.mocked(updateAdminUser).mockResolvedValue({ error: 'Invalid password' });
+
+    const res = await PATCH(
+      req('PATCH', { id: 'u3', password: 'invalid', resetTotp: true, confirmPassword: 'pw' }),
+    );
+    expect(res.status).toBe(400);
+    expect(setUserTotp).not.toHaveBeenCalled();
   });
 });

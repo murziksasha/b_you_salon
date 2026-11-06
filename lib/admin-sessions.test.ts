@@ -25,7 +25,7 @@ describe('admin-sessions', () => {
   });
 
   afterAll(async () => {
-    process.env.DATA_DIR = originalDataDir;
+    if (originalDataDir === undefined) { delete process.env.DATA_DIR; } else { process.env.DATA_DIR = originalDataDir; }
     try {
       await fs.rm(tmpDir, { recursive: true, force: true });
     } catch {
@@ -129,4 +129,34 @@ describe('admin-sessions', () => {
     expect(await isSessionAllowed('fp-exp')).toBe(false);
     expect(await listSessions()).toHaveLength(0);
   });
+
+  it('fails closed when session file is missing or corrupt', async () => {
+    // Missing file
+    expect(await isSessionAllowed('fp-nonexistent')).toBe(false);
+
+    // Corrupted file
+    await fs.writeFile(sessionsFilePath(), '{ corrupt json ...', 'utf-8');
+    expect(await isSessionAllowed('fp-corrupt')).toBe(false);
+  });
+
+  it('enforces 100-session cap and drops oldest', async () => {
+
+    for (let i = 1; i <= 101; i++) {
+      await registerSession({
+        fingerprint: `fp-${i}`,
+        username: `user-${i}`,
+        role: 'editor',
+      });
+    }
+
+    const list = await listSessions();
+    expect(list).toHaveLength(100);
+
+    // Newest is at index 0 and allowed
+    expect(list[0].fingerprint).toBe('fp-101');
+    expect(await isSessionAllowed('fp-101')).toBe(true);
+
+    // Oldest (fp-1) was pushed out and is no longer allowed
+    expect(await isSessionAllowed('fp-1')).toBe(false);
+  }, 20_000);
 });

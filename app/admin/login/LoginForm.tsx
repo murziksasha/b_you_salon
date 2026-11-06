@@ -84,6 +84,11 @@ export function LoginForm() {
         return;
       }
 
+      const json = (await res.json().catch(() => ({}))) as { setupRequired?: boolean };
+      if (json.setupRequired) {
+        window.location.assign('/admin/setup-2fa');
+        return;
+      }
       window.location.assign(safeAdminReturnPath(searchParams.get('from')));
     } catch {
       setError('Помилка мережі. Спробуйте ще раз.');

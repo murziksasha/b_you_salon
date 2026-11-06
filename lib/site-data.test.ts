@@ -1,7 +1,7 @@
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createId } from './id';
 
 describe('site-data helpers', () => {
@@ -15,8 +15,10 @@ describe('site-data helpers', () => {
   });
 
   afterEach(async () => {
+    vi.unstubAllEnvs();
     if (prevDataDir === undefined) delete process.env.DATA_DIR;
     else process.env.DATA_DIR = prevDataDir;
+
     await fs.rm(tmpDir, { recursive: true, force: true });
   });
 
@@ -32,6 +34,22 @@ describe('site-data helpers', () => {
     },
     15_000,
   );
+
+  it('fails closed in production when site.json is missing', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    const { getSiteData, invalidateSiteDataCache } = await import('./site-data');
+    invalidateSiteDataCache();
+    await expect(getSiteData()).rejects.toThrow('site.json not found in production');
+  });
+
+  it('fails closed in production when site.json fails validation', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    const file = path.join(tmpDir, 'site.json');
+    await fs.writeFile(file, JSON.stringify({ invalidStructure: true }));
+    const { getSiteData, invalidateSiteDataCache } = await import('./site-data');
+    invalidateSiteDataCache();
+    await expect(getSiteData()).rejects.toThrow('site.json failed schema validation');
+  });
 
   it('cache returns clones and picks up external file changes', async () => {
     const { getSiteData } = await import('./site-data');

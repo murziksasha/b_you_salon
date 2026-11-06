@@ -80,7 +80,19 @@ export function resetRateLimits(): void {
   buckets.clear();
 }
 
-export function clientKey(request: Request, prefix: string): string {
+export function isTrustProxy(): boolean {
+  const v = (process.env.TRUST_PROXY || '').trim().toLowerCase();
+  return v === 'true' || v === '1';
+}
+
+export function clientKey(request: Request, prefix: string, identifier?: string): string {
+  if (identifier && identifier.trim()) {
+    return `${prefix}:id:${identifier.trim().toLowerCase()}`;
+  }
+  // Never trust client-supplied IP headers unless behind a trusted proxy
+  if (!isTrustProxy()) {
+    return `${prefix}:unknown`;
+  }
   // Prefer X-Real-IP (set by trusted proxy), fallback to rightmost X-Forwarded-For
   const real = request.headers.get('x-real-ip');
   if (real) return `${prefix}:${real.trim()}`;
@@ -90,8 +102,23 @@ export function clientKey(request: Request, prefix: string): string {
       .split(',')
       .map(s => s.trim())
       .filter(Boolean);
-    const ip = parts[parts.length - 1] || 'unknown';
-    return `${prefix}:${ip}`;
+    const ip = parts[parts.length - 1];
+    if (ip) return `${prefix}:${ip}`;
   }
   return `${prefix}:unknown`;
+}
+
+/** Rate limits with a higher global abuse ceiling if client IP is unverified/unknown */
+export function rateLimitAdaptive(
+  request: Request,
+  prefix: string,
+  options: { clientLimit: number; globalCeiling?: number; windowMs: number },
+  identifier?: string,
+): RateLimitResult {
+  const key = clientKey(request, prefix, identifier);
+  const isUnknown = key.endsWith(':unknown');
+  const limit = isUnknown
+    ? (options.globalCeiling ?? Math.max(options.clientLimit * 8, 60))
+    : options.clientLimit;
+  return rateLimit(key, { limit, windowMs: options.windowMs });
 }

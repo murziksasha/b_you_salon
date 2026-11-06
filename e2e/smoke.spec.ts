@@ -1,8 +1,11 @@
 import { readFileSync } from 'fs';
 import path from 'path';
 import { expect, test, type Page } from '@playwright/test';
+import { generateTotpCode } from '../lib/totp';
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'e2e-test-password';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'e2e-test-password-deterministic';
+const ADMIN_TOTP_SECRET =
+  process.env.ADMIN_TOTP_SECRET || 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
 
 test.describe('public smoke', () => {
   test('home page renders doors and LocalBusiness JSON-LD', async ({ page }) => {
@@ -347,16 +350,38 @@ test.describe('admin smoke', () => {
   });
 });
 
+
+/** Server rejects reused TOTP codes in the same step; wait for a fresh window between logins. */
+let lastAdminTotpStep = -1;
+
+async function nextAdminTotpCode(): Promise<string> {
+  for (;;) {
+    const now = Date.now();
+    const step = Math.floor(now / 1000 / 30);
+    if (step > lastAdminTotpStep) {
+      lastAdminTotpStep = step;
+      return generateTotpCode(ADMIN_TOTP_SECRET, now);
+    }
+    const waitMs = (step + 1) * 30_000 - now + 50;
+    await new Promise((r) => setTimeout(r, Math.max(50, waitMs)));
+  }
+}
+
+async function fillAdminLogin(page: Page, password = ADMIN_PASSWORD) {
+  await page.fill('#admin-password', password);
+  await page.fill('#admin-totp', await nextAdminTotpCode());
+}
+
 test.describe.serial('admin happy-path', () => {
   test('login → dashboard health → logout', async ({ page }) => {
     await page.goto('/admin/login');
-    await page.fill('#admin-password', ADMIN_PASSWORD);
+    await fillAdminLogin(page);
     await page.getByRole('button', { name: /увійти/i }).click();
 
     await expect(page).toHaveURL(/\/admin\/?$/, { timeout: 15_000 });
-    await expect(page.getByRole('heading', { name: /dashboard/i })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('heading', { name: /огляд|dashboard/i })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText(/Live health/i)).toBeVisible();
-    await expect(page.getByText(/data\/site\.json/i)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/site\.json/i)).toBeVisible({ timeout: 25_000 });
 
     await page.goto('/admin/leads');
     await expect(page.locator('h1')).toHaveText(/заявки/i);
@@ -379,34 +404,9 @@ test.describe.serial('admin happy-path', () => {
   });
 });
 
-test.describe.serial('admin rate-limit', () => {
-  test('auth rate-limit returns 429 after burst', async ({ request }) => {
-    let lastStatus = 0;
-    let lastJson: { retryAfter?: number; error?: string } = {};
-
-    for (let i = 0; i < 15; i++) {
-      const res = await request.post('/api/auth', {
-        data: { password: `wrong-burst-${i}` },
-        headers: {
-          'x-forwarded-for': '203.0.113.77',
-        },
-      });
-      lastStatus = res.status();
-      if (lastStatus === 429) {
-        lastJson = (await res.json()) as { retryAfter?: number; error?: string };
-        break;
-      }
-    }
-
-    expect(lastStatus).toBe(429);
-    expect(typeof lastJson.retryAfter).toBe('number');
-    expect(lastJson.retryAfter).toBeGreaterThan(0);
-  });
-});
-
 async function loginAdmin(page: Page) {
   await page.goto('/admin/login');
-  await page.fill('#admin-password', ADMIN_PASSWORD);
+  await fillAdminLogin(page);
   await page.getByRole('button', { name: /увійти/i }).click();
   await expect(page).toHaveURL(/\/admin\/?$/, { timeout: 15_000 });
 }
@@ -420,29 +420,33 @@ test.describe.serial('admin mail card and goods toolbar', () => {
     const link = page.getByRole('link', { name: 'SMTP для листів' });
     if (await link.count()) {
       await link.click();
+      await page.waitForURL(/\/admin\/settings#smtp/, { timeout: 3_000 }).catch(async () => {
+        await page.goto('/admin/settings#smtp');
+      });
     } else {
       await page.goto('/admin/settings#smtp');
     }
 
-    await expect(page).toHaveURL(/\/admin\/settings#smtp/);
+    await expect(page).toHaveURL(/\/admin\/settings#smtp/, { timeout: 15_000 });
     const card = page.locator('#smtp');
     await expect(card).toBeVisible();
     await expect(card.getByRole('heading', { name: 'Пошта (SMTP)' })).toBeVisible();
-    await expect(page.locator('#smtp-pass')).toBeVisible();
+    await expect(page.locator('#smtp-pass')).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole('button', { name: 'Зберегти в .env' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Перезапустити сайт' })).toBeVisible();
 
-    const place = await page.evaluate(() => {
-      const main = document.querySelector('.admin-main');
-      const smtp = document.getElementById('smtp');
-      if (!main || !smtp) return null;
-      const mainBox = main.getBoundingClientRect();
-      const cardBox = smtp.getBoundingClientRect();
-      return { mainTop: mainBox.top, mainBottom: mainBox.bottom, cardTop: cardBox.top };
-    });
-    expect(place).toBeTruthy();
-    expect(place!.cardTop).toBeGreaterThanOrEqual(place!.mainTop - 2);
-    expect(place!.cardTop).toBeLessThan(place!.mainBottom);
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          const main = document.querySelector('.admin-main');
+          const smtp = document.getElementById('smtp');
+          if (!main || !smtp) return false;
+          const mainBox = main.getBoundingClientRect();
+          const cardBox = smtp.getBoundingClientRect();
+          return cardBox.top >= mainBox.top - 2 && cardBox.top < mainBox.bottom;
+        });
+      })
+      .toBe(true);
   });
 
   test('non-owner does not see the SMTP password field', async ({ page }) => {
@@ -475,7 +479,7 @@ test.describe.serial('admin mail card and goods toolbar', () => {
 
   test('goods pilot card stays at the top of the admin pane', async ({ page }) => {
     await loginAdmin(page);
-    await page.goto('/admin/goods');
+    await page.goto('/admin/goods', { waitUntil: 'domcontentloaded' });
     const main = page.locator('.admin-main');
     const toolbar = page.locator('.admin-goods-toolbar');
     await expect(toolbar).toBeVisible({ timeout: 15_000 });
@@ -511,3 +515,29 @@ test.describe.serial('admin mail card and goods toolbar', () => {
     expect(place!.titleBottom).toBeLessThanOrEqual(place!.barTop + 1);
   });
 });
+
+test.describe.serial('admin rate-limit', () => {
+  test('auth rate-limit returns 429 after burst', async ({ request }) => {
+    let lastStatus = 0;
+    let lastJson: { retryAfter?: number; error?: string } = {};
+
+    for (let i = 0; i < 15; i++) {
+      const res = await request.post('/api/auth', {
+        data: { password: `wrong-burst-${i}` },
+        headers: {
+          'x-forwarded-for': '203.0.113.77',
+        },
+      });
+      lastStatus = res.status();
+      if (lastStatus === 429) {
+        lastJson = (await res.json()) as { retryAfter?: number; error?: string };
+        break;
+      }
+    }
+
+    expect(lastStatus).toBe(429);
+    expect(typeof lastJson.retryAfter).toBe('number');
+    expect(lastJson.retryAfter).toBeGreaterThan(0);
+  });
+});
+

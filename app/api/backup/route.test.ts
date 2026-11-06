@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 vi.mock('@/lib/require-role', () => ({ requireAdminRole: vi.fn() }));
 vi.mock('@/lib/admin/reauth', () => ({ verifySensitiveReauth: vi.fn() }));
+vi.mock('@/lib/api/audit', () => ({ safeAudit: vi.fn() }));
 vi.mock('@/lib/backup', () => ({
   createSiteBackupFromData: vi.fn(async () => ({})),
   deleteBackupFile: vi.fn(),
@@ -18,10 +19,11 @@ vi.mock('@/lib/validation', () => ({
 }));
 
 import { verifySensitiveReauth } from '@/lib/admin/reauth';
-import { readBackupFile } from '@/lib/backup';
+import { safeAudit } from '@/lib/api/audit';
+import { createSiteBackupFromData, deleteBackupFile, readBackupFile } from '@/lib/backup';
 import { saveSiteData } from '@/lib/site-data';
 import { requireAdminRole } from '@/lib/require-role';
-import { POST } from './route';
+import { DELETE, POST } from './route';
 
 const owner = { ok: true as const, username: 'owner', role: 'owner' as const, grants: [] };
 
@@ -35,6 +37,7 @@ function restore(body: unknown, headers?: Record<string, string>) {
 
 describe('POST /api/backup restore', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.mocked(requireAdminRole).mockResolvedValue(owner);
     vi.mocked(verifySensitiveReauth).mockResolvedValue(true);
     vi.mocked(readBackupFile).mockResolvedValue('{"pages":[]}');
@@ -61,7 +64,19 @@ describe('POST /api/backup restore', () => {
     expect(readBackupFile).not.toHaveBeenCalled();
   });
 
-  it('restores when reauth passes', async () => {
+  it('aborts restore if pre-restore snapshot creation fails', async () => {
+    vi.mocked(createSiteBackupFromData).mockRejectedValueOnce(new Error('Disk full'));
+
+    const res = await POST(
+      restore({ action: 'restore', file: 'site.json', confirmPassword: 'pw', totp: '222222' }),
+    );
+    expect(res.status).toBe(500);
+    const data = await res.json();
+    expect(data.error).toContain('Pre-restore snapshot failed');
+    expect(saveSiteData).not.toHaveBeenCalled();
+  });
+
+  it('restores when reauth passes and snapshot succeeds', async () => {
     const res = await POST(
       restore({ action: 'restore', file: 'site.json', confirmPassword: 'pw', totp: '222222' }),
     );
@@ -71,5 +86,39 @@ describe('POST /api/backup restore', () => {
       totp: '222222',
     });
     expect(saveSiteData).toHaveBeenCalled();
+    expect(safeAudit).toHaveBeenCalled();
+  });
+});
+
+describe('DELETE /api/backup', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(requireAdminRole).mockResolvedValue(owner);
+    vi.mocked(verifySensitiveReauth).mockResolvedValue(true);
+    vi.mocked(deleteBackupFile).mockResolvedValue(true);
+  });
+
+  it('requires step-up password verification', async () => {
+    vi.mocked(verifySensitiveReauth).mockResolvedValue(false);
+    const req = new NextRequest('http://t/api/backup?file=old.json', {
+      method: 'DELETE',
+    });
+    const res = await DELETE(req);
+    expect(res.status).toBe(403);
+    expect(deleteBackupFile).not.toHaveBeenCalled();
+  });
+
+  it('deletes backup and audits on valid step-up password', async () => {
+    const req = new NextRequest('http://t/api/backup?file=old.json', {
+      method: 'DELETE',
+      headers: { 'x-reauth-password': 'secret-password' },
+    });
+    const res = await DELETE(req);
+    expect(res.status).toBe(200);
+    expect(deleteBackupFile).toHaveBeenCalledWith('old.json');
+    expect(safeAudit).toHaveBeenCalledWith(expect.objectContaining({
+      kind: 'security',
+      actor: 'owner',
+    }));
   });
 });

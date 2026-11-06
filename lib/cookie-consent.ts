@@ -69,7 +69,9 @@ export function readConsentFromCookieHeader(header: string): CookieConsent | nul
 
 export function cookieSetString(consent: CookieConsent): string {
   const value = encodeURIComponent(serializeConsentCookie(consent));
-  return `${CONSENT_STORAGE_KEY}=${value}; Path=/; Max-Age=${CONSENT_MAX_AGE_SEC}; SameSite=Lax`;
+  const isHttps = typeof location !== 'undefined' && location.protocol === 'https:';
+  const secure = isHttps ? '; Secure' : '';
+  return `${CONSENT_STORAGE_KEY}=${value}; Path=/; Max-Age=${CONSENT_MAX_AGE_SEC}; SameSite=Lax${secure}`;
 }
 
 export function makeConsent(choice: CookieConsentChoice, at = new Date().toISOString()): CookieConsent {

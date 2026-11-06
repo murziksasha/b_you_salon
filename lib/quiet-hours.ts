@@ -59,3 +59,10 @@ export function kyivClock(now = new Date()): KyivClock {
     dateKey: dateKeyInTimeZone(now, BOT_TIMEZONE),
   };
 }
+
+/** Explicit Europe/Kyiv date-time formatter for server emails, SMS, and operator notifications. */
+export function formatKyivDateTime(date: Date | string = new Date()): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  if (!Number.isFinite(d.getTime())) return String(date || '');
+  return d.toLocaleString('uk-UA', { timeZone: BOT_TIMEZONE });
+}

@@ -3,6 +3,7 @@ import path from 'path';
 import { SECURITY_HEADERS } from './lib/csp';
 
 const nextConfig: NextConfig = {
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   output: 'standalone',
   images: {
     unoptimized: true,
@@ -65,7 +66,7 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=86400, stale-while-revalidate=604800',
+            value: 'public, max-age=86400, must-revalidate',
           },
         ],
       },

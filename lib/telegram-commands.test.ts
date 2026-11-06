@@ -73,16 +73,6 @@ describe('telegram-commands', () => {
         quietEnd: 8,
         timezone: 'Europe/Kyiv',
       }),
-      claimItem: async (kind, id, assignee) => {
-        const item = kind === 'lead' ? leads.find((l) => l.id === id) : orders.find((o) => o.id === id);
-        if (!item) return { ok: false, reason: 'not_found' };
-        if (item.assignee && item.assignee !== assignee) {
-          return { ok: false, reason: 'taken', assignee: item.assignee };
-        }
-        item.status = 'in_progress';
-        item.assignee = assignee;
-        return { ok: true, kind, item };
-      },
     };
   });
 
@@ -118,45 +108,32 @@ describe('telegram-commands', () => {
     expect(result.replies[1]?.replyMarkup?.keyboard).toBeTruthy();
   });
 
-  it('lists last leads and respects custom n', async () => {
-    const ten = await handleTelegramContext({ userId: '9', chatId: '90', text: '/leads' }, deps);
-    expect(ten.replies).toHaveLength(1);
-    expect(ten.replies[0]?.text).toMatch(/Останні записи/);
-    expect(ten.replies[0]?.text).toMatch(/Манікюр/);
-    const counts = ten.replies[0]?.replyMarkup?.inline_keyboard?.[0]?.map((b) => b.text);
-    expect(counts).toEqual(['5', '10', '25', '50']);
+  it('navigates menu, lists leads/orders with default and custom count', async () => {
+    const menu = await handleTelegramContext({ userId: '9', chatId: '90', text: 'меню' }, deps);
+    expect(menu.replies[0]?.text).toMatch(/B_You/);
+    expect(menu.replies[0]?.replyMarkup?.inline_keyboard).toBeTruthy();
 
-    const custom = await handleTelegramContext({ userId: '9', chatId: '90', text: '/leads 15' }, deps);
-    expect(custom.replies[0]?.text).toMatch(/\(2 з 2\)/);
-    expect(custom.replies[0]?.text).toMatch(/\/leads 15/);
+    const leadsRes = await handleTelegramContext({ userId: '9', chatId: '90', text: '/leads' }, deps);
+    expect(leadsRes.replies[0]?.text).toMatch(/Останні записи \(2 з 2\)/);
+    expect(leadsRes.replies[0]?.text).toMatch(/Манікюр/);
 
-    const one = await handleTelegramContext({ userId: '9', chatId: '90', text: '/leads 1' }, deps);
-    expect(one.replies[0]?.text).toMatch(/\(1 з 2\)/);
-    expect(one.replies[0]?.text).not.toMatch(/671110000/);
+    const ordersRes = await handleTelegramContext({ userId: '9', chatId: '90', text: '/orders 1' }, deps);
+    expect(ordersRes.replies[0]?.text).toMatch(/Останні продажі \(1 з 1\)/);
+    expect(ordersRes.replies[0]?.text).toMatch(/Шампунь/);
+
+    const listCb = await handleTelegramContext({ userId: '9', chatId: '90', callbackData: 'list:leads:5' }, deps);
+    expect(listCb.callbackAnswer).toBe('Записи: 5');
+
+    const customAsk = await handleTelegramContext(
+      { userId: '9', chatId: '90', callbackData: 'list:leads:custom' },
+      deps,
+    );
+    expect(customAsk.replies[0]?.text).toMatch(/Скільки останніх записів/);
+    const customNum = await handleTelegramContext({ userId: '9', chatId: '90', text: '15' }, deps);
+    expect(customNum.replies[0]?.text).toMatch(/Останні записи/);
   });
 
-  it('opens button menu and lists orders from count pads', async () => {
-    const menu = await handleTelegramContext({ userId: '9', chatId: '90', text: 'Меню' }, deps);
-    expect(menu.replies[0]?.text).toMatch(/черга адміністратора/);
-    expect(menu.replies[0]?.replyMarkup?.inline_keyboard?.[0]?.map((b) => b.callback_data)).toEqual([
-      'menu:leads',
-      'menu:orders',
-    ]);
-    expect(menu.replies[0]?.replyMarkup?.inline_keyboard?.[1]?.[0]?.callback_data).toBe('menu:find');
-
-    const fromMenu = await handleTelegramContext({ userId: '9', chatId: '90', callbackData: 'menu:orders' }, deps);
-    expect(fromMenu.replies[0]?.text).toMatch(/Продаж/);
-    expect(fromMenu.replies[0]?.edit).toBe(true);
-
-    const btn = await handleTelegramContext({ userId: '9', chatId: '90', text: 'Продажі' }, deps);
-    expect(btn.replies[0]?.text).toMatch(/Продаж/);
-    const cb = await handleTelegramContext({ userId: '9', chatId: '90', callbackData: 'list:orders:5' }, deps);
-    expect(cb.replies[0]?.text).toMatch(/Шампунь/);
-    expect(cb.callbackAnswer).toMatch(/Продажі/);
-    expect(cb.replies[0]?.edit).toBe(true);
-  });
-
-  it('searches by phone across leads and orders', async () => {
+  it('searches full movements for phone query', async () => {
     const found = await handleTelegramContext({ userId: '9', chatId: '90', text: '/find 0501112233' }, deps);
     expect(found.replies[0]?.text).toMatch(/Усі рухи/);
     expect(found.replies[0]?.text).toMatch(/Запис/);
@@ -182,33 +159,21 @@ describe('telegram-commands', () => {
     expect(sub?.orders).toBe(true);
   });
 
-  it('shows quiet hours and confirms claim only', async () => {
+  it('shows quiet hours and ignores legacy mutation/claim callbacks', async () => {
     const quiet = await handleTelegramContext({ userId: '9', chatId: '90', text: '/quiet' }, deps);
     expect(quiet.replies[0]?.text).toMatch(/22:00–08:00/);
 
-    const ask = await handleTelegramContext(
+    const legacyClaim = await handleTelegramContext(
       { userId: '9', chatId: '90', firstName: 'Ira', callbackData: 'claim:ask:l:l1' },
       deps,
     );
-    expect(ask.replies[0]?.text).toMatch(/Підтвердити/);
-    expect(ask.replies[0]?.replyMarkup?.inline_keyboard?.[0]?.map((b) => b.callback_data)).toEqual([
-      'claim:yes:l:l1',
-      'claim:no:l:l1',
-    ]);
-
-    const yes = await handleTelegramContext(
-      { userId: '9', chatId: '90', firstName: 'Ira', callbackData: 'claim:yes:l:l1' },
-      deps,
-    );
-    expect(yes.callbackAnswer).toBe('Взято');
-    expect(yes.replies[0]?.text).toMatch(/В роботі/);
-    expect(yes.replies[0]?.text).toMatch(/Ira/);
-    expect(leads[0]?.assignee).toBe('Ira');
+    expect(legacyClaim.replies).toEqual([]);
 
     const done = await handleTelegramContext(
       { userId: '9', chatId: '90', callbackData: 'done:l:l1' },
       deps,
     );
     expect(done.replies).toEqual([]);
+    expect(leads[0]?.assignee).toBeUndefined();
   });
 });

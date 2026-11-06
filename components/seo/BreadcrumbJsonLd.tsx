@@ -1,3 +1,5 @@
+import { safeJsonLd } from '@/lib/json-ld';
+
 export type BreadcrumbItem = {
   name: string;
   path: string;
@@ -23,6 +25,6 @@ export function BreadcrumbJsonLd({
   };
 
   return (
-    <script type='application/ld+json' dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }} />
+    <script type='application/ld+json' dangerouslySetInnerHTML={{ __html: safeJsonLd(data) }} />
   );
 }

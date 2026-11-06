@@ -1,9 +1,7 @@
-import { appendActivity } from './admin-activity';
 import type { Lead } from './leads';
 import type { Order } from './orders';
-import { listLeads, updateLead } from './leads';
-import { listOrders, updateOrder } from './orders';
-import { telegramPushChrome } from './notify';
+import { listLeads } from './leads';
+import { listOrders } from './orders';
 import { phoneDigits, phonesMatch } from './phone';
 import { rateLimit } from './rate-limit';
 import {
@@ -59,12 +57,8 @@ type PendingKind = 'find' | 'leads-n' | 'orders-n';
 
 type PendingEntry = { kind: PendingKind; at: number };
 
-const PENDING_TTL_MS = 2 * 60 * 1000;
 const pending = new Map<string, PendingEntry>();
-
-export function resetTelegramPending(): void {
-  pending.clear();
-}
+const PENDING_TTL_MS = 5 * 60 * 1000;
 
 function setPending(userId: string, kind: PendingKind): void {
   pending.set(userId, { kind, at: Date.now() });
@@ -72,6 +66,10 @@ function setPending(userId: string, kind: PendingKind): void {
 
 function clearPending(userId: string): void {
   pending.delete(userId);
+}
+
+export function resetTelegramPending(): void {
+  pending.clear();
 }
 
 function peekPending(userId: string): PendingKind | null {
@@ -94,16 +92,16 @@ export const MENU_TEXT = [
   '',
   'Записи / продажі — останні 10 (статус і хто взяв). 5 / 25 / 50 або /leads 15.',
   'Пошук — повний номер і всі рухи.',
-  'З бота можна лише «Взяти в роботу». Готово / спам — тільки в адмінці.',
+  'Робота із заявками — в адмінці сайту.',
 ].join('\n');
 
 export const HELP_TEXT = [
   'Адмін-бот B_You. Лише для адміністраторів сайту.',
   '',
-  'Пуш — картка черги: маска номера, статус, кнопки копіювати / Viber / адмінка / взяти.',
+  'Пуш — картка черги: маска номера, статус, кнопки копіювати / Viber / адмінка.',
   'Повний номер — у пошуку і кнопці «Копіювати номер». tel: не використовуємо.',
   'Повтор відкритого номера і нічні заявки не пушать — дивіться ранковий огляд.',
-  'З бота не закриваємо заявки (це обхід 2FA). Лише «Взяти в роботу» з підтвердженням.',
+  'З бота не змінюємо заявки. Усі дії виконуються в захищеній адмінці.',
   '',
   '/leads [n] — останні записи (1–50, типово 10)',
   '/orders [n] — останні продажі',
@@ -243,10 +241,6 @@ function parseSlashCount(text: string, cmd: string): number | null {
   return clampListCount(m[1]);
 }
 
-export type TelegramClaimResult =
-  | { ok: true; kind: 'lead' | 'order'; item: Lead | Order }
-  | { ok: false; reason: 'not_found' | 'taken' | 'closed'; assignee?: string };
-
 export type TelegramCommandDeps = {
   getSubscriber: (userId: string) => Promise<TelegramSubscriber | null>;
   consumePairing: (
@@ -260,51 +254,7 @@ export type TelegramCommandDeps = {
   listLeads: () => Promise<Lead[]>;
   listOrders: () => Promise<Order[]>;
   getSettings: () => Promise<TelegramBotSettings>;
-  claimItem: (kind: 'lead' | 'order', id: string, assignee: string) => Promise<TelegramClaimResult>;
 };
-
-export async function defaultClaimItem(
-  kind: 'lead' | 'order',
-  id: string,
-  assignee: string,
-): Promise<TelegramClaimResult> {
-  if (kind === 'lead') {
-    const cur = (await listLeads()).find((l) => l.id === id);
-    if (!cur) return { ok: false, reason: 'not_found' };
-    const st = normalizeStatus(cur.status, cur.handled);
-    if (!isOpenStatus(st)) return { ok: false, reason: 'closed' };
-    if (cur.assignee && cur.assignee !== assignee) return { ok: false, reason: 'taken', assignee: cur.assignee };
-    const item = await updateLead(id, { status: 'in_progress', assignee });
-    if (!item) return { ok: false, reason: 'not_found' };
-    try {
-      await appendActivity({
-        kind: 'lead_status',
-        message: `Заявка ${id.slice(0, 8)} → in_progress`,
-        actor: `tg:${assignee}`,
-      });
-    } catch {
-      /* ignore */
-    }
-    return { ok: true, kind: 'lead', item };
-  }
-  const cur = (await listOrders()).find((o) => o.id === id);
-  if (!cur) return { ok: false, reason: 'not_found' };
-  const st = normalizeStatus(cur.status, cur.handled);
-  if (!isOpenStatus(st)) return { ok: false, reason: 'closed' };
-  if (cur.assignee && cur.assignee !== assignee) return { ok: false, reason: 'taken', assignee: cur.assignee };
-  const item = await updateOrder(id, { status: 'in_progress', assignee });
-  if (!item) return { ok: false, reason: 'not_found' };
-  try {
-    await appendActivity({
-      kind: 'order_status',
-      message: `Замовлення ${id.slice(0, 8)} → in_progress`,
-      actor: `tg:${assignee}`,
-    });
-  } catch {
-    /* ignore */
-  }
-  return { ok: true, kind: 'order', item };
-}
 
 export const defaultTelegramCommandDeps: TelegramCommandDeps = {
   getSubscriber: getTelegramSubscriber,
@@ -313,7 +263,6 @@ export const defaultTelegramCommandDeps: TelegramCommandDeps = {
   listLeads,
   listOrders,
   getSettings: getTelegramBotSettings,
-  claimItem: defaultClaimItem,
 };
 
 function findMovements(leads: Lead[], orders: Order[], phone: string): PhoneMovement[] {
@@ -358,56 +307,6 @@ function findMovements(leads: Lead[], orders: Order[], phone: string): PhoneMove
   return [...leadRows, ...orderRows].sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
 }
 
-function displayName(ctx: TelegramContext, sub: TelegramSubscriber): string {
-  return (ctx.firstName || sub.firstName || ctx.username || sub.username || sub.linkedBy || 'telegram').slice(0, 40);
-}
-
-function parseClaimCallback(data: string): { action: 'ask' | 'yes' | 'no'; kind: 'lead' | 'order'; id: string } | null {
-  const m = data.match(/^claim:(ask|yes|no):([lo]):(.+)$/);
-  if (!m) return null;
-  const id = m[3].trim();
-  if (!id || id.length > 24) return null;
-  return { action: m[1] as 'ask' | 'yes' | 'no', kind: m[2] === 'o' ? 'order' : 'lead', id };
-}
-
-function itemPushReply(kind: 'lead' | 'order', item: Lead | Order, edit?: boolean): TelegramReply {
-  if (kind === 'lead') {
-    const lead = item as Lead;
-    const chrome = telegramPushChrome({
-      phone: lead.phone,
-      kind: 'lead',
-      id: lead.id,
-      status: lead.status,
-      handled: lead.handled,
-      assignee: lead.assignee,
-    });
-    return {
-      text: formatLeadPush(leadPushFromLead(lead, { viberHint: chrome.viberHint })),
-      replyMarkup: chrome.markup,
-      edit,
-    };
-  }
-  const order = item as Order;
-  const chrome = telegramPushChrome({
-    phone: order.phone,
-    kind: 'order',
-    id: order.id,
-    status: order.status,
-    handled: order.handled,
-    assignee: order.assignee,
-  });
-  return {
-    text: formatOrderPush(orderPushFromOrder(order, { viberHint: chrome.viberHint })),
-    replyMarkup: chrome.markup,
-    edit,
-  };
-}
-
-async function loadItem(deps: TelegramCommandDeps, kind: 'lead' | 'order', id: string): Promise<Lead | Order | null> {
-  if (kind === 'lead') return (await deps.listLeads()).find((l) => l.id === id) || null;
-  return (await deps.listOrders()).find((o) => o.id === id) || null;
-}
-
 async function listLeadsText(deps: TelegramCommandDeps, n: number): Promise<string> {
   const leads = await deps.listLeads();
   const slice = leads.slice(0, n);
@@ -448,23 +347,8 @@ async function searchReplies(
 ): Promise<TelegramReply[]> {
   const [leads, orders] = await Promise.all([deps.listLeads(), deps.listOrders()]);
   const items = findMovements(leads, orders, phone);
-  const newest = items[0];
-  const chrome = newest
-    ? telegramPushChrome({
-        phone,
-        kind: newest.inboxKind,
-        id: newest.id,
-        status: newest.status,
-        handled: newest.handled,
-        assignee: newest.assignee,
-      })
-    : undefined;
-  const extraNav = searchNavKeyboard().inline_keyboard || [];
-  const action = chrome?.markup?.inline_keyboard || [];
-  const replyMarkup: TelegramReplyMarkup = {
-    inline_keyboard: [...action, ...extraNav],
-  };
-  return repliesFromText(formatPhoneMovements(phone, items), replyMarkup, edit);
+  const text = formatPhoneMovements(phone, items);
+  return repliesFromText(text, searchNavKeyboard(), edit);
 }
 
 function findPrompt(edit?: boolean): TelegramReply {
@@ -499,6 +383,10 @@ export async function handleTelegramContext(
   if (!sub) {
     const code = extractPairingCode(text);
     if (code) {
+      const rl = rateLimit(`tg:pair:${userId}`, { limit: 5, windowMs: 3600_000 });
+      if (!rl.allowed) {
+        return { replies: [{ text: 'Забагато спроб підключення. Спробуйте пізніше.' }] };
+      }
       const result = await deps.consumePairing(code, {
         userId,
         chatId,
@@ -610,59 +498,6 @@ export async function handleTelegramContext(
     };
   }
 
-  const claimCb = parseClaimCallback(callbackData);
-  if (claimCb) {
-    const assignee = displayName(ctx, sub);
-    const item = await loadItem(deps, claimCb.kind, claimCb.id);
-    if (!item) {
-      return { replies: [{ text: 'Заявку не знайдено.', replyMarkup: mainMenuKeyboard(), edit: true }], callbackAnswer: 'Немає' };
-    }
-    if (claimCb.action === 'ask') {
-      const st = normalizeStatus(item.status, item.handled);
-      if (!isOpenStatus(st)) {
-        return { replies: [itemPushReply(claimCb.kind, item, true)], callbackAnswer: 'Вже закрито' };
-      }
-      if (item.assignee && item.assignee !== assignee) {
-        return {
-          replies: [{ text: `Вже в роботі: ${item.assignee}`, replyMarkup: mainMenuKeyboard(), edit: true }],
-          callbackAnswer: 'Зайнято',
-        };
-      }
-      const k = claimCb.kind === 'order' ? 'o' : 'l';
-      return {
-        replies: [
-          {
-            text: 'Підтвердити: взяти в роботу?\nЦе не закриває заявку — лише ставить вас відповідальним.',
-            replyMarkup: {
-              inline_keyboard: [
-                [
-                  { text: 'Так, взяти', callback_data: `claim:yes:${k}:${claimCb.id}` },
-                  { text: 'Скасувати', callback_data: `claim:no:${k}:${claimCb.id}` },
-                ],
-              ],
-            },
-            edit: true,
-          },
-        ],
-        callbackAnswer: 'Підтвердіть',
-      };
-    }
-    if (claimCb.action === 'no') {
-      return { replies: [itemPushReply(claimCb.kind, item, true)], callbackAnswer: 'Скасовано' };
-    }
-    const result = await deps.claimItem(claimCb.kind, claimCb.id, assignee);
-    if (!result.ok) {
-      if (result.reason === 'taken') {
-        return {
-          replies: [{ text: `Вже в роботі: ${result.assignee}`, replyMarkup: mainMenuKeyboard(), edit: true }],
-          callbackAnswer: 'Зайнято',
-        };
-      }
-      return { replies: [{ text: 'Не вдалося взяти.', replyMarkup: mainMenuKeyboard(), edit: true }], callbackAnswer: 'Помилка' };
-    }
-    return { replies: [itemPushReply(result.kind, result.item, true)], callbackAnswer: 'Взято' };
-  }
-
   const waiting = peekPending(userId);
   if (waiting === 'find' && text && !text.startsWith('/') && looksLikePhoneQuery(text)) {
     clearPending(userId);
@@ -755,6 +590,10 @@ export async function handleTelegramContext(
   if (/^\/start\b/i.test(text)) {
     const code = extractPairingCode(text);
     if (code) {
+      const rl = rateLimit(`tg:pair:${userId}`, { limit: 5, windowMs: 3600_000 });
+      if (!rl.allowed) {
+        return { replies: [{ text: 'Забагато спроб підключення. Спробуйте пізніше.' }] };
+      }
       await deps.consumePairing(code, {
         userId,
         chatId,

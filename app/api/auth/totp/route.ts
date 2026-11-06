@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getSessionClaims, getSessionFingerprint, setSessionCookie } from '@/lib/auth';
+import { markFingerprintRevoked, registerSession } from '@/lib/admin-sessions';
+import { clientIpFromHeaders } from '@/lib/admin-ip';
+import { createSessionToken, parseSession, type SessionClaims } from '@/lib/session';
 import QRCode from 'qrcode';
 import { verifySensitiveReauth } from '@/lib/admin/reauth';
 import { requireAdminRole } from '@/lib/require-role';
@@ -13,12 +17,12 @@ import {
 import { clientKey, rateLimit } from '@/lib/rate-limit';
 import {
   buildOtpauthUrl,
+  generateRecoveryCodes,
   generateTotpSecret,
-  getTotpSecret,
   getTotpStatus,
   isValidTotpSecret,
   normalizeTotpSecret,
-  verifyTotp,
+  verifyTotpWithStep,
   type TotpStatus,
 } from '@/lib/totp';
 
@@ -29,11 +33,45 @@ export const dynamic = 'force-dynamic';
  * The global (env/file) secret used by the env "admin" identity requires security_owner.
  */
 async function requireAdminSession() {
-  const gate = await requireAdminRole();
+  const gate = await requireAdminRole(undefined, { allowSetupOnly: true });
   if (!gate.ok) return { ok: false as const, response: gate.response };
   const { ok: _ok, ...access } = gate;
   return { ok: true as const, access };
 }
+
+
+/** After forced enrollment, promote setupOnly cookie to a full totpVerified session. */
+async function upgradeSetupOnlySession(request: NextRequest): Promise<boolean> {
+  const claims = await getSessionClaims();
+  if (!claims?.setupOnly) return false;
+
+  const oldFp = await getSessionFingerprint();
+  const finalClaims: SessionClaims = {
+    ...claims,
+    totpVerified: true,
+    setupOnly: false,
+  };
+  const sessionToken = await createSessionToken(finalClaims);
+  const parsed = await parseSession(sessionToken);
+  const fp = parsed.fingerprint || sessionToken.slice(0, 16);
+  await registerSession({
+    fingerprint: fp,
+    username: claims.username,
+    role: claims.role,
+    userAgent: request.headers.get('user-agent') || undefined,
+    ip: clientIpFromHeaders(request.headers) || undefined,
+  });
+  await setSessionCookie(sessionToken);
+  if (oldFp && oldFp !== fp) {
+    try {
+      await markFingerprintRevoked(oldFp);
+    } catch (err) {
+      console.error('[totp] failed to revoke setup-only fingerprint', err);
+    }
+  }
+  return true;
+}
+
 
 function rateLimitTotp(request: NextRequest) {
   const rl = rateLimit(clientKey(request, 'totp-setup'), { limit: 20, windowMs: 60_000 });
@@ -100,7 +138,7 @@ export async function POST(request: NextRequest) {
   }
 
   const dbUser = await getAdminUserByUsername(gate.access.username);
-  if (dbUser) return personalTotpAction(dbUser, action, body);
+  if (dbUser) return personalTotpAction(request, dbUser, action, body);
   if (!roleCan(gate.access.role, 'security_owner', gate.access.grants)) {
     return NextResponse.json({ error: 'Forbidden', needRole: 'security_owner' }, { status: 403 });
   }
@@ -160,26 +198,31 @@ export async function POST(request: NextRequest) {
     }
 
     const secretRaw = typeof body.secret === 'string' ? body.secret : '';
-    const code = typeof body.code === 'string' ? body.code : '';
     const secret = normalizeTotpSecret(secretRaw);
 
     if (!isValidTotpSecret(secret)) {
       return NextResponse.json({ error: 'Invalid secret' }, { status: 400 });
     }
-    if (!verifyTotp(secret, code)) {
+    const totpRes = verifyTotpWithStep(secret, code);
+    if (!totpRes.ok) {
       return NextResponse.json({ error: 'Invalid 2FA code' }, { status: 401 });
     }
 
     const record = await writeAdminTotpSecret(secret);
+    const sessionUpgraded = await upgradeSetupOnlySession(request);
     return NextResponse.json({
       ok: true,
       enabled: true,
       source: 'file',
       enabledAt: record.enabledAt,
+      ...(sessionUpgraded ? { sessionUpgraded: true } : {}),
     });
   }
 
   if (action === 'disable') {
+    if (gate.access.role === 'owner') {
+      return NextResponse.json({ error: 'Відключення 2FA для власника заборонено' }, { status: 403 });
+    }
     const status = await getTotpStatus();
     if (status.managedByEnv) {
       return NextResponse.json(
@@ -191,19 +234,12 @@ export async function POST(request: NextRequest) {
       );
     }
     if (!status.enabled) {
-      // Idempotent: clear stray file if any
       await deleteAdminTotpSecret();
       return NextResponse.json({ ok: true, enabled: false });
     }
 
-    const code = typeof body.code === 'string' ? body.code : '';
-    const active = await getTotpSecret();
-    if (!active || !verifyTotp(active.secret, code)) {
-      return NextResponse.json({ error: 'Invalid 2FA code' }, { status: 401 });
-    }
-
+    // Reauth already verified password + factor
     await deleteAdminTotpSecret();
-    // If a file somehow remains with bad data, re-check
     const left = await readAdminTotpRecord();
     if (left?.secret) {
       return NextResponse.json({ error: 'Failed to remove 2FA config' }, { status: 500 });
@@ -216,7 +252,12 @@ export async function POST(request: NextRequest) {
 }
 
 /** Personal 2FA for admins.json users (stored in admins.json, never returned by list APIs). */
-async function personalTotpAction(user: AdminUser, action: string, body: Record<string, unknown>) {
+async function personalTotpAction(
+  request: NextRequest,
+  user: AdminUser,
+  action: string,
+  body: Record<string, unknown>,
+) {
   const code = typeof body.code === 'string' ? body.code : '';
   if (action === 'begin') {
     if (user.totp?.secret) {
@@ -237,17 +278,32 @@ async function personalTotpAction(user: AdminUser, action: string, body: Record<
     if (user.totp?.secret) return NextResponse.json({ error: '2FA already enabled' }, { status: 400 });
     const secret = normalizeTotpSecret(typeof body.secret === 'string' ? body.secret : '');
     if (!isValidTotpSecret(secret)) return NextResponse.json({ error: 'Invalid secret' }, { status: 400 });
-    if (!verifyTotp(secret, code)) return NextResponse.json({ error: 'Invalid 2FA code' }, { status: 401 });
-    const res = await setUserTotp(user.username, secret);
+    const totpRes = verifyTotpWithStep(secret, code);
+    if (!totpRes.ok) return NextResponse.json({ error: 'Invalid 2FA code' }, { status: 401 });
+
+    const recovery = generateRecoveryCodes(10);
+    const res = await setUserTotp(user.username, secret, {
+      recoveryCodes: recovery.hashed,
+      lastUsedStep: totpRes.step,
+    });
     if ('error' in res) return NextResponse.json({ error: res.error }, { status: 400 });
     await safeAudit({ kind: 'security', message: `2FA увімкнено: ${user.username}`, actor: user.username });
-    return NextResponse.json({ ok: true, enabled: true, source: 'file', scope: 'user' });
+    const sessionUpgraded = await upgradeSetupOnlySession(request);
+    return NextResponse.json({
+      ok: true,
+      enabled: true,
+      source: 'file',
+      scope: 'user',
+      recoveryCodes: recovery.plain,
+      ...(sessionUpgraded ? { sessionUpgraded: true } : {}),
+    });
   }
   if (action === 'disable') {
-    if (!user.totp?.secret) return NextResponse.json({ ok: true, enabled: false });
-    if (!verifyTotp(user.totp.secret, code)) {
-      return NextResponse.json({ error: 'Invalid 2FA code' }, { status: 401 });
+    if (user.role === 'owner') {
+      return NextResponse.json({ error: 'Відключення 2FA для власника заборонено' }, { status: 403 });
     }
+    if (!user.totp?.secret) return NextResponse.json({ ok: true, enabled: false });
+    // Reauth already verified password + current code; do not double-verify
     await setUserTotp(user.username, null);
     await safeAudit({ kind: 'security', message: `2FA вимкнено: ${user.username}`, actor: user.username });
     return NextResponse.json({ ok: true, enabled: false });

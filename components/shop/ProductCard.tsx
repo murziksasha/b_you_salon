@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { Product } from '@/lib/types';
+import type { ProductCardDTO } from '@/lib/shop-catalog';
 import { PublicImage } from '@/components/ui/PublicImage';
 import { AddToCartButton } from '@/components/cart/AddToCartButton';
 import { stripHtmlToPlainText } from '@/lib/feed-import';
@@ -10,11 +11,16 @@ const BADGE_LABELS: Record<string, string> = {
   new: 'Новинка',
 };
 
-export function ProductCard({ product }: { product: Product }) {
+export function ProductCard({ product }: { product: Product | ProductCardDTO }) {
   const badge = (product.badge || '').trim().toLowerCase();
   const badgeLabel = badge ? BADGE_LABELS[badge] || product.badge : '';
   const outOfStock = product.inStock === false;
-  const plainDesc = product.description ? stripHtmlToPlainText(product.description) : '';
+  const plainDesc =
+    ('shortDesc' in product && product.shortDesc)
+      ? product.shortDesc
+      : ('description' in product && product.description)
+        ? stripHtmlToPlainText(product.description)
+        : '';
 
   return (
     <article className={`shop-card${outOfStock ? ' shop-card--oos' : ''}`}>

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { CartCheckout } from '@/components/cart/CartCheckout';
-import { getProducts, getSiteData } from '@/lib/site-data';
+import { getSiteData } from '@/lib/site-data';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +12,7 @@ export async function generateMetadata() {
 }
 
 export default async function CartPage() {
-  const [products, data] = await Promise.all([getProducts(), getSiteData()]);
+  const data = await getSiteData();
   return (
     <section className='by-section cart-page'>
       <div className='by-wrap'>
@@ -24,7 +24,7 @@ export default async function CartPage() {
           Перевірте товари й надішліть заявку менеджеру. Самовивіз у магазині ліворуч або доставка за
           домовленістю.
         </p>
-        <CartCheckout products={products} pickupHint={data.settings.addressNote} />
+        <CartCheckout pickupHint={data.settings.addressNote} />
       </div>
     </section>
   );

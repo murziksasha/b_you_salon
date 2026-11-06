@@ -9,19 +9,29 @@ export const dynamic = 'force-dynamic';
  * Public: minimal ok/uptime. Authenticated session: full ops report.
  */
 export async function GET() {
-  const authed = await getSession().catch(() => false);
+  try {
+    const authed = await getSession().catch(() => false);
 
-  if (authed) {
-    const report = await getHealthReport();
-    return NextResponse.json(report, {
-      status: report.ok ? 200 : 503,
+    if (authed) {
+      const report = await getHealthReport();
+      return NextResponse.json(report, {
+        status: report.ok ? 200 : 503,
+        headers: { 'Cache-Control': 'no-store' },
+      });
+    }
+
+    const publicReport = await getPublicHealth();
+    return NextResponse.json(publicReport, {
+      status: publicReport.ok ? 200 : 503,
       headers: { 'Cache-Control': 'no-store' },
     });
+  } catch {
+    return NextResponse.json(
+      { ok: false, service: 'byou', status: 'error' },
+      {
+        status: 503,
+        headers: { 'Cache-Control': 'no-store' },
+      },
+    );
   }
-
-  const publicReport = await getPublicHealth();
-  return NextResponse.json(publicReport, {
-    status: publicReport.ok ? 200 : 503,
-    headers: { 'Cache-Control': 'no-store' },
-  });
 }

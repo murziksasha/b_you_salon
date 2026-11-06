@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import { readAdminTotpRecord } from './admin-totp';
 
 const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
@@ -104,38 +104,79 @@ export function resetUsedTotpCodes(): void {
   usedCodes.clear();
 }
 
-/** Verify TOTP code (30s step, ±1 window). Prevents replay within the valid window. */
-export function verifyTotp(secretBase32: string, token: string, window = 1): boolean {
+/** Hash a single-use recovery code with SHA-256 */
+export function hashRecoveryCode(code: string): string {
+  return createHash('sha256').update(code.trim().toLowerCase()).digest('hex');
+}
+
+/** Generate 10 single-use 128-bit recovery codes (plain and hashed). */
+export function generateRecoveryCodes(count = 10): { plain: string[]; hashed: string[] } {
+  const plain: string[] = [];
+  const hashed: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const code = randomBytes(16).toString('hex').toLowerCase();
+    plain.push(code);
+    hashed.push(hashRecoveryCode(code));
+  }
+  return { plain, hashed };
+}
+
+/**
+ * Verify TOTP code (30s step, ±1 window). Prevents replay within the valid window
+ * and ensures step is strictly greater than lastUsedStep.
+ */
+export function verifyTotpWithStep(
+  secretBase32: string,
+  token: string,
+  lastUsedStep?: number,
+  window = 1,
+): { ok: boolean; step?: number } {
   const secret = base32Decode(secretBase32);
-  if (!secret.length) return false;
+  if (!secret.length) return { ok: false };
   const clean = String(token || '').replace(/\s+/g, '');
-  if (!/^\d{6}$/.test(clean)) return false;
+  if (!/^\d{6}$/.test(clean)) return { ok: false };
 
   const now = Date.now();
-  // Prune expired codes
   for (const [k, expiresAt] of usedCodes.entries()) {
     if (expiresAt < now) usedCodes.delete(k);
   }
 
-  const step = Math.floor(now / 1000 / 30);
+  const currentStep = Math.floor(now / 1000 / 30);
   for (let w = -window; w <= window; w++) {
-    const expected = hotp(secret, step + w);
+    const step = currentStep + w;
+    if (lastUsedStep !== undefined && step <= lastUsedStep) {
+      continue;
+    }
+    const expected = hotp(secret, step);
     try {
       if (timingSafeEqual(Buffer.from(expected), Buffer.from(clean))) {
-        // Reject if code was already used for this secret
         const key = `${normalizeTotpSecret(secretBase32)}:${clean}`;
         if (usedCodes.has(key)) {
-          return false;
+          return { ok: false };
         }
-        // Remember used code for 2 minutes (window is ±30s)
         usedCodes.set(key, now + 120_000);
-        return true;
+        return { ok: true, step };
       }
     } catch {
       // length mismatch
     }
   }
-  return false;
+  return { ok: false };
+}
+
+/** Current 6-digit TOTP for a secret (test helpers / enrollment automation). */
+export function generateTotpCode(secretBase32: string, atMs = Date.now()): string {
+  const secret = base32Decode(secretBase32);
+  if (!secret.length) {
+    throw new Error('Invalid TOTP secret');
+  }
+  const step = Math.floor(atMs / 1000 / 30);
+  return hotp(secret, step);
+}
+
+/** Verify TOTP code (30s step, ±1 window). Prevents replay within the valid window. */
+export function verifyTotp(secretBase32: string, token: string, window = 1): boolean {
+  return verifyTotpWithStep(secretBase32, token, undefined, window).ok;
 }
 
 /**

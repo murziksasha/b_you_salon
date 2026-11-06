@@ -1,17 +1,90 @@
 'use client';
 
 import Link from 'next/link';
-import { type FormEvent, useMemo, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Product } from '@/lib/types';
+import type { ProductCardDTO } from '@/lib/shop-catalog';
 import { MAX_QTY, availableCartItems, cartTotal, hydrateCart } from '@/lib/cart';
 import { isValidUaPhone, PHONE_PLACEHOLDER } from '@/lib/phone';
 import { PhoneInput } from '@/components/forms/PhoneInput';
 import { useCart } from './CartProvider';
 
-export function CartCheckout({ products, pickupHint }: { products: Product[]; pickupHint?: string }) {
-  const { lines, setQty, remove, clear } = useCart();
-  const hydrated = useMemo(() => hydrateCart(lines, products), [lines, products]);
+export function CartCheckout({
+  products: initialProducts,
+  pickupHint,
+}: {
+  products?: (Product | ProductCardDTO)[];
+  pickupHint?: string;
+}) {
+  const { lines, setQty, remove, clear, ready } = useCart();
+  const [catalogItems, setCatalogItems] = useState<(Product | ProductCardDTO)[]>(initialProducts ?? []);
+  const [loadingItems, setLoadingItems] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [retryNonce, setRetryNonce] = useState(0);
+
+  const loadedIdsRef = useRef<Set<string>>(new Set((initialProducts ?? []).map((p) => p.id)));
+  const inFlightIdsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!ready || lines.length === 0) return;
+    const missingIds = lines
+      .map((l) => l.id)
+      .filter((id) => !loadedIdsRef.current.has(id) && !inFlightIdsRef.current.has(id))
+      .slice(0, 50);
+
+    if (missingIds.length === 0) return;
+
+    const inFlight = inFlightIdsRef.current;
+    for (const id of missingIds) {
+      inFlight.add(id);
+    }
+
+    let active = true;
+    setLoadingItems(true);
+
+    fetch('/api/catalog/lookup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: missingIds }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(`Lookup failed with status ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        if (!active || !data?.items) return;
+        setCatalogItems((prev) => {
+          const map = new Map(prev.map((p) => [p.id, p]));
+          for (const item of data.items) {
+            map.set(item.id, item);
+            loadedIdsRef.current.add(item.id);
+          }
+          return Array.from(map.values());
+        });
+        setLookupError(null);
+      })
+      .catch((err: unknown) => {
+        if (!active) return;
+        console.error('Cart items lookup error:', err);
+        setLookupError('Не вдалося перевірити актуальність цін та наявність товарів через мережеву помилку.');
+      })
+      .finally(() => {
+        for (const id of missingIds) {
+          inFlight.delete(id);
+        }
+        if (active) setLoadingItems(false);
+      });
+
+    return () => {
+      active = false;
+      for (const id of missingIds) {
+        inFlight.delete(id);
+      }
+    };
+  }, [ready, lines, retryNonce]);
+
+  const hydrated = useMemo(() => hydrateCart(lines, catalogItems), [lines, catalogItems]);
   const items = availableCartItems(hydrated);
   const total = cartTotal(items);
   const router = useRouter();
@@ -22,6 +95,11 @@ export function CartCheckout({ products, pickupHint }: { products: Product[]; pi
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (lookupError) {
+      setError(true);
+      setStatus('Будь ласка, оновіть перевірку наявності товарів перед замовленням');
+      return;
+    }
     const form = e.currentTarget;
     const fd = new FormData(form);
     const phone = String(fd.get('phone') || '');
@@ -30,18 +108,17 @@ export function CartCheckout({ products, pickupHint }: { products: Product[]; pi
       setStatus('Введіть коректний номер телефону');
       return;
     }
-    if (fulfillment === 'delivery' && String(fd.get('address') || '').trim().length < 5) {
+    const address = String(fd.get('address') || '').trim();
+    if (fulfillment === 'delivery' && address.length < 5) {
       setError(true);
-      setStatus('Вкажіть адресу доставки');
+      setStatus('Вкажіть адресу для доставки');
       return;
     }
-    if (!items.length) {
-      setError(true);
-      setStatus('Кошик порожній або товари недоступні');
-      return;
-    }
+
     setLoading(true);
+    setStatus('');
     setError(false);
+
     try {
       const res = await fetch('/api/orders', {
         method: 'POST',
@@ -50,36 +127,55 @@ export function CartCheckout({ products, pickupHint }: { products: Product[]; pi
           phone,
           name: String(fd.get('name') || ''),
           comment: String(fd.get('comment') || ''),
-          fulfillment,
-          address: String(fd.get('address') || ''),
           website: String(fd.get('website') || ''),
-          items: items.map(i => ({ id: i.id, qty: i.qty })),
-          pagePath: `${window.location.pathname}${window.location.search}`.slice(0, 300),
+          fulfillment,
+          address: fulfillment === 'delivery' ? address : undefined,
+          items: items.map((i) => ({ id: i.id, qty: i.qty })),
+          pagePath: '/cart',
         }),
       });
+
+      const data = await res.json().catch(() => null);
       if (!res.ok) {
         setError(true);
-        setStatus(res.status === 429 ? 'Забагато запитів. Зачекайте хвилину.' : 'Не вдалося надіслати заявку');
+        setStatus(data?.error || 'Не вдалося надіслати заявку');
         return;
       }
+
       clear();
-      router.push('/thanks?kind=order');
+      const orderId = data?.orderId ? `?id=${data.orderId}` : '';
+      router.push(`/cart/thank-you${orderId}`);
     } catch {
       setError(true);
-      setStatus('Не вдалося надіслати заявку');
+      setStatus('Помилка мережі. Перевірте звʼязок.');
     } finally {
       setLoading(false);
     }
   }
 
-  if (!lines.length) {
+  if (!ready) {
+    return (
+      <div className='cart-empty'>
+        <p className='cart-empty__text'>Завантаження кошика…</p>
+      </div>
+    );
+  }
+
+  if (lines.length === 0) {
     return (
       <div className='cart-empty'>
         <p className='cart-empty__text'>Кошик порожній</p>
-        <p className='cart-empty__hint'>Оберіть товари в каталозі магазину — і оформіть заявку менеджеру.</p>
-        <Link href='/shop' className='by-btn'>
+        <Link href='/shop' className='by-btn cart-empty__btn'>
           До каталогу
         </Link>
+      </div>
+    );
+  }
+
+  if (loadingItems && catalogItems.length === 0 && !lookupError) {
+    return (
+      <div className='cart-empty'>
+        <p className='cart-empty__text'>Завантаження товарів…</p>
       </div>
     );
   }
@@ -87,8 +183,36 @@ export function CartCheckout({ products, pickupHint }: { products: Product[]; pi
   return (
     <div className='cart-layout'>
       <div className='cart-lines'>
+        {lookupError ? (
+          <div
+            className='cart-lookup-error'
+            role='alert'
+            style={{
+              padding: '1rem',
+              marginBottom: '1.5rem',
+              borderRadius: '8px',
+              backgroundColor: '#fff3cd',
+              color: '#856404',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '1rem',
+            }}
+          >
+            <span>{lookupError}</span>
+            <button
+              type='button'
+              className='by-btn by-btn--outline'
+              onClick={() => setRetryNonce((n) => n + 1)}
+              style={{ whiteSpace: 'nowrap' }}
+            >
+              Спробувати знову
+            </button>
+          </div>
+        ) : null}
+
         <div className='cart-table'>
-          {hydrated.map(row => {
+          {hydrated.map((row) => {
             const unit = row.product?.price || 0;
             const lineTotal = unit * row.qty;
             return (
@@ -103,15 +227,17 @@ export function CartCheckout({ products, pickupHint }: { products: Product[]; pi
                       {row.product.title}
                     </Link>
                   ) : (
-                    <strong className='cart-row__title'>Товар недоступний</strong>
+                    <strong className='cart-row__title'>
+                      {lookupError ? 'Перевірка статусу товару…' : 'Товар недоступний'}
+                    </strong>
                   )}
-                  {!row.available ? (
+                  {!row.available && !lookupError ? (
                     <p className='cart-row__warn'>
                       {row.reason === 'oos' ? 'Немає в наявності' : 'Більше не продається'}
                     </p>
-                  ) : (
+                  ) : row.available ? (
                     <p className='cart-row__unit'>{unit.toLocaleString('uk-UA')} ₴ / шт</p>
-                  )}
+                  ) : null}
                 </div>
                 <div className='cart-row__controls'>
                   {row.available ? (
@@ -132,7 +258,7 @@ export function CartCheckout({ products, pickupHint }: { products: Product[]; pi
                         max={MAX_QTY}
                         value={row.qty}
                         aria-label='Кількість'
-                        onChange={e => setQty(row.id, Number(e.target.value))}
+                        onChange={(e) => setQty(row.id, Number(e.target.value))}
                       />
                       <button
                         type='button'
@@ -188,7 +314,7 @@ export function CartCheckout({ products, pickupHint }: { products: Product[]; pi
           </label>
 
           <fieldset className='cart-fulfillment'>
-            <legend className='cart-field__label'>Спосіб отримання</legend>
+            <legend className='cart-fulfillment__legend'>Спосіб отримання</legend>
             <label className={`cart-fulfillment__option${fulfillment === 'pickup' ? ' is-active' : ''}`}>
               <input
                 type='radio'
@@ -232,7 +358,11 @@ export function CartCheckout({ products, pickupHint }: { products: Product[]; pi
             <input type='text' name='website' tabIndex={-1} autoComplete='off' />
           </div>
 
-          <button className='by-btn cart-panel__submit' type='submit' disabled={loading || !items.length}>
+          <button
+            className='by-btn cart-panel__submit'
+            type='submit'
+            disabled={loading || loadingItems || Boolean(lookupError) || !items.length}
+          >
             {loading ? 'Надсилаємо…' : 'Оформити заявку'}
           </button>
           {status ? <p className={`status${error ? ' status--error' : ''}`}>{status}</p> : null}

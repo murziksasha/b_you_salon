@@ -6,12 +6,20 @@ import {
   formatLeadPush,
   formatOrderPush,
   formatPhoneMovements,
+  formatWhen,
   pushActionKeyboard,
   stripCopyTextButtons,
 } from './telegram-format';
 import type { Lead } from './leads';
 
 describe('telegram-format', () => {
+  it('formats dates explicitly in Europe/Kyiv timezone', () => {
+    // 2026-09-06T10:00:00.000Z in Kyiv (UTC+3 daylight saving) -> 13:00
+    const formatted = formatWhen('2026-09-06T10:00:00.000Z');
+    expect(formatted).toContain('13:00');
+    expect(formatted).toContain('06.09.2026');
+  });
+
   it('formats booking and sale pushes with masked phone and status', () => {
     const lead = formatLeadPush({
       phone: '+380501112233',
@@ -130,7 +138,7 @@ describe('telegram-format', () => {
     expect(found).toContain('Статус: Нова');
   });
 
-  it('builds copy / viber / admin / claim buttons', () => {
+  it('builds copy / viber / admin buttons and excludes mutation/claim buttons', () => {
     const kb = pushActionKeyboard({
       phone: '+380671234512',
       siteUrl: 'https://beyou.example',
@@ -141,7 +149,8 @@ describe('telegram-format', () => {
     expect(flat.some((b) => b.copy_text?.text === '+380671234512')).toBe(true);
     expect(flat.some((b) => b.text === 'Viber' && b.url)).toBe(true);
     expect(flat.some((b) => b.url?.includes('/admin/clients?phone='))).toBe(true);
-    expect(flat.some((b) => b.callback_data === 'claim:ask:l:abc123')).toBe(true);
+    expect(flat.some((b) => b.text === 'Взяти в роботу')).toBe(false);
+    expect(flat.some((b) => b.callback_data?.startsWith('claim:'))).toBe(false);
     expect(stripCopyTextButtons(kb)?.inline_keyboard?.flat().some((b) => b.copy_text)).toBeFalsy();
   });
 });

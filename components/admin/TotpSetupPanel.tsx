@@ -122,7 +122,10 @@ export function TotpSetupPanel() {
           code,
         }),
       });
-      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      const json = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        sessionUpgraded?: boolean;
+      };
       if (!res.ok) {
         showToast(
           json.error === 'Invalid 2FA code'
@@ -136,6 +139,11 @@ export function TotpSetupPanel() {
       }
       showToast('2FA увімкнено', 'success');
       setTotpEnabled(true);
+      const onForcedSetup = window.location.pathname.replace(/\/$/, '') === '/admin/setup-2fa';
+      if (json.sessionUpgraded || onForcedSetup) {
+        window.location.assign('/admin');
+        return;
+      }
       resetForm();
       await load();
     } catch {

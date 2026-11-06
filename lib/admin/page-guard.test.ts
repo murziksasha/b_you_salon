@@ -30,3 +30,12 @@ describe('decidePageAccess', () => {
     expect(decidePageAccess({ username: 'o', role: 'owner', grants: [] }, '/admin/settings').kind).toBe('ok');
   });
 });
+
+  it('forces setup-only sessions onto /admin/setup-2fa', () => {
+    expect(decidePageAccess({ username: 'admin', role: 'owner', grants: [] }, '/admin', { setupOnly: true })).toEqual({
+      kind: 'setup_2fa',
+    });
+    expect(
+      decidePageAccess({ username: 'admin', role: 'owner', grants: [] }, '/admin/setup-2fa', { setupOnly: true }).kind,
+    ).toBe('ok');
+  });

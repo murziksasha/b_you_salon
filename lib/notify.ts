@@ -19,7 +19,6 @@ import {
   type TelegramReplyMarkup,
 } from './telegram-format';
 import { viberRedirectUrl } from './viber-go';
-import { isOpenStatus, normalizeStatus } from './workflow';
 
 export type TelegramSendOptions = {
   chatId?: string;
@@ -62,16 +61,10 @@ export function telegramPushChrome(opts: {
 }): { markup?: TelegramReplyMarkup; viberHint?: string } {
   const siteUrl = originFromEnv();
   const viberUrl = viberRedirectUrl(opts.phone, siteUrl);
-  const st = normalizeStatus(opts.status, opts.handled);
-  const claim =
-    opts.id && opts.kind && isOpenStatus(st) && !opts.assignee?.trim()
-      ? { kind: opts.kind, id: opts.id }
-      : null;
   const markup = pushActionKeyboard({
     phone: opts.phone,
     siteUrl,
     viberUrl,
-    claim,
   });
   return {
     markup: markup.inline_keyboard?.length ? markup : undefined,

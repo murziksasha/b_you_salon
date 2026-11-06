@@ -6,6 +6,7 @@ describe('admin-paths', () => {
     expect(isKnownAdminPath('/admin')).toBe(true);
     expect(isKnownAdminPath('/admin/inbox')).toBe(true);
     expect(isKnownAdminPath('/admin/pages/home')).toBe(true);
+    expect(isKnownAdminPath('/admin/setup-2fa')).toBe(true);
     expect(isKnownAdminPath('/admin/login')).toBe(false);
     expect(isKnownAdminPath('/admin/l')).toBe(false);
     expect(isKnownAdminPath('/salon')).toBe(false);

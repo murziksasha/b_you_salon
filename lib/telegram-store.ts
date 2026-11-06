@@ -2,7 +2,7 @@ import { randomInt, timingSafeEqual } from 'crypto';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { atomicWriteJson } from './atomic-write';
-import { withFileMutex } from './file-mutex';
+import { withProcessFileMutex } from './file-mutex';
 import { BOT_TIMEZONE, clampHour } from './quiet-hours';
 
 export type TelegramNotifyKind = 'lead' | 'order' | 'ops';
@@ -108,7 +108,7 @@ async function writeStore(store: TelegramBotStore): Promise<void> {
 }
 
 function withStoreLock<T>(fn: () => Promise<T>): Promise<T> {
-  return withFileMutex(telegramStorePath(), fn);
+  return withProcessFileMutex(telegramStorePath(), fn);
 }
 
 export function normalizePairingCode(raw: string): string {
